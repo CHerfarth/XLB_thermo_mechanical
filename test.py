@@ -43,40 +43,33 @@ class Solids2D:
         self.f_0, self.f_1, self.bc_mask, self.missing_mask = self.stepper.prepare_fields()
 
     def define_boundary_indices(self):
-        box = self.grid.bounding_box_indices()
-        box_no_edge = self.grid.bounding_box_indices(remove_edges=True)
-        lid = box_no_edge["top"]
-        walls = [box["bottom"][i] + box["left"][i] + box["right"][i] for i in range(self.velocity_set.d)]
-        walls = np.unique(np.array(walls), axis=-1).tolist()
-        return lid, walls
+        print("")
 
     def setup_boundary_conditions(self):
-        lid, walls = self.define_boundary_indices()
-        bc_top = EquilibriumBC(rho=1.0, u=(self.prescribed_vel, 0.0), indices=lid)
-        bc_walls = HalfwayBounceBackBC(indices=walls)
-        self.boundary_conditions = [bc_walls, bc_top]
+        self.boundary_conditions = [0,0] #ToDo
 
     def setup_stepper(self):
         self.stepper = SolidsStepper(
             grid=self.grid,
+            force_vector=[1,1],
             boundary_conditions=self.boundary_conditions,
         )
 
     def run(self, num_steps, post_process_interval=100):
         for i in range(num_steps):
-            self.f_0, self.f_1 = self.stepper(self.f_0, self.f_1, self.bc_mask, self.missing_mask, omega, i)
+            self.f_0, self.f_1 = self.stepper(self.f_0, self.f_1, self.bc_mask)
             self.f_0, self.f_1 = self.f_1, self.f_0
 
             if i % post_process_interval == 0 or i == num_steps - 1:
                 self.post_process(i)
 
     def post_process(self, i):
-        print("----Postprocessing is a todo-------")
+        print("")
 
 
 if __name__ == "__main__":
     # Running the simulation
-    grid_size = 20
+    grid_size = 5
     grid_shape = (grid_size, grid_size)
     compute_backend = ComputeBackend.JAX
     precision_policy = PrecisionPolicy.FP32FP32
