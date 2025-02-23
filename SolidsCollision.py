@@ -80,7 +80,6 @@ class SolidsCollision(Collision):
     @Operator.register_backend(ComputeBackend.JAX)
     @partial(jit, static_argnums=(0,))
     def jax_implementation(self, f):
-        print("Performing collision step...")
         m = jnp.matmul(self.m_matrix,f)
         #print("Here")
         m = m.at[0,:].add(0.5*self.force_vector[0,:])

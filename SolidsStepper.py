@@ -104,10 +104,7 @@ class SolidsStepper(Stepper):
         """
         Perform a single step of the lattice boltzmann method
         """
-        print("Performing timestep...")
         f_0, u, v = self.collision(f_0)
-        print(self.grid.shape[0])
-        print(self.grid.shape[1])
         f_0, f_1 = self.stream(f_0, f_1, self.grid.shape[0], self.grid.shape[1])
 
-        return f_0, f_1
+        return f_0, f_1, u, v
