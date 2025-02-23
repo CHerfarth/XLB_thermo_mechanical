@@ -8,6 +8,7 @@ from xlb.operator import Operator
 from xlb.compute_backend import ComputeBackend
 
 from SolidsCollision import SolidsCollision
+from SolidsStreamer import SolidsStreamerPBC
 
 # Mapping:
 #    i  j   |   m_q
@@ -64,7 +65,7 @@ class SolidsStepper(Stepper):
             force_vector=self.force)
         
         # Construct Streaming Operator
-        print("----------Streaming Operator is ToDo-------------")
+        self.stream = SolidsStreamerPBC(self.velocity_set, self.precision_policy, self.compute_backend)
 
     def prepare_fields(self, initializer=None):
         """Prepare the fields required for the stepper.
@@ -104,6 +105,9 @@ class SolidsStepper(Stepper):
         Perform a single step of the lattice boltzmann method
         """
         print("Performing timestep...")
-        f_1 = self.collision(f_0)
+        f_0, u, v = self.collision(f_0)
+        print(self.grid.shape[0])
+        print(self.grid.shape[1])
+        f_0, f_1 = self.stream(f_0, f_1, self.grid.shape[0], self.grid.shape[1])
 
         return f_0, f_1
