@@ -10,7 +10,7 @@ import xlb.velocity_set
 import warp as wp
 import jax.numpy as jnp
 import numpy as np
-from LBMforSolids import SolidsStepper
+from SolidsStepper import SolidsStepper
 
 
 class Solids2D:
