@@ -106,5 +106,5 @@ class SolidsStepper(Stepper):
         """
         f_0, u, v = self.collision(f_0)
         f_0, f_1 = self.stream(f_0, f_1, self.grid.shape[0], self.grid.shape[1])
-
+        print("Done streaming")
         return f_0, f_1, u, v

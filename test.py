@@ -54,7 +54,7 @@ class Solids2D:
         dt = 0.01 #arbitrarily set
         kappa = 1
         mu_scaled = (mu*T)/(kappa*L*L)
-        b_scaled = np.array([0.1,0.1]) * (T/(L*kappa))
+        b_scaled = np.array([0.1, -0.1]) * (T/(L*kappa))
         lambda_scaled = lambda_ * (T/(L*L*kappa))
         self.stepper = SolidsStepper(
             grid=self.grid,
@@ -90,7 +90,7 @@ class Solids2D:
 
 if __name__ == "__main__":
     # Running the simulation
-    grid_size = 5
+    grid_size = 3
     grid_shape = (grid_size, grid_size)
     compute_backend = ComputeBackend.JAX
     precision_policy = PrecisionPolicy.FP32FP32

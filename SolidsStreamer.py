@@ -32,6 +32,11 @@ class SolidsStreamerPBC(Stream):
             direction_x = c[direction][0]
             direction_y = c[direction][1]
             for i in range(dim_x*dim_y):
-                f_1 = f_1.at[direction, (i + direction_y*dim_x + direction_x)%(dim_x*dim_y)].set(f_0[direction, i])
+                old_pos_x = int(i%dim_x)
+                old_pos_y = int((i-old_pos_x)/dim_x)
+                new_pos_x = (old_pos_x + direction_x)%dim_x
+                new_pos_y = (old_pos_y + direction_y)%dim_y
+                print("Old x: {},  Old y: {}, Dir x: {}, Dir y: {}, New x: {} New y: {}".format(old_pos_x, old_pos_y, direction_x, direction_y, new_pos_x, new_pos_y))
+                f_1 = f_1.at[direction, new_pos_y*dim_x + new_pos_x].set(f_0[direction, i])
         f_0 = f_1
         return f_0, f_1
