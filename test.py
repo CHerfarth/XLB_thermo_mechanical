@@ -12,6 +12,7 @@ import jax.numpy as jnp
 import numpy as np
 from SolidsStepper import SolidsStepper
 from math import *
+import csv
 
 
 class Solids2D: #atm: solves on unit square
@@ -73,8 +74,7 @@ class Solids2D: #atm: solves on unit square
             if i % post_process_interval == 0 or i == num_steps - 1:
                 self.post_process(i)
 
-    def post_process(self, i):
-        print("Timestep " + str(i))
+    def post_process(self, timestep):
         L_inf = -1
         for i in range(self.grid.shape[0]):
             for j in range(self.grid.shape[1]):
@@ -85,15 +85,13 @@ class Solids2D: #atm: solves on unit square
                 dif = sqrt(dif_u*dif_u + dif_v*dif_v)
                 if (L_inf < 0 or dif < L_inf):
                     L_inf = dif
-                print(self.u[j*self.grid.shape[0] + i], end=" ")
-            print(" ")
-        print(L_inf)
-        print("\n\n\n")
-
+        with open('evolution.csv', mode='a') as file:
+            writer = csv.writer(file)
+            writer.writerow([timestep, L_inf])
 
 if __name__ == "__main__":
     # Running the simulation
-    grid_size = 3
+    grid_size =25
     grid_shape = (grid_size, grid_size)
     compute_backend = ComputeBackend.JAX
     precision_policy = PrecisionPolicy.FP32FP32
@@ -101,7 +99,7 @@ if __name__ == "__main__":
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, backend=compute_backend)
 
     #-----------define variables-------------
-    E = 0.085*2.5
+    E = 0.0085*2.5
     nu = 0.8
     mu = E/(2*(1+nu))
     lamb =  E/(2*(1-nu)) - mu
@@ -114,4 +112,4 @@ if __name__ == "__main__":
     exact_v = lambda x, y: cos(y)
     #-----------start simulation--------------
     simulation = Solids2D(grid_shape, velocity_set, compute_backend, precision_policy, E, nu, mu, lamb, b_x, b_y, exact_u, exact_v)
-    simulation.run(num_steps=500000, post_process_interval=1000)
+    simulation.run(num_steps=500000, post_process_interval=100)

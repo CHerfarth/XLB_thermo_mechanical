@@ -86,7 +86,7 @@ class SolidsStepper(Stepper):
                 - bc_mask: Boundary condition mask indicating which BC applies to each node
                 - missing_mask: Mask indicating which populations are missing at boundary nodes
         """
-        print("Preparing fields...")
+        #print("Preparing fields...")
         f_0 = np.zeros((9, self.grid.shape[0] * self.grid.shape[1]))
         f_1 = f_0
         return f_0, f_1, None, None
@@ -110,5 +110,5 @@ class SolidsStepper(Stepper):
         f_0, u, v = self.collision(f_0)
         f_1 = f_0
         f_0, f_1 = self.stream(f_0, f_1, self.grid.shape[0], self.grid.shape[1])
-        print("Done streaming")
+        #print("Done streaming")
         return f_0, f_1, u, v
