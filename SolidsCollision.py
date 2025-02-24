@@ -84,16 +84,16 @@ class SolidsCollision(Collision):
         #print("Here")
         m = m.at[0,:].add(0.5*self.force_vector[0,:])
         m = m.at[1,:].add(0.5*self.force_vector[1,:])
+        u= m[0,:]
+        v= m[1,:]
         #print("Here")
         m_eq = jnp.matmul(self.meq_matrix,m[0:2,:]) 
         #print("Nice")
-        m_post = jnp.matmul(self.omega,m_eq)+jnp.matmul((np.eye(9) - self.omega),m)
+        m_post = jnp.matmul(self.omega,m_eq) + jnp.matmul((np.eye(9) - self.omega),m)
         #print("Nice")
         m_post = m_post.at[0,:].add(0.5*self.force_vector[0,:])
         #print("Here")
         m_post = m_post.at[1,:].add(0.5*self.force_vector[1,:])
         f_post = jnp.matmul(self.f_matrix, m_post)
-        u_post = m_post[0,:]
-        v_post = m_post[1,:]
         #print("Done colliding...")
-        return f_post, u_post, v_post
+        return f_post, u, v

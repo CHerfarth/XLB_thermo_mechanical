@@ -32,6 +32,7 @@ class SolidsStepper(Stepper):
         kappa=1, 
         mu_scaled=1,
         lambda_scaled=1,
+        dx = 1,
     ):
         super().__init__(grid, boundary_conditions)
 
@@ -52,8 +53,10 @@ class SolidsStepper(Stepper):
         
         #calculate force matrix
         self.force = np.zeros((2, self.grid.shape[0]*self.grid.shape[1]))
-        self.force[0] = force_vector[0]
-        self.force[1] = force_vector[1]
+        for x in range (self.grid.shape[0]):
+            for y in range (self.grid.shape[1]):
+                self.force[0, y*self.grid.shape[0] + x] = force_vector[0](x*dx, y*dx)
+                self.force[1, y*self.grid.shape[0] + x] = force_vector[1](x*dx, y*dx)
         print(self.force)
         # Construct the collision operator
         self.collision = SolidsCollision(
@@ -105,6 +108,7 @@ class SolidsStepper(Stepper):
         Perform a single step of the lattice boltzmann method
         """
         f_0, u, v = self.collision(f_0)
+        f_1 = f_0
         f_0, f_1 = self.stream(f_0, f_1, self.grid.shape[0], self.grid.shape[1])
         print("Done streaming")
         return f_0, f_1, u, v
