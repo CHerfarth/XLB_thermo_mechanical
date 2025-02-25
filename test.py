@@ -16,7 +16,7 @@ import csv
 
 
 class Solids2D: #atm: solves on unit square
-    def __init__(self, grid_shape, velocity_set, compute_backend, precision_policy, E, nu, mu, lamb, b_x, b_y, exact_u, exact_v):
+    def __init__(self, grid_shape, velocity_set, compute_backend, precision_policy, E, nu, mu, lamb, b_x, b_y, exact_u, exact_v, dx, dt, epsilon):
         # initialize compute_backend
         xlb.init(
             velocity_set=velocity_set,
@@ -30,25 +30,25 @@ class Solids2D: #atm: solves on unit square
         self.precision_policy = precision_policy
 
         #calculation of dimensionless variables
-        self.kappa = 1.
+        self.kappa = 10
         self.exact_u = exact_u
         self.exact_v = exact_v
-        self.U = 1.
-        self.L = 3.
-        self.T = 1.
-        print(type(self.T))
-        print(type(mu))
+        self.U = 1
+        self.L = dx
+        self.T = dt
         self.mu_scaled = mu * self.T / (self.L*self.L*self.kappa)
         self.lamb_scaled = lamb * self.T / (self.L*self.L*self.kappa)
-        self.dx = self.L/self.grid_shape[0]
-        self.b_x_scaled = lambda x, y: b_x(x,y) * self.T / (self.kappa*self.L)
-        self.b_y_scaled = lambda x, y: b_y(x,y) * self.T / (self.kappa*self.L)
+        self.dx = dx
+        self.g_x_scaled = lambda x, y: b_x(x,y) * self.T / (self.kappa)
+        self.g_y_scaled = lambda x, y: b_y(x,y) * self.T / (self.kappa)
 
         # Create grid using factory
         self.grid = grid_factory(grid_shape, compute_backend=compute_backend)
+        print("Grid setup complete")
 
         # Setup the simulation BC and stepper
         self._setup()
+        print("Stepper setup complete")
 
     def _setup(self):
         self.setup_stepper()
@@ -58,7 +58,7 @@ class Solids2D: #atm: solves on unit square
     def setup_stepper(self):
         self.stepper = SolidsStepper(
             grid=self.grid,
-            force_vector= [self.b_x_scaled, self.b_y_scaled],
+            force_vector= [self.g_x_scaled, self.g_y_scaled],
             kappa=self.kappa,
             mu_scaled=self.mu_scaled,
             lambda_scaled=self.lamb_scaled,
@@ -67,10 +67,10 @@ class Solids2D: #atm: solves on unit square
 
 
     def run(self, num_steps, post_process_interval=100):
+        print("Starting run")
         for i in range(num_steps):
-            self.f_0, self.f_1, self.u, self.v = self.stepper(self.f_0, self.f_1, self.bc_mask)
-            self.f_0, self.f_1 = self.f_1, self.f_0
-
+            self.f_0, self.u, self.v = self.stepper(self.f_0, self.bc_mask)
+            if (i == 0): print("First iteration complete")
             if i % post_process_interval == 0 or i == num_steps - 1:
                 self.post_process(i)
 
@@ -90,12 +90,23 @@ class Solids2D: #atm: solves on unit square
             writer.writerow([timestep, L_inf])
 
 if __name__ == "__main__":
-    # Running the simulation
-    grid_size =25
-    grid_shape = (grid_size, grid_size)
+    #set dimensions of grid
+    L_x = 3 #for now we work on square
+    L_y = 3
+    #total time
+    T = 2
+    #set smallness parameter epsilon:
+    epsilon = 0.1
+    dx = L_x * epsilon
+    dt = T * epsilon * epsilon
+    #calculate grid size
+    grid_size_x = (int)(L_x / dx)
+    grid_size_y = (int)(L_y / dx)
+    grid_shape = (grid_size_x, grid_size_y)
+    print("Initialized grid with dimensions: {} x {}".format(grid_size_x, grid_size_y))
+    #init xlb stuff
     compute_backend = ComputeBackend.JAX
     precision_policy = PrecisionPolicy.FP32FP32
-
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, backend=compute_backend)
 
     #-----------define variables-------------
@@ -105,11 +116,11 @@ if __name__ == "__main__":
     lamb =  E/(2*(1-nu)) - mu
     K = lamb + mu
     #----------define foce load---------------
-    b_x = lambda x, y: (mu-K)*cos(x)
-    b_y = lambda x, y: (mu-K)*cos(y)
+    b_x = lambda x, y: (mu-K)*(cos(x))
+    b_y = lambda x, y: (mu-K)*(cos(y))
     #----------define exact solution-----------
     exact_u = lambda x, y: cos(x)
     exact_v = lambda x, y: cos(y)
     #-----------start simulation--------------
-    simulation = Solids2D(grid_shape, velocity_set, compute_backend, precision_policy, E, nu, mu, lamb, b_x, b_y, exact_u, exact_v)
-    simulation.run(num_steps=500000, post_process_interval=100)
+    simulation = Solids2D(grid_shape, velocity_set, compute_backend, precision_policy, E, nu, mu, lamb, b_x, b_y, exact_u, exact_v, dx, dt, epsilon)
+    simulation.run(num_steps=25000, post_process_interval=100)

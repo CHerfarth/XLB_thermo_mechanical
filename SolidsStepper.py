@@ -33,6 +33,7 @@ class SolidsStepper(Stepper):
         mu_scaled=1,
         lambda_scaled=1,
         dx = 1,
+        dt=1,
     ):
         super().__init__(grid, boundary_conditions)
 
@@ -103,12 +104,13 @@ class SolidsStepper(Stepper):
 
     @Operator.register_backend(ComputeBackend.JAX)
     @partial(jit, static_argnums=(0,))
-    def jax_implementation(self, f_0, f_1, bc_mask):
+    def jax_implementation(self, f_0, bc_mask):
         """
         Perform a single step of the lattice boltzmann method
         """
+        print("First call of stepper")
         f_0, u, v = self.collision(f_0)
-        f_1 = f_0
-        f_0, f_1 = self.stream(f_0, f_1, self.grid.shape[0], self.grid.shape[1])
+        f_0 = self.stream(f_0, self.grid.shape[0], self.grid.shape[1])
         #print("Done streaming")
-        return f_0, f_1, u, v
+        print("First call of stepper complete")
+        return f_0, u, v
