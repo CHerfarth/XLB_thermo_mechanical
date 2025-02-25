@@ -96,7 +96,7 @@ if __name__ == "__main__":
     #total time
     T = 2
     #set smallness parameter epsilon:
-    epsilon = 0.05
+    epsilon = 0.1
     dx = L_x * epsilon
     dt = T * epsilon * epsilon
     #calculate grid size
