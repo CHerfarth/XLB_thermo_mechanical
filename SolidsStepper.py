@@ -69,7 +69,7 @@ class SolidsStepper(Stepper):
             force_vector=self.force)
         
         # Construct Streaming Operator
-        self.stream = SolidsStreamerPBC(self.velocity_set, self.precision_policy, self.compute_backend)
+        self.stream = SolidsStreamerPBC(self.grid.shape[0], self.grid.shape[1], self.velocity_set, self.precision_policy, self.compute_backend)
 
     def prepare_fields(self, initializer=None):
         """Prepare the fields required for the stepper.
@@ -110,7 +110,7 @@ class SolidsStepper(Stepper):
         """
         print("First call of stepper")
         f_0, u, v = self.collision(f_0)
-        f_0 = self.stream(f_0, self.grid.shape[0], self.grid.shape[1])
+        f_0 = self.stream(f_0) 
         #print("Done streaming")
         print("First call of stepper complete")
         return f_0, u, v
