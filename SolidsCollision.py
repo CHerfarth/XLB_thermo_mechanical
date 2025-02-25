@@ -11,6 +11,19 @@ from xlb.velocity_set import VelocitySet
 from functools import partial
 
 
+# Mapping for moments:
+#    i  j   |   m_q
+#    1  0   |   1
+#    0  1   |   2
+#    1  1   |   3
+#    s      |   4
+#    d      |   5
+#    1  2   |   6
+#    2  1   |   7
+#    2  2   |   8
+#    0  0   |   9 (irrelevant)
+
+
 class SolidsCollision(Collision):
     """
     Collision Operator for Solids
@@ -88,6 +101,8 @@ class SolidsCollision(Collision):
         v= m[1,:]
         m_eq = jnp.matmul(self.meq_matrix,m[0:2,:]) 
         m_post = jnp.matmul(self.omega,m_eq) + jnp.matmul((np.eye(9) - self.omega),m)
+        m_post = m_post.at[0,:].set(m[0,:])
+        m_post = m_post.at[1,:].set(m[1,:])
         m_post = m_post.at[0,:].add(0.5*self.force_vector[0,:])
         m_post = m_post.at[1,:].add(0.5*self.force_vector[1,:])
         f_post = jnp.matmul(self.f_matrix, m_post)
