@@ -101,8 +101,6 @@ class SolidsCollision(Collision):
         v= m[1,:]
         m_eq = jnp.matmul(self.meq_matrix,m[0:2,:]) 
         m_post = jnp.matmul(self.omega,m_eq) + jnp.matmul((np.eye(9) - self.omega),m)
-        m_post = m_post.at[0,:].set(m[0,:])
-        m_post = m_post.at[1,:].set(m[1,:])
         m_post = m_post.at[0,:].add(0.5*self.force_vector[0,:])
         m_post = m_post.at[1,:].add(0.5*self.force_vector[1,:])
         f_post = jnp.matmul(self.f_matrix, m_post)

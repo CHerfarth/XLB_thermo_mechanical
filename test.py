@@ -30,7 +30,7 @@ class Solids2D: #atm: solves on unit square
         self.precision_policy = precision_policy
 
         #calculation of dimensionless variables
-        self.kappa = 10
+        self.kappa = 1
         self.exact_u = exact_u
         self.exact_v = exact_v
         self.U = 1
