@@ -92,8 +92,7 @@ class SolidsCollision(Collision):
 
     @Operator.register_backend(ComputeBackend.JAX)
     @partial(jit, static_argnums=(0,))
-    def jax_implementation(self, f):
-        print("First call of collision")
+    def jax_implementation(self, f: jnp.ndarray):
         m = jnp.matmul(self.m_matrix,f)
         m = m.at[0,:].add(0.5*self.force_vector[0,:])
         m = m.at[1,:].add(0.5*self.force_vector[1,:])
@@ -104,5 +103,4 @@ class SolidsCollision(Collision):
         m_post = m_post.at[0,:].add(0.5*self.force_vector[0,:])
         m_post = m_post.at[1,:].add(0.5*self.force_vector[1,:])
         f_post = jnp.matmul(self.f_matrix, m_post)
-        print("First call of collision complete")
         return f_post, u, v

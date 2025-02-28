@@ -58,7 +58,7 @@ class SolidsStepper(Stepper):
             for y in range (self.grid.shape[1]):
                 self.force[0, y*self.grid.shape[0] + x] = force_vector[0](x*dx, y*dx)
                 self.force[1, y*self.grid.shape[0] + x] = force_vector[1](x*dx, y*dx)
-        print(self.force)
+        #print(self.force)
         # Construct the collision operator
         self.collision = SolidsCollision(
             velocity_set=self.velocity_set, 
@@ -108,9 +108,6 @@ class SolidsStepper(Stepper):
         """
         Perform a single step of the lattice boltzmann method
         """
-        print("First call of stepper")
         f_0, u, v = self.collision(f_0)
         f_0 = self.stream(f_0) 
-        #print("Done streaming")
-        print("First call of stepper complete")
         return f_0, u, v

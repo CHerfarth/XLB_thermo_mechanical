@@ -30,7 +30,7 @@ class Solids2D: #atm: solves on unit square
         self.precision_policy = precision_policy
 
         #calculation of dimensionless variables
-        self.kappa = 1
+        self.kappa = 0.1
         self.exact_u = exact_u
         self.exact_v = exact_v
         self.U = 1
@@ -67,10 +67,9 @@ class Solids2D: #atm: solves on unit square
 
 
     def run(self, num_steps, post_process_interval=100):
-        print("Starting run")
+        print("Starting run...")
         for i in range(num_steps):
             self.f_0, self.u, self.v = self.stepper(self.f_0, self.bc_mask)
-            if (i == 0): print("First iteration complete")
             if i % post_process_interval == 0 or i == num_steps - 1:
                 self.post_process(i)
 
@@ -78,7 +77,7 @@ class Solids2D: #atm: solves on unit square
         L_inf = -1
         for i in range(self.grid.shape[0]):
             for j in range(self.grid.shape[1]):
-                exact_u = self.exact_u(self.dx*i, self.dx*j) 
+                exact_u = self.exact_u(self.dx*i, self.dx*j) #todo: make exact solution dimensionless 
                 exact_v = self.exact_v(self.dx*i, self.dx*j) 
                 dif_u = exact_u - self.u[j*self.grid.shape[0] + i]
                 dif_v = exact_v - self.v[j*self.grid.shape[0] + i]
@@ -96,7 +95,7 @@ if __name__ == "__main__":
     #total time
     T = 2
     #set smallness parameter epsilon:
-    epsilon = 0.1
+    epsilon = 0.05
     dx = L_x * epsilon
     dt = T * epsilon * epsilon
     #calculate grid size
@@ -104,23 +103,29 @@ if __name__ == "__main__":
     grid_size_y = (int)(L_y / dx)
     grid_shape = (grid_size_x, grid_size_y)
     print("Initialized grid with dimensions: {} x {}".format(grid_size_x, grid_size_y))
+    #calculate nr of timesteps
+    num_steps = int(T/dt)
+    print("Nr of timesteps: {}".format(num_steps))
     #init xlb stuff
     compute_backend = ComputeBackend.JAX
     precision_policy = PrecisionPolicy.FP32FP32
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, backend=compute_backend)
 
     #-----------define variables-------------
-    E = 0.0085*2.5
+    E = 0.085*2.5
     nu = 0.8
     mu = E/(2*(1+nu))
     lamb =  E/(2*(1-nu)) - mu
     K = lamb + mu
+
     #----------define foce load---------------
     b_x = lambda x, y: (mu-K)*(cos(x))
     b_y = lambda x, y: (mu-K)*(cos(y))
+    
     #----------define exact solution-----------
     exact_u = lambda x, y: cos(x)
     exact_v = lambda x, y: cos(y)
+
     #-----------start simulation--------------
     simulation = Solids2D(grid_shape, velocity_set, compute_backend, precision_policy, E, nu, mu, lamb, b_x, b_y, exact_u, exact_v, dx, dt, epsilon)
-    simulation.run(num_steps=25000, post_process_interval=100)
+    simulation.run(num_steps=num_steps, post_process_interval=(int(num_steps/100)+1))
