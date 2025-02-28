@@ -1,0 +1,119 @@
+from xlb.compute_backend import ComputeBackend
+from xlb.precision_policy import PrecisionPolicy
+from xlb.grid import grid_factory
+from xlb.utils import save_fields_vtk, save_image
+import xlb.velocity_set
+import warp as wp
+from typing import Any
+
+
+# Mapping:
+#    i  j   |   q
+#    1  0   |   0
+#    0  1   |   1
+#   -1  0   |   2
+#    0 -1   |   3
+#    1  1   |   4
+#   -1  1   |   5
+#   -1 -1   |   6
+#    1 -1   |   7
+#    0  0   |   8 (ignored)
+_f_vec = wp.vec(9, dtype=wp.float32)
+
+@wp.func
+def calc_moments(f: _f_vec(dtype=Any)):
+    #m_10 = f[0]-f[2]+f[4]-f[5]-f[6]+f[7]
+    #m_01 = f[1]-f[3]+f[4]
+    #mapping of populations to moments
+    m_matrix = wp.array([
+        [ 1,  0, -1,  0,  1, -1, -1,  1,0],
+        [ 0,  1,  0, -1,  1,  1, -1, -1,0],
+        [ 0,  0,  0,  0,  1, -1,  1, -1,0],
+        [ 1,  1,  1,  1,  2,  2,  2,  2,0],
+        [ 1, -1,  1, -1,  0,  0,  0,  0,0],
+        [ 0,  0,  0,  0,  1, -1, -1,  1,0],
+        [ 0,  0,  0,  0,  1,  1, -1, -1,0],
+        [ 0,  0,  0,  0,  1,  1,  1,  1,0],
+        [0,0,0,0,0,0,0,0,0]])
+    return wp.matmul(m_matrix, f)
+
+@wp.func
+def read_local(f: wp.array4d(dtype=Any), dim: wp.int32, x: wp.int32, y: wp.int32):
+    f_local =  _f_vec()
+    for i in range(dim):
+       f_local[i] = f[1, i, x, y]
+    return f_local
+
+@wp.kernel
+def collide(f: wp.array4d(dtype=Any), force: wp.array4d(dtype=Any), displacement: wp.array4d(dtype=Any)):
+    i, j, k = wp.tid() #for 2d, k will equal 1
+
+    #calculate moments
+    f_local = read_local(f, 9, i, j)
+    m = calc_moments(f_local)
+
+    #apply half-forcing and get displacement
+    m[0] += 0.5*force[0, i, j]
+    m[1] += 0.5*force[1, i, j]
+    displacement[0,i,j] = m[0]
+    displacement[1,i,j] = m[1]
+
+
+
+
+
+
+if __name__ == "__main__":
+    #set dimensions of domain
+    domain_x = 3 #for now we work on square
+    domain_y = 3
+
+    #total time
+    T = 2
+
+    #set shape of grid
+    nodes_x = 3
+    nodes_y = 3
+    timesteps = 40
+    
+    #calculate dx, dt
+    dx = domain_x / nodes_x
+    dy = domain_y / nodes_y
+    dt = T / timesteps
+    assert dx == dy, "Wrong spacial steps in directions x and y do not match"
+
+    #init xlb stuff
+    compute_backend = ComputeBackend.WARP
+    precision_policy = PrecisionPolicy.FP32FP32
+    velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, backend=compute_backend)
+    
+    #initialise grid (should probably move this to Stepper class for full implementation later)
+    grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
+    #vector_size = 3 #f_pre, f_eq, f_post
+    f = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    force = grid.create_field(cardinality=2, dtype=precision_policy.store_precision)
+    displacement = grid.create_field(cardinality=2, dtype=precision_policy.store_precision)
+    
+    
+    #print startup info
+    print("Initialized grid with dimensions     {}x{}".format(nodes_x, nodes_y))
+
+    #-----------define variables-------------
+    E = 0.085*2.5
+    nu = 0.8
+    mu = E/(2*(1+nu))
+    lamb =  E/(2*(1-nu)) - mu
+    K = lamb + mu
+
+
+
+    #----------define foce load---------------
+    #b_x = lambda x, y: (mu-K)*(cos(x))
+    #b_y = lambda x, y: (mu-K)*(cos(y))
+    
+    #----------define exact solution-----------
+    #exact_u = lambda x, y: cos(x)
+    #exact_v = lambda x, y: cos(y)
+    
+    wp.launch(collide, inputs=[f, force, displacement], dim = f.shape[1:])
+
