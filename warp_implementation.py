@@ -108,6 +108,18 @@ def collide(f: wp.array4d(dtype=Any), force: wp.array4d(dtype=Any), displacement
     write_global(f, f_local, 9, i, j)
 
 
+@wp.kernel
+def stream(f: wp.array4d(dtype=Any)):
+    i, j, k = wp.tid()
+    mapping = {
+        1: (1,0),
+        2: (0,1)
+    }
+    for direction in range(9):
+        print("hihi")
+
+
+
 
 
 if __name__ == "__main__":
