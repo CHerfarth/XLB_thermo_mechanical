@@ -4,6 +4,7 @@ from xlb.grid import grid_factory
 from xlb.utils import save_fields_vtk, save_image
 import xlb.velocity_set
 import warp as wp
+import numpy as np
 from typing import Any
 
 
@@ -201,13 +202,21 @@ if __name__ == "__main__":
 
 
     #----------define foce load---------------
-    #b_x = lambda x, y: (mu-K)*(cos(x))
-    #b_y = lambda x, y: (mu-K)*(cos(y))
+    b_x = lambda x, y: (mu-K)*(cos(x))
+    b_y = lambda x, y: (mu-K)*(cos(y))
+    #make dimensionless and in terms of node positions
+    b_x_scaled = lambda i, j: b_x(i*dx,j*dx) * T/kappa
+    b_y_scaled = lambda i, j: b_y(i*dx,i*dx) * T/kappa
+    host_force_x = np.fromfunction(b_x_scaled, shape=(nodes_x, nodes_y))
+    host_force_y = np.fromfunction(b_y_scaled, shape=(nodes_x, nodes_y))
+    host_force = np.array([host_force_x, host_force_y])
+
     
     #----------define exact solution-----------
     #exact_u = lambda x, y: cos(x)
     #exact_v = lambda x, y: cos(y)
     
-    wp.launch(collide, inputs=[f_1, f_2, force, displacement, omega, theta], dim = f_1.shape[1:])
-    wp.launch(stream, inputs=[f_2, f_1, nodes_x, nodes_x], dim=f_1.shape[1:])
+    for i in range(timesteps):
+        wp.launch(collide, inputs=[f_1, f_2, force, displacement, omega, theta], dim = f_1.shape[1:])
+        wp.launch(stream, inputs=[f_2, f_1, nodes_x, nodes_x], dim=f_1.shape[1:])
 
