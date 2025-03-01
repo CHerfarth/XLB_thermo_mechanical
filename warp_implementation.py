@@ -18,30 +18,45 @@ from typing import Any
 #   -1 -1   |   6
 #    1 -1   |   7
 #    0  0   |   8 (ignored)
-_f_vec = wp.vec(9, dtype=wp.float32)
+
+precision_policy = PrecisionPolicy.FP32FP32
+f_vec = wp.vec(9, dtype=precision_policy.compute_precision.wp_dtype)
 
 @wp.func
-def calc_moments(f: _f_vec(dtype=Any)):
-    #m_10 = f[0]-f[2]+f[4]-f[5]-f[6]+f[7]
-    #m_01 = f[1]-f[3]+f[4]
-    #mapping of populations to moments
-    m_matrix = wp.array([
-        [ 1,  0, -1,  0,  1, -1, -1,  1,0],
-        [ 0,  1,  0, -1,  1,  1, -1, -1,0],
-        [ 0,  0,  0,  0,  1, -1,  1, -1,0],
-        [ 1,  1,  1,  1,  2,  2,  2,  2,0],
-        [ 1, -1,  1, -1,  0,  0,  0,  0,0],
-        [ 0,  0,  0,  0,  1, -1, -1,  1,0],
-        [ 0,  0,  0,  0,  1,  1, -1, -1,0],
-        [ 0,  0,  0,  0,  1,  1,  1,  1,0],
-        [0,0,0,0,0,0,0,0,0]])
-    return wp.matmul(m_matrix, f)
+def calc_moments(f: f_vec):
+    m = f_vec()
+    #Todo: find better way to do this!
+    m[0] = f[0] - f[2] + f[4] - f[5] - f[6] + f[7]
+    m[1] = f[1] - f[3] + f[4] + f[5] - f[6] - f[7]
+    m[2] = f[4] - f[5] + f[6] - f[7]
+    m[3] = f[0] + f[1] + f[2] + f[3] + 2.*f[4] + 2.*f[5] + 2.*f[6] + 2.*f[7]
+    m[4] = f[0] - f[1] + f[2] - f[3]
+    m[5] = f[4] - f[5] - f[6] + f[7]
+    m[6] = f[4] + f[5] - f[6] - f[7]
+    m[7] = f[4] + f[5] + f[6] + f[7]
+    m[8] = 0. 
+    return m
+
+@wp.func
+def calc_populations(m: f_vec):
+    f = f_vec()
+    #Todo: find better way to do this!
+    f[0] = 2*m[0] + m[3] + m[4] - 2*m[5] - 2*m[7]
+    f[1] = 2*m[1] + m[3] - m[4] - 2*m[6] - 2*m[7]
+    f[2] = -2*m[0] + m[3] + m[4] + 2*m[5] - 2*m[7]
+    f[3] = -2*m[1] + m[3] - m[4] + 2*m[6] - 2*m[7]
+    f[4] = m[2] + m[5] + m[6] + m[7]
+    f[5] = -m[2] - m[5] + m[6] + m[7]
+    f[6] = m[2] - m[5] - m[6] + m[7]
+    f[7] = -m[2] + m[5] - m[6] + m[7]
+    f[8] = 0. 
+    return f
 
 @wp.func
 def read_local(f: wp.array4d(dtype=Any), dim: wp.int32, x: wp.int32, y: wp.int32):
-    f_local =  _f_vec()
+    f_local =  f_vec()
     for i in range(dim):
-       f_local[i] = f[1, i, x, y]
+       f_local[i] = f[i, x, y, 0]
     return f_local
 
 @wp.kernel
@@ -53,11 +68,10 @@ def collide(f: wp.array4d(dtype=Any), force: wp.array4d(dtype=Any), displacement
     m = calc_moments(f_local)
 
     #apply half-forcing and get displacement
-    m[0] += 0.5*force[0, i, j]
-    m[1] += 0.5*force[1, i, j]
-    displacement[0,i,j] = m[0]
-    displacement[1,i,j] = m[1]
-
+    m[0] += 0.5*force[0, i, j, 0]
+    m[1] += 0.5*force[1, i, j, 0]
+    displacement[0,i,j, 0] = m[0]
+    displacement[1,i,j, 0] = m[1]
 
 
 
@@ -84,7 +98,6 @@ if __name__ == "__main__":
 
     #init xlb stuff
     compute_backend = ComputeBackend.WARP
-    precision_policy = PrecisionPolicy.FP32FP32
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, backend=compute_backend)
     
     #initialise grid (should probably move this to Stepper class for full implementation later)
