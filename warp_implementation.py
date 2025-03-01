@@ -130,6 +130,10 @@ def stream(f: wp.array4d(dtype=Any), f_post: wp.array4d(dtype=Any), dim_x: wp.in
 
         f_post[direction, new_i, new_j, k] = f[direction, i, j, k]
 
+def post_process(displacement: wp.array4d(dtype=Any)):
+    displacement_host =displacement.numpy()
+    print(np.linalg.norm(displacement_host[0, :, :, 0]), np.linalg.norm(displacement_host[1, :, :, 0]))
+
 
 
 
@@ -144,7 +148,7 @@ if __name__ == "__main__":
     #set shape of grid
     nodes_x = 3
     nodes_y = 3
-    timesteps = 40
+    timesteps = 400
     
     #calculate dx, dt
     dx = domain_x / nodes_x
@@ -161,7 +165,6 @@ if __name__ == "__main__":
     #vector_size = 3 #f_pre, f_eq, f_post
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    force = grid.create_field(cardinality=2, dtype=precision_policy.store_precision)
     displacement = grid.create_field(cardinality=2, dtype=precision_policy.store_precision)
     
     
@@ -182,17 +185,15 @@ if __name__ == "__main__":
     kappa = 1
     mu_scaled = mu * T / (L*L*kappa)
     lamb_scaled = lamb*T/(L*L*kappa)
+    K_scaled = K*T/(L*L*kappa)
 
     #calculate omega
-    omega_11 = 1 / (mu_scaled / theta + 0.5)
-    omega_d = 1 / (2 * mu_scaled / (1 - theta) + 0.5)
-    omega_s = 1 / (2 * (mu_scaled + lamb_scaled) / (1 + theta) + 0.5)
-    tau_11 = 1 / omega_11 - 0.5
-    tau_s = 1 / omega_d - 0.5
-    tau_p = 1 / omega_s - 0.5
+    omega_11 = 1 / (mu_scaled/theta + 0.5)
+    omega_s = 1 / (2 * (1/(1+theta)) * K_scaled + 0.5)
+    omega_d = 1 / (2 * (1/(1-theta)) * mu_scaled + 0.5)
     tau_12 = 0.5
-    tau_21 = tau_12
-    tau_22 = 0.5    #ToDo: Check these!!
+    tau_21 = 0.5
+    tau_22 = 0.5    
     omega_12 = 1 / (tau_12 + 0.5)
     omega_21 = 1 / (tau_21 + 0.5)
     omega_22 = 1 / (tau_22 + 0.5)
@@ -200,16 +201,19 @@ if __name__ == "__main__":
 
 
 
-
     #----------define foce load---------------
-    b_x = lambda x, y: (mu-K)*(cos(x))
-    b_y = lambda x, y: (mu-K)*(cos(y))
+    b_x = lambda x, y: (mu-K)*(np.cos(x))
+    b_y = lambda x, y: (mu-K)*(np.cos(y))
     #make dimensionless and in terms of node positions
     b_x_scaled = lambda i, j: b_x(i*dx,j*dx) * T/kappa
     b_y_scaled = lambda i, j: b_y(i*dx,i*dx) * T/kappa
     host_force_x = np.fromfunction(b_x_scaled, shape=(nodes_x, nodes_y))
     host_force_y = np.fromfunction(b_y_scaled, shape=(nodes_x, nodes_y))
-    host_force = np.array([host_force_x, host_force_y])
+    host_force = np.array([[host_force_x, host_force_y]])
+    host_force = np.transpose(host_force, (1,2,3,0))
+    print(host_force.shape)
+    print(f_1.shape)
+    force = wp.from_numpy(host_force, dtype=precision_policy.store_precision.wp_dtype)
 
     
     #----------define exact solution-----------
@@ -219,4 +223,5 @@ if __name__ == "__main__":
     for i in range(timesteps):
         wp.launch(collide, inputs=[f_1, f_2, force, displacement, omega, theta], dim = f_1.shape[1:])
         wp.launch(stream, inputs=[f_2, f_1, nodes_x, nodes_x], dim=f_1.shape[1:])
+        post_process(displacement)
 
