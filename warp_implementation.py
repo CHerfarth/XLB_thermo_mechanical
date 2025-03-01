@@ -80,7 +80,7 @@ def calc_equilibrium(m: f_vec, theta: Any):
 
 
 @wp.kernel
-def collide(f: wp.array4d(dtype=Any), force: wp.array4d(dtype=Any), displacement: wp.array4d(dtype=Any), omega: f_vec, theta: Any):
+def collide(f: wp.array4d(dtype=Any), f_post: wp.array4d(dtype=Any), force: wp.array4d(dtype=Any), displacement: wp.array4d(dtype=Any), omega: f_vec, theta: Any):
     i, j, k = wp.tid() #for 2d, k will equal 1
 
     #calculate moments
@@ -105,19 +105,29 @@ def collide(f: wp.array4d(dtype=Any), force: wp.array4d(dtype=Any), displacement
 
     #get populations and write back to global
     f_local = calc_populations(m)
-    write_global(f, f_local, 9, i, j)
+    write_global(f_post, f_local, 9, i, j)
 
 
 @wp.kernel
-def stream(f: wp.array4d(dtype=Any)):
+def stream(f: wp.array4d(dtype=Any), f_post: wp.array4d(dtype=Any), dim_x: wp.int32, dim_y: wp.int32):
     i, j, k = wp.tid()
-    mapping = {
-        1: (1,0),
-        2: (0,1)
-    }
-    for direction in range(9):
-        print("hihi")
 
+    for direction in range(9):
+        dir_x, dir_y = 0,0
+        #get directions to stream in (Todo: make more elegant/reusable/modular)
+        if direction == 0: dir_x, dir_y = 1,0
+        elif direction == 1: dir_x, dir_y = 0,1
+        elif direction == 2: dir_x, dir_y = -1, 0
+        elif direction == 3: dir_x, dir_y = 0, -1
+        elif direction == 4: dir_x, dir_y = 1, 1
+        elif direction == 5: dir_x, dir_y = -1, 1
+        elif direction == 6: dir_x, dir_y = -1, -1
+        elif direction == 7: dir_x, dir_y = 1, -1
+
+        new_i = (i+dir_x)%dim_x
+        new_j = (i+dir_y)%dim_y
+
+        f_post[direction, new_i, new_j, k] = f[direction, i, j, k]
 
 
 
@@ -148,7 +158,8 @@ if __name__ == "__main__":
     #initialise grid (should probably move this to Stepper class for full implementation later)
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
     #vector_size = 3 #f_pre, f_eq, f_post
-    f = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     force = grid.create_field(cardinality=2, dtype=precision_policy.store_precision)
     displacement = grid.create_field(cardinality=2, dtype=precision_policy.store_precision)
     
@@ -197,5 +208,6 @@ if __name__ == "__main__":
     #exact_u = lambda x, y: cos(x)
     #exact_v = lambda x, y: cos(y)
     
-    wp.launch(collide, inputs=[f, force, displacement, omega, theta], dim = f.shape[1:])
+    wp.launch(collide, inputs=[f_1, f_2, force, displacement, omega, theta], dim = f_1.shape[1:])
+    wp.launch(stream, inputs=[f_2, f_1, nodes_x, nodes_x], dim=f_1.shape[1:])
 
