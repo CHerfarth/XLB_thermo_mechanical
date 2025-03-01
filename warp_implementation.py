@@ -59,8 +59,23 @@ def read_local(f: wp.array4d(dtype=Any), dim: wp.int32, x: wp.int32, y: wp.int32
        f_local[i] = f[i, x, y, 0]
     return f_local
 
+@wp.func
+def calc_equilibrium(m: f_vec, theta: Any):
+    m_eq = f_vec()
+    m_eq[0] = m[0]
+    m_eq[1] = m[1]
+    m_eq[2] = 0.
+    m_eq[3] = 0.
+    m_eq[4] = 0.
+    m_eq[5] = theta * m[0]
+    m_eq[6] = theta * m[1]
+    m_eq[7] = 0.
+    m_eq[8] = 0.
+    return m_eq
+
+
 @wp.kernel
-def collide(f: wp.array4d(dtype=Any), force: wp.array4d(dtype=Any), displacement: wp.array4d(dtype=Any)):
+def collide(f: wp.array4d(dtype=Any), force: wp.array4d(dtype=Any), displacement: wp.array4d(dtype=Any), theta: Any):
     i, j, k = wp.tid() #for 2d, k will equal 1
 
     #calculate moments
@@ -72,6 +87,8 @@ def collide(f: wp.array4d(dtype=Any), force: wp.array4d(dtype=Any), displacement
     m[1] += 0.5*force[1, i, j, 0]
     displacement[0,i,j, 0] = m[0]
     displacement[1,i,j, 0] = m[1]
+
+    m_eq = calc_equilibrium(m, theta)
 
 
 
@@ -117,6 +134,7 @@ if __name__ == "__main__":
     mu = E/(2*(1+nu))
     lamb =  E/(2*(1-nu)) - mu
     K = lamb + mu
+    theta = 1/3 #check this!!
 
 
 
@@ -128,5 +146,5 @@ if __name__ == "__main__":
     #exact_u = lambda x, y: cos(x)
     #exact_v = lambda x, y: cos(y)
     
-    wp.launch(collide, inputs=[f, force, displacement], dim = f.shape[1:])
+    wp.launch(collide, inputs=[f, force, displacement, theta], dim = f.shape[1:])
 
