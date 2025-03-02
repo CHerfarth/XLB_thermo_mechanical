@@ -239,8 +239,8 @@ if __name__ == "__main__":
     )
 
     # ----------define foce load---------------
-    b_x = lambda x, y: (mu - K) * (np.cos(x))
-    b_y = lambda x, y: (mu - K) * (np.cos(y))
+    b_x = lambda x, y: 0#(mu - K) * (np.cos(x))
+    b_y = lambda x, y: 0#(mu - K) * (np.cos(y))
     # make dimensionless and in terms of node positions
     b_x_scaled = lambda i, j: b_x(i * dx, j * dx) * T / kappa
     b_y_scaled = lambda i, j: b_y(i * dx, i * dx) * T / kappa
