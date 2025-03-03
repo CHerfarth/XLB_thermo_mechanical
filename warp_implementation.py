@@ -6,6 +6,7 @@ import xlb.velocity_set
 import warp as wp
 import numpy as np
 from typing import Any
+import math
 
 
 # Mapping (for populations):
@@ -128,7 +129,7 @@ def collide(
     m_eq = calc_equilibrium(m, theta)
 
     # get post-collision populations
-    for l in range(m._length_):
+    for l in range(m._length_):  
         m[l] = omega[l] * m_eq[l] + (1.0 - omega[l]) * m[l]
 
     # half-forcing
@@ -183,16 +184,16 @@ def post_process(displacement: wp.array4d(dtype=Any), L, T, kappa):
         np.linalg.norm(displacement_host[0, :, :, 0]),
         np.linalg.norm(displacement_host[1, :, :, 0]),
     )
-    #print(displacement_host[0,:,:,0])
+    print(displacement_host[0,:,:,0])
 
 
 if __name__ == "__main__":
     # set dimensions of domain
-    domain_x = 3  # for now we work on square
-    domain_y = 3
+    domain_x = 2*math.pi  # for now we work on square
+    domain_y = 2*math.pi
 
     # total time
-    total_time = 20
+    total_time = 2
 
     # set shape of grid
     nodes_x = 30
@@ -200,9 +201,11 @@ if __name__ == "__main__":
     timesteps = 400
 
     # calculate dx, dt
-    dx = domain_x / (nodes_x - 1)
-    dy = domain_y / (nodes_y - 1)
+    dx = domain_x / (nodes_x)
+    dy = domain_y / (nodes_y)
     print(dx, dy)
+    for i in range(nodes_x):
+        print(dx*i + 0.5*dx)
     dt = total_time / timesteps
     assert dx == dy, "Wrong spacial steps in directions x and y do not match"
 
@@ -239,7 +242,7 @@ if __name__ == "__main__":
     # -----------make dimensionless----------
     L = dx
     T = dt
-    kappa = 1
+    kappa = 10
     mu_scaled = mu * T / (L * L * kappa)
     lamb_scaled = lamb * T / (L * L * kappa)
     K_scaled = K * T / (L * L * kappa)
@@ -262,14 +265,13 @@ if __name__ == "__main__":
     b_x = lambda x, y: (mu - K) * (np.cos(x))
     b_y = lambda x, y: (mu - K) * (np.cos(y))
     # make dimensionless and in terms of node positions
-    b_x_scaled = lambda i, j: b_x(i * dx, j * dx) * T / kappa
-    b_y_scaled = lambda i, j: b_y(i * dx, i * dx) * T / kappa
+    b_x_scaled = lambda i, j: b_x(i * dx + 0.5*dx, j * dy + 0.5*dy) * T / kappa
+    b_y_scaled = lambda i, j: b_y(i * dx + 0.5*dx, j * dy + 0.5*dy) * T / kappa
     host_force_x = np.fromfunction(b_x_scaled, shape=(nodes_x, nodes_y))
     host_force_y = np.fromfunction(b_y_scaled, shape=(nodes_x, nodes_y))
     host_force = np.array([[host_force_x, host_force_y]])
-    host_force = np.transpose(host_force, (1, 2, 3, 0))
-    print(host_force.shape)
-    print(f_1.shape)
+    host_force = np.transpose(host_force, (1, 2, 3, 0)) #swap dims to make array compatible with what grid_factory would have produced
+    print(host_force)
     force = wp.from_numpy(host_force, dtype=precision_policy.store_precision.wp_dtype)
 
     # ----------define exact solution-----------
