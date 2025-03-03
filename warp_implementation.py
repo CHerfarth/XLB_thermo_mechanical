@@ -8,7 +8,7 @@ import numpy as np
 from typing import Any
 
 
-# Mapping:
+# Mapping (for populations):
 #    i  j   |   q
 #    1  0   |   0
 #    0  1   |   1
@@ -19,6 +19,21 @@ from typing import Any
 #   -1 -1   |   6
 #    1 -1   |   7
 #    0  0   |   8 (ignored)
+
+
+
+# Mapping (for moments):
+#    i  j   |   q
+#    1  0   |   0
+#    0  1   |   1
+#    1  1   |   2
+#    s      |   3
+#    d      |   4
+#    1  2   |   5
+#    2  1   |   6
+#    2  2   |   7
+#    0  0   |   8 (ignored)
+
 
 precision_policy = PrecisionPolicy.FP32FP32
 f_vec = wp.vec(9, dtype=precision_policy.compute_precision.wp_dtype)
@@ -53,6 +68,8 @@ def calc_populations(m: f_vec):
     f[6] = m[2] - m[5] - m[6] + m[7]
     f[7] = -m[2] + m[5] - m[6] + m[7]
     f[8] = 0.0
+    for i in range(9):
+        f[i] = f[i]/4.
     return f
 
 
@@ -158,12 +175,15 @@ def stream(
         f_post[direction, new_i, new_j, k] = f[direction, i, j, k]
         #if direction == 2: wp.printf("Previous: i=%d, j=%d, val=%f         now at: i=%d, j=%d\n", i, j, f[direction, i, j, k], new_i, new_j)
 
-def post_process(displacement: wp.array4d(dtype=Any)):
+def post_process(displacement: wp.array4d(dtype=Any), L, T, kappa):
     displacement_host = displacement.numpy()
+    #perform rescaling
+    displacement_host = displacement_host * L *kappa / T
     print(
         np.linalg.norm(displacement_host[0, :, :, 0]),
         np.linalg.norm(displacement_host[1, :, :, 0]),
     )
+    #print(displacement_host[0,:,:,0])
 
 
 if __name__ == "__main__":
@@ -172,12 +192,12 @@ if __name__ == "__main__":
     domain_y = 3
 
     # total time
-    total_time = 2
+    total_time = 20
 
     # set shape of grid
-    nodes_x = 3
-    nodes_y = 3
-    timesteps = 40
+    nodes_x = 30
+    nodes_y = 30
+    timesteps = 400
 
     # calculate dx, dt
     dx = domain_x / (nodes_x - 1)
@@ -214,7 +234,7 @@ if __name__ == "__main__":
     mu = E / (2 * (1 + nu))
     lamb = E / (2 * (1 - nu)) - mu
     K = lamb + mu
-    theta = 1 / 3  # check this!!
+    theta = 1 / 3
 
     # -----------make dimensionless----------
     L = dx
@@ -239,8 +259,8 @@ if __name__ == "__main__":
     )
 
     # ----------define foce load---------------
-    b_x = lambda x, y: 0#(mu - K) * (np.cos(x))
-    b_y = lambda x, y: 0#(mu - K) * (np.cos(y))
+    b_x = lambda x, y: (mu - K) * (np.cos(x))
+    b_y = lambda x, y: (mu - K) * (np.cos(y))
     # make dimensionless and in terms of node positions
     b_x_scaled = lambda i, j: b_x(i * dx, j * dx) * T / kappa
     b_y_scaled = lambda i, j: b_y(i * dx, i * dx) * T / kappa
@@ -253,14 +273,16 @@ if __name__ == "__main__":
     force = wp.from_numpy(host_force, dtype=precision_policy.store_precision.wp_dtype)
 
     # ----------define exact solution-----------
-    # exact_u = lambda x, y: cos(x)
-    # exact_v = lambda x, y: cos(y)
+    exact_u = lambda x, y: cos(x)
+    exact_v = lambda x, y: cos(y)
 
     for i in range(timesteps):
+        wp.synchronize() #probablynot needed according to docs (automatic synchronization between kernel launches)
         wp.launch(
             collide,
             inputs=[f_1, f_2, force, displacement, omega, theta],
             dim=f_1.shape[1:],
         )
         wp.launch(stream, inputs=[f_2, f_1, nodes_x, nodes_x], dim=f_1.shape[1:])
-        post_process(displacement)
+        wp.synchronize()
+        if i%5 == 0: post_process(displacement, L, T, kappa)
