@@ -132,6 +132,9 @@ def collide(
     for l in range(m._length_):  
         m[l] = omega[l] * m_eq[l] + (1.0 - omega[l]) * m[l]
 
+    assert m_eq[0] == m[0]
+    assert m_eq[1] == m[1] #sanity check
+
     # half-forcing
     m[0] += 0.5 * force[0, i, j, 0]
     m[1] += 0.5 * force[1, i, j, 0]
@@ -176,21 +179,26 @@ def stream(
         f_post[direction, new_i, new_j, k] = f[direction, i, j, k]
         #if direction == 2: wp.printf("Previous: i=%d, j=%d, val=%f         now at: i=%d, j=%d\n", i, j, f[direction, i, j, k], new_i, new_j)
 
-def post_process(displacement: wp.array4d(dtype=Any), L, T, kappa):
+def post_process(displacement: wp.array4d(dtype=Any), L, T, kappa, timestep):
     displacement_host = displacement.numpy()
     #perform rescaling
     displacement_host = displacement_host * L *kappa / T
     print(
-        np.linalg.norm(displacement_host[0, :, :, 0]),
-        np.linalg.norm(displacement_host[1, :, :, 0]),
+        np.linalg.norm(displacement_host[0, :, :, 0]/timestep),
+        np.linalg.norm(displacement_host[1, :, :, 0]/timestep),
     )
-    print(displacement_host[0,:,:,0])
+    #print(displacement_host[0,:,:,0])
+    dis_x = displacement_host[0,:,:,0]/timestep
+    dis_y = displacement_host[1,:,:,0]/timestep
+    dis_mag = np.sqrt(np.square(dis_x) + np.square(dis_y))
+    fields = {"dis_x": dis_x, "dis_y": dis_y, "dis_mag": dis_mag}
+    save_fields_vtk(fields, timestep=timestep, prefix="blablabla")
 
 
 if __name__ == "__main__":
     # set dimensions of domain
-    domain_x = 2*math.pi  # for now we work on square
-    domain_y = 2*math.pi
+    domain_x = 6*math.pi  # for now we work on square
+    domain_y = 6*math.pi
 
     # total time
     total_time = 2
@@ -242,15 +250,15 @@ if __name__ == "__main__":
     # -----------make dimensionless----------
     L = dx
     T = dt
-    kappa = 10
+    kappa = 1
     mu_scaled = mu * T / (L * L * kappa)
     lamb_scaled = lamb * T / (L * L * kappa)
     K_scaled = K * T / (L * L * kappa)
 
     # calculate omega
-    omega_11 = 1 / (mu_scaled / theta + 0.5)
-    omega_s = 1 / (2 * (1 / (1 + theta)) * K_scaled + 0.5)
-    omega_d = 1 / (2 * (1 / (1 - theta)) * mu_scaled + 0.5)
+    omega_11 = 1. / (mu_scaled / theta + 0.5)
+    omega_s = 1. / (2 * (1 / (1 + theta)) * K_scaled + 0.5)
+    omega_d = 1. / (2 * (1 / (1 - theta)) * mu_scaled + 0.5)
     tau_12 = 0.5
     tau_21 = 0.5
     tau_22 = 0.5
@@ -279,12 +287,10 @@ if __name__ == "__main__":
     exact_v = lambda x, y: cos(y)
 
     for i in range(timesteps):
-        wp.synchronize() #probablynot needed according to docs (automatic synchronization between kernel launches)
         wp.launch(
             collide,
             inputs=[f_1, f_2, force, displacement, omega, theta],
             dim=f_1.shape[1:],
         )
         wp.launch(stream, inputs=[f_2, f_1, nodes_x, nodes_x], dim=f_1.shape[1:])
-        wp.synchronize()
-        if i%5 == 0: post_process(displacement, L, T, kappa)
+        if i%1 == 0: post_process(displacement, L, T, kappa, i)
