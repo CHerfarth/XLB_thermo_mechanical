@@ -182,14 +182,14 @@ def stream(
 def post_process(displacement: wp.array4d(dtype=Any), L, T, kappa, timestep):
     displacement_host = displacement.numpy()
     #perform rescaling
-    displacement_host = displacement_host * L *kappa / T
+    displacement_host = displacement_host#/L * kappa #* L *kappa / T
     print(
-        np.linalg.norm(displacement_host[0, :, :, 0]/timestep),
-        np.linalg.norm(displacement_host[1, :, :, 0]/timestep),
+        np.linalg.norm(displacement_host[0, :, :, 0]),#/timestep),
+        np.linalg.norm(displacement_host[1, :, :, 0])#/timestep),
     )
     #print(displacement_host[0,:,:,0])
-    dis_x = displacement_host[0,:,:,0]/timestep
-    dis_y = displacement_host[1,:,:,0]/timestep
+    dis_x = displacement_host[0,:,:,0]#/timestep
+    dis_y = displacement_host[1,:,:,0]#/timestep
     dis_mag = np.sqrt(np.square(dis_x) + np.square(dis_y))
     fields = {"dis_x": dis_x, "dis_y": dis_y, "dis_mag": dis_mag}
     save_fields_vtk(fields, timestep=timestep, prefix="blablabla")
@@ -197,16 +197,16 @@ def post_process(displacement: wp.array4d(dtype=Any), L, T, kappa, timestep):
 
 if __name__ == "__main__":
     # set dimensions of domain
-    domain_x = 6*math.pi  # for now we work on square
-    domain_y = 6*math.pi
+    domain_x = 2*math.pi  # for now we work on square
+    domain_y = 2*math.pi
 
     # total time
-    total_time = 2
+    total_time = 20
 
     # set shape of grid
-    nodes_x = 30
-    nodes_y = 30
-    timesteps = 400
+    nodes_x = 40
+    nodes_y = 40
+    timesteps = 40000
 
     # calculate dx, dt
     dx = domain_x / (nodes_x)
@@ -270,11 +270,11 @@ if __name__ == "__main__":
     )
 
     # ----------define foce load---------------
-    b_x = lambda x, y: (mu - K) * (np.cos(x))
-    b_y = lambda x, y: (mu - K) * (np.cos(y))
+    b_x = lambda x, y: (85/144) * (np.cos(x))
+    b_y = lambda x, y: (85/144) * (np.cos(y))
     # make dimensionless and in terms of node positions
-    b_x_scaled = lambda i, j: b_x(i * dx + 0.5*dx, j * dy + 0.5*dy) * T / kappa
-    b_y_scaled = lambda i, j: b_y(i * dx + 0.5*dx, j * dy + 0.5*dy) * T / kappa
+    b_x_scaled = lambda i, j: b_x(i * dx + 0.5*dx, j * dy + 0.5*dy)* T/ (kappa) #enough when uing th dx??
+    b_y_scaled = lambda i, j: b_y(i * dx + 0.5*dx, j * dy + 0.5*dy) * T/ (kappa)
     host_force_x = np.fromfunction(b_x_scaled, shape=(nodes_x, nodes_y))
     host_force_y = np.fromfunction(b_y_scaled, shape=(nodes_x, nodes_y))
     host_force = np.array([[host_force_x, host_force_y]])
@@ -283,8 +283,8 @@ if __name__ == "__main__":
     force = wp.from_numpy(host_force, dtype=precision_policy.store_precision.wp_dtype)
 
     # ----------define exact solution-----------
-    exact_u = lambda x, y: cos(x)
-    exact_v = lambda x, y: cos(y)
+    exact_u = lambda x, y: np.cos(x)
+    exact_v = lambda x, y: np.cos(y)
 
     for i in range(timesteps):
         wp.launch(
@@ -293,4 +293,4 @@ if __name__ == "__main__":
             dim=f_1.shape[1:],
         )
         wp.launch(stream, inputs=[f_2, f_1, nodes_x, nodes_x], dim=f_1.shape[1:])
-        if i%1 == 0: post_process(displacement, L, T, kappa, i)
+        if i%400 == 0: post_process(displacement, L, T, kappa, i)

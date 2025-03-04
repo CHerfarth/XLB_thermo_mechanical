@@ -1,5 +1,3 @@
-rm evolution.csv
-python3 test.py
-cd plotting/
-python3 plotter.py
-cd ..
+rm *.vtk
+python3 warp_implementation.py
+paraview
