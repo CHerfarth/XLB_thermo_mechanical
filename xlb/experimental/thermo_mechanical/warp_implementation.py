@@ -220,7 +220,7 @@ if __name__ == "__main__":
     # init xlb stuff
     compute_backend = ComputeBackend.WARP
     velocity_set = xlb.velocity_set.D2Q9(
-        precision_policy=precision_policy, backend=compute_backend
+        precision_policy=precision_policy, compute_backend=compute_backend
     )
 
     # initialise grid (should probably move this to Stepper class for full implementation later)
