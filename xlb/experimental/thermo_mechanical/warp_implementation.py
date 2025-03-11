@@ -6,6 +6,7 @@ import xlb.velocity_set
 import warp as wp
 import numpy as np
 from typing import Any
+import sympy
 import math
 
 
@@ -197,23 +198,20 @@ def post_process(displacement: wp.array4d(dtype=Any), L, T, kappa, timestep):
 
 if __name__ == "__main__":
     # set dimensions of domain
-    domain_x = 2*math.pi  # for now we work on square
-    domain_y = 2*math.pi
+    domain_x = 6*math.pi  # for now we work on square
+    domain_y = 6*math.pi
 
     # total time
     total_time = 20
 
     # set shape of grid
-    nodes_x = 40
-    nodes_y = 40
+    nodes_x = 50
+    nodes_y = 50
     timesteps = 40000
 
     # calculate dx, dt
     dx = domain_x / (nodes_x)
     dy = domain_y / (nodes_y)
-    print(dx, dy)
-    for i in range(nodes_x):
-        print(dx*i + 0.5*dx)
     dt = total_time / timesteps
     assert dx == dy, "Wrong spacial steps in directions x and y do not match"
 
@@ -269,22 +267,29 @@ if __name__ == "__main__":
         0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_22, 0.0
     )
 
-    # ----------define foce load---------------
-    b_x = lambda x, y: (85/144) * (np.cos(x))
-    b_y = lambda x, y: (85/144) * (np.cos(y))
-    # make dimensionless and in terms of node positions
-    b_x_scaled = lambda i, j: b_x(i * dx + 0.5*dx, j * dy + 0.5*dy)* T/ (kappa) #enough when uing th dx??
-    b_y_scaled = lambda i, j: b_y(i * dx + 0.5*dx, j * dy + 0.5*dy) * T/ (kappa)
-    host_force_x = np.fromfunction(b_x_scaled, shape=(nodes_x, nodes_y))
-    host_force_y = np.fromfunction(b_y_scaled, shape=(nodes_x, nodes_y))
+
+    #-----------define exact solutions----------
+    x, y = sympy.symbols('x y')
+    man_u = sympy.cos(x)
+    man_v = 0
+
+    #get force load
+    b_x = -mu*(sympy.diff(man_u, x, x)+sympy.diff(man_u, y, y)) - K*sympy.diff(sympy.diff(man_u, x)+sympy.diff(man_v, y), x)
+    b_y = -mu*(sympy.diff(man_v, x, x)+sympy.diff(man_v, y, y)) - K*sympy.diff(sympy.diff(man_u, x)+sympy.diff(man_v, y), y)
+    
+    #scale forece load
+    x_node, y_node = sympy.symbols('x_node y_node')
+    b_x_scaled = b_x.subs([(x, x_node*dx + 0.5*dx), (y, y_node*dy + 0.5*dy)]) * T/kappa
+    b_y_scaled = b_y.subs([(x, x_node*dx + 0.5*dx), (y, y_node*dy + 0.5*dy)]) * T/kappa
+
+    #create force matrix
+    host_force_x = np.fromfunction(np.vectorize(sympy.lambdify([x_node, y_node], b_x_scaled, "numpy")), shape=(nodes_x, nodes_y))
+    host_force_y = np.fromfunction(np.vectorize(sympy.lambdify([x_node, y_node], b_y_scaled, "numpy")), shape=(nodes_x, nodes_y))
     host_force = np.array([[host_force_x, host_force_y]])
     host_force = np.transpose(host_force, (1, 2, 3, 0)) #swap dims to make array compatible with what grid_factory would have produced
-    print(host_force)
     force = wp.from_numpy(host_force, dtype=precision_policy.store_precision.wp_dtype)
+    
 
-    # ----------define exact solution-----------
-    exact_u = lambda x, y: np.cos(x)
-    exact_v = lambda x, y: np.cos(y)
 
     for i in range(timesteps):
         wp.launch(
