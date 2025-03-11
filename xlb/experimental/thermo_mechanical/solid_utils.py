@@ -1,0 +1,82 @@
+import warp as wp
+from xlb.precision_policy import PrecisionPolicy
+from typing import Any
+import sympy
+import numpy as np
+
+
+solid_vec = wp.vec(9, dtype=PrecisionPolicy.FP32FP32) #this is the default precision policy; it can be changed by calling set_precision_policy()
+
+def set_precision_policy(precision_policy):
+    global solid_vec
+    solid_vec = wp.vec(9, dtype=PrecisionPolicy.FP32FP32)
+
+
+@wp.func
+def read_local_population(f: wp.array4d(dtype=Any), x: wp.int32, y: wp.int32):
+    f_local = solid_vec()
+    for i in range(9):
+        f_local[i] = f[i, x, y, 0]
+
+@wp.func
+def write_population_to_global(
+    f: wp.array4d(dtype=Any), f_local: solid_vec, x: wp.int32, y: wp.int32
+):
+    for i in range(9):
+        f[i, x, y, 0] = f_local[i]
+
+
+@wp.func
+def calc_moments(f: solid_vec):
+    m = solid_vec()
+    # Todo: find better way to do this!
+    m[0] = f[0] - f[2] + f[4] - f[5] - f[6] + f[7]
+    m[1] = f[1] - f[3] + f[4] + f[5] - f[6] - f[7]
+    m[2] = f[4] - f[5] + f[6] - f[7]
+    m[3] = f[0] + f[1] + f[2] + f[3] + 2.0 * f[4] + 2.0 * f[5] + 2.0 * f[6] + 2.0 * f[7]
+    m[4] = f[0] - f[1] + f[2] - f[3]
+    m[5] = f[4] - f[5] - f[6] + f[7]
+    m[6] = f[4] + f[5] - f[6] - f[7]
+    m[7] = f[4] + f[5] + f[6] + f[7]
+    m[8] = 0.0
+    return m
+
+
+@wp.func
+def calc_populations(m: solid_vec):
+    f = solid_vec()
+    # Todo: find better way to do this!
+    f[0] = 2.0 * m[0] + m[3] + m[4] - 2.0 * m[5] - 2.0 * m[7]
+    f[1] = 2.0 * m[1] + m[3] - m[4] - 2.0 * m[6] - 2.0 * m[7]
+    f[2] = -2.0 * m[0] + m[3] + m[4] + 2.0 * m[5] - 2.0 * m[7]
+    f[3] = -2.0 * m[1] + m[3] - m[4] + 2.0 * m[6] - 2.0 * m[7]
+    f[4] = m[2] + m[5] + m[6] + m[7]
+    f[5] = -m[2] - m[5] + m[6] + m[7]
+    f[6] = m[2] - m[5] - m[6] + m[7]
+    f[7] = -m[2] + m[5] - m[6] + m[7]
+    f[8] = 0.0
+    for i in range(9):
+        f[i] = f[i]/4.
+    return f
+
+
+@wp.func
+def calc_equilibrium(m: solid_vec, theta: Any):
+    m_eq = solid_vec()
+    m_eq[0] = m[0]
+    m_eq[1] = m[1]
+    m_eq[2] = 0.0
+    m_eq[3] = 0.0
+    m_eq[4] = 0.0
+    m_eq[5] = theta * m[0]
+    m_eq[6] = theta * m[1]
+    m_eq[7] = 0.0
+    m_eq[8] = 0.0
+    return m_eq
+
+def get_force_load(manufactured_displacement, x, y, mu, K):
+    man_u = manufactured_displacement[0]
+    man_v = manufactured_displacement[1]
+    b_x = -mu*(sympy.diff(man_u, x, x)+sympy.diff(man_u, y, y)) - K*sympy.diff(sympy.diff(man_u, x)+sympy.diff(man_v, y), x)
+    b_y = -mu*(sympy.diff(man_v, x, x)+sympy.diff(man_v, y, y)) - K*sympy.diff(sympy.diff(man_u, x)+sympy.diff(man_v, y), y)
+    return (np.vectorize(sympy.lambdify([x, y], b_x, "numpy")), np.vectorize(sympy.lambdify([x, y], b_x, "numpy")))
