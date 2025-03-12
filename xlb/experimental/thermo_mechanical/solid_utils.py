@@ -137,7 +137,7 @@ def get_function_on_grid(f, x, y, dx, grid):
 
 
 def get_error_norm(current, expected, dx):
-    error_matrix = current - expected
+    error_matrix = np.subtract(current,expected)
     l2_norm = np.sqrt(np.sum(np.linalg.norm(error_matrix, axis=0)**2))*dx
     linf_norm = np.max(np.linalg.norm(error_matrix, axis=0))
     return l2_norm, linf_norm

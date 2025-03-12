@@ -26,7 +26,7 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 
 class SolidsStepper(Stepper):
-    def __init__(self, grid, force_load, E, nu, dx, dt, boundary_conditions=[], kappa=1, theta=1 / 3):
+    def __init__(self, grid, force_load, E, nu, dx, dt, boundary_conditions=[], kappa=1, theta=1/3):
         super().__init__(grid, boundary_conditions)
         self.grid = grid
         self.boundary_conditions = boundary_conditions

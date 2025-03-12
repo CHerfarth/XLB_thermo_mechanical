@@ -31,8 +31,9 @@ def process_error(displacement_device, manufactured_displacement, timestep, dx, 
     #get current displacement ToDo: stress?
     displacement_host = utils.get_macroscopics(displacement_device)
     #calculate error to expected solution
-    l2, linf = utils.get_error_norm(displacement_device[:,:,:,0], manufactured_displacement, dx)
+    l2, linf = utils.get_error_norm(displacement_host[:,:,:,0], manufactured_displacement, dx)
     norms_over_time.append((i, l2, linf))
+    return l2, linf
 
 def write_results(norms_over_time, name):
     with open(name, 'w', newline='') as file:
@@ -51,8 +52,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 50
-    nodes_y = 50
+    nodes_x = 1000
+    nodes_y = 1000
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -61,9 +62,8 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    total_time = 20
-    timesteps = 8000
-    dt = total_time / (timesteps)
+    timesteps = 50000
+    dt = 0.01
 
     # get params
     E = 0.085 * 2.5
@@ -86,12 +86,19 @@ if __name__ == "__main__":
     displacement = grid.create_field(cardinality=2, dtype=precision_policy.store_precision)
 
     norms_over_time = list() #to track error over time
+    tolerance = 1e-6
 
+    l2, linf = 0, 0
     for i in range(timesteps):
         stepper(f_0, f_1, displacement)
         f_0, f_1 = f_1, f_0
-        if i % 40 == 0:
-            process_error(displacement, manufactured_displacement, i, dx, norms_over_time)
+        if i % 100 == 0:
+            l2_new, linf_new = process_error(displacement, manufactured_displacement, i, dx, norms_over_time)
+            if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:
+                print("Final timestep:{}".format(i))
+                break
+            l2, linf = l2_new, linf_new
 
     #write out error norms
+    print("Final error: {}".format(norms_over_time[len(norms_over_time)-1]))
     write_results(norms_over_time, "results.csv")
