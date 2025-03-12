@@ -10,7 +10,6 @@ from xlb.operator import Operator
 from xlb.compute_backend import ComputeBackend
 
 from xlb.experimental.thermo_mechanical.solid_collision import SolidsCollision
-from xlb.experimental.thermo_mechanical.solid_streamer import SolidsStreamerPBC
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 # Mapping:
@@ -25,71 +24,61 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 #    1 -1   |   8
 #    0  0   |   9    (irrelevant)
 
+
 class SolidsStepper(Stepper):
-    def __init__(
-        self,
-        grid,
-        force_load,
-        E, nu, dx, dt,
-        boundary_conditions=[], kappa=1, theta=1/3
-    ):
+    def __init__(self, grid, force_load, E, nu, dx, dt, boundary_conditions=[], kappa=1, theta=1 / 3):
         super().__init__(grid, boundary_conditions)
         self.grid = grid
         self.boundary_conditions = boundary_conditions
 
-        #----------get material variables------
+        # ----------get material variables------
         mu = E / (2 * (1 + nu))
         lamb = E / (2 * (1 - nu)) - mu
         K = lamb + mu
-        
-        #---------make dimensionless----------
-        self.kappa=kappa
+
+        # ---------make dimensionless----------
+        self.kappa = kappa
         self.L = dx
         self.T = dt
         self.mu = mu * self.T / (self.L * self.L * self.kappa)
         self.lamb = lamb * self.T / (self.L * self.L * self.kappa)
         self.K = K * self.T / (self.L * self.L * self.kappa)
-        self.theta=theta
+        self.theta = theta
 
-
-        #----------calculate omega------------
-        omega_11 = 1. / (self.mu / theta + 0.5)
-        omega_s = 1. / (2 * (1 / (1 + theta)) * self.K + 0.5)
-        omega_d = 1. / (2 * (1 / (1 - theta)) * self.mu + 0.5)
+        # ----------calculate omega------------
+        omega_11 = 1.0 / (self.mu / theta + 0.5)
+        omega_s = 1.0 / (2 * (1 / (1 + theta)) * self.K + 0.5)
+        omega_d = 1.0 / (2 * (1 / (1 - theta)) * self.mu + 0.5)
         tau_12 = 0.5
         tau_21 = 0.5
         tau_22 = 0.5
         omega_12 = 1 / (tau_12 + 0.5)
         omega_21 = 1 / (tau_21 + 0.5)
         omega_22 = 1 / (tau_22 + 0.5)
-        self.omega = utils.solid_vec(
-            0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_22, 0.0
-        )
+        self.omega = utils.solid_vec(0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_22, 0.0)
 
-        #----------handle force load---------
-        print(self.grid.shape)
-        b_x_scaled = lambda x_node, y_node: force_load[0](x_node*dx + 0.5*dx, y_node*dx + 0.5*dx) * self.T/self.kappa #force now dimensionless, and can get called with the indices of the grid nodes
-        b_y_scaled = lambda x_node, y_node: force_load[1](x_node*dx + 0.5*dx, y_node*dx + 0.5*dx) * self.T/self.kappa
-        host_force_x = np.fromfunction(b_x_scaled, shape=(self.grid.shape[0], self.grid.shape[1])) #create array with force evaluated at the grid points
+        # ----------handle force load---------
+        b_x_scaled = (
+            lambda x_node, y_node: force_load[0](x_node * dx + 0.5 * dx, y_node * dx + 0.5 * dx) * self.T / self.kappa
+        )  # force now dimensionless, and can get called with the indices of the grid nodes
+        b_y_scaled = lambda x_node, y_node: force_load[1](x_node * dx + 0.5 * dx, y_node * dx + 0.5 * dx) * self.T / self.kappa
+        host_force_x = np.fromfunction(
+            b_x_scaled, shape=(self.grid.shape[0], self.grid.shape[1])
+        )  # create array with force evaluated at the grid points
         host_force_y = np.fromfunction(b_y_scaled, shape=(self.grid.shape[0], self.grid.shape[1]))
         host_force = np.array([[host_force_x, host_force_y]])
-        host_force = np.transpose(host_force, (1, 2, 3, 0)) #swap dims to make array compatible with what grid_factory would have produced
-        self.force = wp.from_numpy(host_force, dtype=self.precision_policy.store_precision.wp_dtype) #...and move to device
+        host_force = np.transpose(host_force, (1, 2, 3, 0))  # swap dims to make array compatible with what grid_factory would have produced
+        self.force = wp.from_numpy(host_force, dtype=self.precision_policy.store_precision.wp_dtype)  # ...and move to device
 
-        #---------define operators----------
+        # ---------define operators----------
         self.collision = SolidsCollision(self.omega, self.force, self.theta)
-        self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)#SolidsStreamerPBC(self.velocity_set, self.precision_policy, self.compute_backend)
-        self.macroscopic = None #needed?
-        self.equilibrium = None #needed?
+        self.stream = Stream(
+            self.velocity_set, self.precision_policy, self.compute_backend
+        )  
+        self.macroscopic = None  # needed?
+        self.equilibrium = None  # needed?
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f_0, f_1, displacement):
-        wp.launch(
-            self.collision.warp_kernel, inputs=[f_0, self.force, self.omega, self.theta, displacement],dim=f_0.shape[1:]
-        )
+        wp.launch(self.collision.warp_kernel, inputs=[f_0, self.force, self.omega, self.theta, displacement], dim=f_0.shape[1:])
         wp.launch(self.stream.warp_kernel, inputs=[f_0, f_1], dim=f_0.shape[1:])
-
-
-
-
-

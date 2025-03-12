@@ -13,33 +13,26 @@ from functools import partial
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 
-
-
 class SolidsCollision(Collision):
     """
     Collision Operator for Solids
     """
+
     def __init__(
         self,
         omega,
         force_matrix,
-        theta=1/3,
+        theta=1 / 3,
         velocity_set: VelocitySet = None,
         precision_policy=None,
         compute_backend=None,
     ):
-        
-        super().__init__(
-            velocity_set=velocity_set, 
-            precision_policy=precision_policy, 
-            compute_backend=compute_backend
-        )
+        super().__init__(velocity_set=velocity_set, precision_policy=precision_policy, compute_backend=compute_backend)
 
         self.omega = omega
 
     def _construct_warp(self):
-
-        #construct warp kernel
+        # construct warp kernel
         @wp.kernel
         def collide(
             f: wp.array4d(dtype=Any),
@@ -63,11 +56,11 @@ class SolidsCollision(Collision):
             m_eq = utils.calc_equilibrium(m, theta)
 
             # get post-collision populations
-            for l in range(m._length_):  
+            for l in range(m._length_):
                 m[l] = omega[l] * m_eq[l] + (1.0 - omega[l]) * m[l]
 
             assert m_eq[0] == m[0]
-            assert m_eq[1] == m[1] #sanity check
+            assert m_eq[1] == m[1]  # sanity check
 
             # half-forcing
             m[0] += 0.5 * force[0, i, j, 0]
@@ -78,6 +71,3 @@ class SolidsCollision(Collision):
             utils.write_population_to_global(f, f_local, i, j)
 
         return None, collide
-        
-
-        

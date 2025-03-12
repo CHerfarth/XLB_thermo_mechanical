@@ -155,3 +155,5 @@ checkpoints/*
 dist/
 build/
 *.egg-info/
+
+*.csv
