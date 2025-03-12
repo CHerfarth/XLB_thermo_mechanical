@@ -24,36 +24,34 @@ if __name__ == "__main__":
         precision_policy=precision_policy, compute_backend=compute_backend
     )
 
-    config = configparser.ConfigParser()
-    config.read('simulation_config.ini')
-    print(config.sections())
+    xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     #initialize grid
-    nodes_x = int(config['Grid']['nodes_x'])
-    nodes_y = int(config['Grid']['nodes_y'])
+    nodes_x = 50 
+    nodes_y = 50 
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     #get discretization
-    length_x= float(config['Domain']['length_x'])
-    length_y= float(config['Domain']['length_y'])
+    length_x=6*math.pi 
+    length_y=6*math.pi 
     dx = length_x/float(nodes_x)
     dy = length_y/float(nodes_y)
     assert math.isclose(dx, dy)
-    total_time = float(config['Time']['total_time'])
-    timesteps = int(config['Time']['timesteps'])
-    dt = total_time/float(timesteps)
+    total_time = 20
+    timesteps = 4000
+    dt = total_time/(timesteps)
 
     #get params
-    E = float(config['Material Parameters']['E'])
-    nu = float(config['Material Parameters']['nu'])
+    E = 0.085*2.5
+    nu = 0.8 
     mu = E / (2 * (1 + nu))
     lamb = E / (2 * (1 - nu)) - mu
     K = lamb + mu
 
     #get force load
     x, y = sympy.symbols('x y')
-    manufactured_u = sympy.sympify(config['Simulation Parameters']['manufactured_u']) 
-    manufactured_v = sympy.sympify(config['Simulation Parameters']['manufactured_v']) 
+    manufactured_u = sympy.cos(x)
+    manufactured_v = sympy.sin(y)
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y, mu, K)
     stepper = SolidsStepper(grid, force_load, E, nu, dx, dt)
 

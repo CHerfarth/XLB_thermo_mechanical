@@ -66,16 +66,17 @@ class SolidsStepper(Stepper):
         )
 
         #----------handle force load---------
+        print(self.grid.shape)
         b_x_scaled = lambda x_node, y_node: force_load[0](x_node*dx + 0.5*dx, y_node*dx + 0.5*dx) * self.T/self.kappa #force now dimensionless, and can get called with the indices of the grid nodes
         b_y_scaled = lambda x_node, y_node: force_load[1](x_node*dx + 0.5*dx, y_node*dx + 0.5*dx) * self.T/self.kappa
-        host_force_x = np.fromfunction(b_x_scaled, shape=(self.grid.shape[1], self.grid.shape[2])) #create array with force evaluated at the grid points
-        host_force_y = np.fromfunction(b_y_scaled, shape=(self.grid.shape[1], self.grid.shape[2]))
+        host_force_x = np.fromfunction(b_x_scaled, shape=(self.grid.shape[0], self.grid.shape[1])) #create array with force evaluated at the grid points
+        host_force_y = np.fromfunction(b_y_scaled, shape=(self.grid.shape[0], self.grid.shape[1]))
         host_force = np.array([[host_force_x, host_force_y]])
         host_force = np.transpose(host_force, (1, 2, 3, 0)) #swap dims to make array compatible with what grid_factory would have produced
         self.force = wp.from_numpy(host_force, dtype=self.precision_policy.store_precision.wp_dtype) #...and move to device
 
         #---------define operators----------
-        self.collision = None
+        self.collision = SolidsCollision(self.omega, self.force, self.theta)
         self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)
         self.macroscopic = None #needed?
         self.equilibrium = None #needed?
@@ -83,9 +84,9 @@ class SolidsStepper(Stepper):
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f_0, f_1):
         wp.launch(
-            self.collision.warp_kernel(f_0, f_1, self.force, self.omega, self.theta)
+            self.collision.warp_kernel, inputs=[f_0, f_1, self.force, self.omega, self.theta],dim=f_0.shape[1:]
         )
-        wp.launch(self.stream.warp_kernel(f_1, f_0))
+        wp.launch(self.stream.warp_kernel, inputs=[f_1, f_0], dim=f_0.shape[1:])
 
 
 

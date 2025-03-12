@@ -5,7 +5,7 @@ import sympy
 import numpy as np
 
 
-solid_vec = wp.vec(9, dtype=PrecisionPolicy.FP32FP32) #this is the default precision policy; it can be changed by calling set_precision_policy()
+solid_vec = wp.vec(9, dtype=PrecisionPolicy.FP32FP32.compute_precision.wp_dtype) #this is the default precision policy; it can be changed by calling set_precision_policy()
 
 def set_precision_policy(precision_policy):
     global solid_vec
@@ -17,6 +17,7 @@ def read_local_population(f: wp.array4d(dtype=Any), x: wp.int32, y: wp.int32):
     f_local = solid_vec()
     for i in range(9):
         f_local[i] = f[i, x, y, 0]
+    return f_local
 
 @wp.func
 def write_population_to_global(

@@ -58,7 +58,7 @@ class SolidsCollision(Collision):
             force: wp.array4d(dtype=Any),
             omega: utils.solid_vec,
             theta: Any,
-            displacement: wp.array4d(dtype=Any) = None,
+            #displacement: wp.array4d(dtype=Any),
         ):
             i, j, k = wp.tid()  # for 2d, k will equal 1
 
@@ -69,9 +69,9 @@ class SolidsCollision(Collision):
             # apply half-forcing and get displacement
             m[0] += 0.5 * force[0, i, j, 0]
             m[1] += 0.5 * force[1, i, j, 0]
-            if displacement != None:
+            '''if displacement != None:
                 displacement[0, i, j, 0] = m[0]
-                displacement[1, i, j, 0] = m[1]
+                displacement[1, i, j, 0] = m[1]'''
 
             m_eq = utils.calc_equilibrium(m, theta)
 
@@ -88,7 +88,7 @@ class SolidsCollision(Collision):
 
             # get populations and write back to global
             f_local = utils.calc_populations(m)
-            utils.write_population_to_globalwrite_global(f_post, f_local, i, j)
+            utils.write_population_to_global(f_post, f_local, i, j)
 
         return None, collide
         
