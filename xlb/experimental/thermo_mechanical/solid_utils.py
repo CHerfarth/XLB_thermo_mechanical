@@ -78,6 +78,12 @@ def calc_equilibrium(m: solid_vec, theta: Any):
 def get_force_load(manufactured_displacement, x, y, mu, K):
     man_u = manufactured_displacement[0]
     man_v = manufactured_displacement[1]
+    print(man_u)
+    print(man_v)
     b_x = -mu*(sympy.diff(man_u, x, x)+sympy.diff(man_u, y, y)) - K*sympy.diff(sympy.diff(man_u, x)+sympy.diff(man_v, y), x)
     b_y = -mu*(sympy.diff(man_v, x, x)+sympy.diff(man_v, y, y)) - K*sympy.diff(sympy.diff(man_u, x)+sympy.diff(man_v, y), y)
-    return (np.vectorize(sympy.lambdify([x, y], b_x, "numpy")), np.vectorize(sympy.lambdify([x, y], b_x, "numpy")))
+    return (np.vectorize(sympy.lambdify([x, y], b_x, "numpy")), np.vectorize(sympy.lambdify([x, y], b_y, "numpy")))
+
+def get_macroscopics(displacement_device):
+    displacement_host = displacement_device.numpy() #post-processing needed? #adjust at later point for stress
+    return displacement_host

@@ -1,6 +1,5 @@
 import xlb
 import sys
-print(sys.path)
 from xlb.compute_backend import ComputeBackend
 from xlb.precision_policy import PrecisionPolicy
 from xlb.grid import grid_factory
@@ -15,6 +14,16 @@ import sympy
 import math
 import configparser
 import xlb.experimental.thermo_mechanical.solid_utils as utils
+
+
+def post_process(displacement_device, timestep, name):
+    displacement_host = utils.get_macroscopics(displacement_device)
+    dis_x = displacement_host[0,:,:,0]
+    dis_y = displacement_host[1,:,:,0]
+    dis_mag = np.sqrt(np.square(dis_x) + np.square(dis_y))
+    fields = {"dis_x": dis_x, "dis_y": dis_y, "dis_mag": dis_mag}
+    save_fields_vtk(fields, timestep=timestep, prefix=name)
+
 
 if __name__ == "__main__":
 
@@ -38,7 +47,7 @@ if __name__ == "__main__":
     dy = length_y/float(nodes_y)
     assert math.isclose(dx, dy)
     total_time = 20
-    timesteps = 4000
+    timesteps = 2000
     dt = total_time/(timesteps)
 
     #get params
@@ -51,7 +60,7 @@ if __name__ == "__main__":
     #get force load
     x, y = sympy.symbols('x y')
     manufactured_u = sympy.cos(x)
-    manufactured_v = sympy.sin(y)
+    manufactured_v = sympy.cos(y)
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y, mu, K)
     stepper = SolidsStepper(grid, force_load, E, nu, dx, dt)
 
@@ -66,6 +75,9 @@ if __name__ == "__main__":
         cardinality=2, dtype=precision_policy.store_precision
     )
     for i in range(timesteps):
-        stepper(f_0, f_1)
+        stepper(f_0, f_1, displacement)
+
+        if i%25 == 0:
+            post_process(displacement, i, "sim")
 
 

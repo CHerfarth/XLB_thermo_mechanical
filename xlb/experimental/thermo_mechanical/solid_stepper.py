@@ -82,11 +82,12 @@ class SolidsStepper(Stepper):
         self.equilibrium = None #needed?
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f_0, f_1):
+    def warp_implementation(self, f_0, f_1, displacement):
         wp.launch(
-            self.collision.warp_kernel, inputs=[f_0, f_1, self.force, self.omega, self.theta],dim=f_0.shape[1:]
+            self.collision.warp_kernel, inputs=[f_0, self.force, self.omega, self.theta, displacement],dim=f_0.shape[1:]
         )
-        wp.launch(self.stream.warp_kernel, inputs=[f_1, f_0], dim=f_0.shape[1:])
+        wp.launch(self.stream.warp_kernel, inputs=[f_0, f_1], dim=f_0.shape[1:])
+
 
 
 
