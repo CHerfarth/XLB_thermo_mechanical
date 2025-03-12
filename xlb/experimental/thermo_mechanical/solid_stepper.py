@@ -10,6 +10,7 @@ from xlb.operator import Operator
 from xlb.compute_backend import ComputeBackend
 
 from xlb.experimental.thermo_mechanical.solid_collision import SolidsCollision
+from xlb.experimental.thermo_mechanical.solid_streamer import SolidsStreamerPBC
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 # Mapping:
@@ -77,7 +78,7 @@ class SolidsStepper(Stepper):
 
         #---------define operators----------
         self.collision = SolidsCollision(self.omega, self.force, self.theta)
-        self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)
+        self.stream = SolidsStreamerPBC(self.velocity_set, self.precision_policy, self.compute_backend)
         self.macroscopic = None #needed?
         self.equilibrium = None #needed?
 

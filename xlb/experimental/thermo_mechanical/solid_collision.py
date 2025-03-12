@@ -13,17 +13,6 @@ from functools import partial
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 
-# Mapping for moments:
-#    i  j   |   m_q
-#    1  0   |   1
-#    0  1   |   2
-#    1  1   |   3
-#    s      |   4
-#    d      |   5
-#    1  2   |   6
-#    2  1   |   7
-#    2  2   |   8
-#    0  0   |   9 (irrelevant)
 
 
 class SolidsCollision(Collision):

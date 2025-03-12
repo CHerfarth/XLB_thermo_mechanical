@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     #initialize grid
     nodes_x = 50 
-    nodes_y = 50 
+    nodes_y = 50
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     #get discretization
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     dy = length_y/float(nodes_y)
     assert math.isclose(dx, dy)
     total_time = 20
-    timesteps = 2000
+    timesteps = 80000
     dt = total_time/(timesteps)
 
     #get params
@@ -76,8 +76,8 @@ if __name__ == "__main__":
     )
     for i in range(timesteps):
         stepper(f_0, f_1, displacement)
-
-        if i%25 == 0:
+        f_0, f_1 = f_1, f_0
+        if i%1000 == 0:
             post_process(displacement, i, "sim")
 
 

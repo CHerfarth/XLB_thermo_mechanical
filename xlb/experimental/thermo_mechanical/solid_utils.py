@@ -5,6 +5,43 @@ import sympy
 import numpy as np
 
 
+# Mapping:
+#    i  j   |   f_q
+#    1  0   |   1
+#    0  1   |   2
+#   -1  0   |   3
+#    0 -1   |   4
+#    1  1   |   5
+#   -1  1   |   6
+#   -1 -1   |   7
+#    1 -1   |   8
+#    0  0   |   9    (irrelevant)
+
+#New Mapping:
+#    i  j   |   f_q
+#    0  0   |   0
+#    0  1   |   1
+#   0  -1   |   2
+#    1  0   |   3
+#   -1  1   |   4
+#    1  -1  |   5
+#   -1  0   |   6
+#    1  1   |   7
+#   -1  -1  |   8
+
+# Mapping for moments:
+#    i  j   |   m_q
+#    1  0   |   1
+#    0  1   |   2
+#    1  1   |   3
+#    s      |   4
+#    d      |   5
+#    1  2   |   6
+#    2  1   |   7
+#    2  2   |   8
+#    0  0   |   9 (irrelevant)
+
+
 solid_vec = wp.vec(9, dtype=PrecisionPolicy.FP32FP32.compute_precision.wp_dtype) #this is the default precision policy; it can be changed by calling set_precision_policy()
 
 def set_precision_policy(precision_policy):
@@ -26,6 +63,39 @@ def write_population_to_global(
     for i in range(9):
         f[i, x, y, 0] = f_local[i]
 
+
+'''@wp.func
+def calc_moments(f: solid_vec):
+    m = solid_vec()
+    # Todo: find better way to do this!
+    m[0] = f[3] - f[6] + f[7] - f[4] - f[8] + f[5]
+    m[1] = f[1] - f[2] + f[7] + f[4] - f[8] - f[5]
+    m[2] = f[7] - f[4] + f[8] - f[5]
+    m[3] = f[3] + f[1] + f[6] + f[2] + 2.0 * f[7] + 2.0 * f[4] + 2.0 * f[8] + 2.0 * f[5]
+    m[4] = f[3] - f[1] + f[6] - f[2]
+    m[5] = f[7] - f[4] - f[8] + f[5]
+    m[6] = f[7] + f[4] - f[8] - f[5]
+    m[7] = f[7] + f[4] + f[8] + f[5]
+    m[8] = 0.0
+    return m
+
+
+@wp.func
+def calc_populations(m: solid_vec):
+    f = solid_vec()
+    # Todo: find better way to do this!
+    f[3] = 2.0 * m[0] + m[3] + m[4] - 2.0 * m[5] - 2.0 * m[7]
+    f[1] = 2.0 * m[1] + m[3] - m[4] - 2.0 * m[6] - 2.0 * m[7]
+    f[6] = -2.0 * m[0] + m[3] + m[4] + 2.0 * m[5] - 2.0 * m[7]
+    f[2] = -2.0 * m[1] + m[3] - m[4] + 2.0 * m[6] - 2.0 * m[7]
+    f[7] = m[2] + m[5] + m[6] + m[7]
+    f[4] = -m[2] - m[5] + m[6] + m[7]
+    f[8] = m[2] - m[5] - m[6] + m[7]
+    f[5] = -m[2] + m[5] - m[6] + m[7]
+    f[0] = 0.0
+    for i in range(9):
+        f[i] = f[i]/4.
+    return f'''
 
 @wp.func
 def calc_moments(f: solid_vec):
