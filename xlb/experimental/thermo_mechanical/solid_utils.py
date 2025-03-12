@@ -64,7 +64,7 @@ def write_population_to_global(
         f[i, x, y, 0] = f_local[i]
 
 
-'''@wp.func
+@wp.func
 def calc_moments(f: solid_vec):
     m = solid_vec()
     # Todo: find better way to do this!
@@ -95,9 +95,9 @@ def calc_populations(m: solid_vec):
     f[0] = 0.0
     for i in range(9):
         f[i] = f[i]/4.
-    return f'''
+    return f
 
-@wp.func
+'''@wp.func
 def calc_moments(f: solid_vec):
     m = solid_vec()
     # Todo: find better way to do this!
@@ -128,7 +128,7 @@ def calc_populations(m: solid_vec):
     f[8] = 0.0
     for i in range(9):
         f[i] = f[i]/4.
-    return f
+    return f'''
 
 
 @wp.func

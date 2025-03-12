@@ -78,7 +78,7 @@ class SolidsStepper(Stepper):
 
         #---------define operators----------
         self.collision = SolidsCollision(self.omega, self.force, self.theta)
-        self.stream = SolidsStreamerPBC(self.velocity_set, self.precision_policy, self.compute_backend)
+        self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)#SolidsStreamerPBC(self.velocity_set, self.precision_policy, self.compute_backend)
         self.macroscopic = None #needed?
         self.equilibrium = None #needed?
 
