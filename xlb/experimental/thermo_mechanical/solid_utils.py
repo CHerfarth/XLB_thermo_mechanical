@@ -81,6 +81,12 @@ def calc_moments(f: solid_vec):
     m[8] = 0.0
     return m
 
+@wp.kernel
+def copy_populations(origin: wp.array4d(dtype=Any), dest: wp.array4d(dtype=Any), dim: Any):
+    i,j,k = wp.tid()
+    for l in range(dim):
+        dest[l, i, j, 0] = origin[l, i, j, 0]
+
 
 @wp.func
 def calc_populations(m: solid_vec):

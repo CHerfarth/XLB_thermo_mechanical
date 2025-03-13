@@ -49,13 +49,13 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 400
-    nodes_y = 400
+    nodes_x = 200
+    nodes_y = 200
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
-    length_x = 3#2*math.pi
-    length_y = 3#2*math.pi
+    length_x = 8#6*math.pi
+    length_y = 8#6*math.pi
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
@@ -72,43 +72,42 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(x)
-    manufactured_v = sympy.cos(y)
+    manufactured_u = sympy.cos(x*2*sympy.pi)
+    manufactured_v = sympy.cos(y*2*sympy.pi)
     manufactured_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
     ])
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y, mu, K)
-    manufactured_u = sympy.lambdify([x, y], manufactured_u)
-    manufactured_v = sympy.lambdify([x, y], manufactured_v)
+    manufactured_u = lambda x, y: x * dx/dt#sympy.lambdify([x, y], manufactured_u)
+    manufactured_v = lambda x, y: y * dx/dt#sympy.lambdify([x, y], manufactured_v)
 
 
     # set boundary potential
-    potential = lambda x, y: x - y
+    potential = lambda x, y: -1
     bc_dirichlet = lambda x, y: (manufactured_u(x,y) * dt/dx, manufactured_v(x,y) *dt/dx)
     boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet)
 
     #adjust expected solution
+    #expected_solution = manufactured_displacement
     expected_solution = utils.restrict_solution_to_domain(manufactured_displacement, potential, dx)
 
     # initialize stepper
     stepper = SolidsStepper(grid, force_load, E, nu, dx, dt, boundary_conditions=boundary_array, boundary_values=boundary_values)
 
     # startup grids
-    f_0 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    displacement = grid.create_field(cardinality=2, dtype=precision_policy.store_precision)
+    f_current = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_previous = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
 
     norms_over_time = list()  # to track error over time
     tolerance = 1e-6
 
     l2, linf = 0, 0
     for i in range(timesteps):
-        stepper(f_0, f_1)
+        stepper(f_current, f_previous)
 
-        f_0, f_1 = f_1, f_0
         if i % 10 == 0:
-            displacement = stepper.get_macroscopics(f_0)
+            displacement = stepper.get_macroscopics(f_current)
             l2_new, linf_new = process_error(displacement, expected_solution, i, dx, norms_over_time)
             print(l2_new)
             if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:

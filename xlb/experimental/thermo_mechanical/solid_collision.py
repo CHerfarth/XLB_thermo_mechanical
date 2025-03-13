@@ -36,6 +36,7 @@ class SolidsCollision(Collision):
         @wp.kernel
         def collide(
             f: wp.array4d(dtype=Any),
+            f_post: wp.array4d(dtype=Any),
             force: wp.array4d(dtype=Any),
             displacement: wp.array4d(dtype=Any),
             omega: utils.solid_vec,
@@ -68,6 +69,6 @@ class SolidsCollision(Collision):
 
             # get populations and write back to global
             f_local = utils.calc_populations(m)
-            utils.write_population_to_global(f, f_local, i, j)
+            utils.write_population_to_global(f_post, f_local, i, j)
 
         return None, collide

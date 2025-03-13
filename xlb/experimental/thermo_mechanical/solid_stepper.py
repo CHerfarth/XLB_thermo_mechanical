@@ -68,6 +68,7 @@ class SolidsStepper(Stepper):
         host_force_x = np.fromfunction(
             b_x_scaled, shape=(self.grid.shape[0], self.grid.shape[1])
         )  # create array with force evaluated at the grid points
+        print(host_force_x)
         host_force_y = np.fromfunction(b_y_scaled, shape=(self.grid.shape[0], self.grid.shape[1]))
         host_force = np.array([[host_force_x, host_force_y]])
         host_force = np.transpose(host_force, (1, 2, 3, 0))  # swap dims to make array compatible with what grid_factory would have produced
@@ -84,13 +85,16 @@ class SolidsStepper(Stepper):
 
         # ---------create fields for macroscopics---------
         self.displacement = grid.create_field(cardinality=2, dtype=self.precision_policy.store_precision)
+        #----------create field for temp stuff------------
+        self.temp_f = grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f_0, f_1):
-        wp.launch(self.collision.warp_kernel, inputs=[f_0, self.force, self.displacement, self.omega, self.theta], dim=f_0.shape[1:])
-        wp.launch(self.stream.warp_kernel, inputs=[f_0, f_1], dim=f_0.shape[1:])
-        if self.boundary_conditions != None:
-            f_1 = self.boundaries(f_1, f_0, self.boundary_conditions, self.boundary_values)
+    def warp_implementation(self, f_current, f_previous):
+        wp.launch(self.collision.warp_kernel, inputs=[f_current, f_previous, self.force, self.displacement, self.omega, self.theta], dim=f_current.shape[1:])
+        wp.launch(self.stream.warp_kernel, inputs=[f_previous, f_current], dim=f_current.shape[1:])
+        #if self.boundary_conditions != None:
+            #self.boundaries(f_current, f_previous, self.boundary_conditions, self.boundary_values)
+            #wp.launch(utils.copy_populations, inputs=[f_current, f_previous, self.velocity_set.q], dim=f_current.shape[1:])
 
     def get_macroscopics(self, f):
         # get updated displacement

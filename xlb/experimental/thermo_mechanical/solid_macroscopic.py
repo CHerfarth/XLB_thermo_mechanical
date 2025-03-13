@@ -15,7 +15,7 @@ class SolidMacroscopics(Operator):
         self.force = force
         self.boundaries = boundaries
         if self.boundaries == None:
-            self.boundaries = grid.create_field(cardinality=10, dtype=precision_policy.store_precision)
+            self.boundaries = grid.create_field(cardinality=10, dtype=precision_policy.store_precision, fill_value=1)
 
     def _construct_warp(self):
         @wp.kernel
