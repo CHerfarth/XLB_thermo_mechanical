@@ -54,13 +54,13 @@ if __name__ == "__main__":
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
-    length_x = 6*math.pi
-    length_y = 6*math.pi
+    length_x = 3#2*math.pi
+    length_y = 3#2*math.pi
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     timesteps = 5000
-    dt = 0.005
+    dt = 0.01
 
     # get params
     E = 0.085 * 2.5
@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
     # set boundary potential
     potential = lambda x, y: x - y
-    bc_dirichlet = lambda x, y: (manufactured_u(x,y) * dt, manufactured_v(x,y) *dt)
+    bc_dirichlet = lambda x, y: (manufactured_u(x,y) * dt/dx, manufactured_v(x,y) *dt/dx)
     boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet)
 
     #adjust expected solution
@@ -107,7 +107,7 @@ if __name__ == "__main__":
         stepper(f_0, f_1)
 
         f_0, f_1 = f_1, f_0
-        if i % 100 == 0:
+        if i % 10 == 0:
             displacement = stepper.get_macroscopics(f_0)
             l2_new, linf_new = process_error(displacement, expected_solution, i, dx, norms_over_time)
             print(l2_new)
