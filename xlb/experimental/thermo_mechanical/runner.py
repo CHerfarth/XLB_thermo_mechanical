@@ -49,18 +49,18 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 40
-    nodes_y = 40
+    nodes_x = 400
+    nodes_y = 400
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
-    length_x = 6 * math.pi
-    length_y = 6 * math.pi
+    length_x = 6*math.pi
+    length_y = 6*math.pi
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 50
-    dt = 0.05
+    timesteps = 5000
+    dt = 0.005
 
     # get params
     E = 0.085 * 2.5
@@ -86,10 +86,13 @@ if __name__ == "__main__":
     # set boundary potential
     potential = lambda x, y: x - y
     bc_dirichlet = lambda x, y: (manufactured_u(x,y) * dt, manufactured_v(x,y) *dt)
-    boundary_array = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet)
+    boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet)
+
+    #adjust expected solution
+    expected_solution = utils.restrict_solution_to_domain(manufactured_displacement, potential, dx)
 
     # initialize stepper
-    stepper = SolidsStepper(grid, force_load, E, nu, dx, dt, boundary_conditions=boundary_array)
+    stepper = SolidsStepper(grid, force_load, E, nu, dx, dt, boundary_conditions=boundary_array, boundary_values=boundary_values)
 
     # startup grids
     f_0 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
@@ -104,9 +107,10 @@ if __name__ == "__main__":
         stepper(f_0, f_1)
 
         f_0, f_1 = f_1, f_0
-        if i % 10 == 0:
+        if i % 100 == 0:
             displacement = stepper.get_macroscopics(f_0)
-            l2_new, linf_new = process_error(displacement, manufactured_displacement, i, dx, norms_over_time)
+            l2_new, linf_new = process_error(displacement, expected_solution, i, dx, norms_over_time)
+            print(l2_new)
             if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:
                 print("Final timestep:{}".format(i))
                 break

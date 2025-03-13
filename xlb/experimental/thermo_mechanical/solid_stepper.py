@@ -28,10 +28,11 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 
 class SolidsStepper(Stepper):
-    def __init__(self, grid, force_load, E, nu, dx, dt, boundary_conditions=[], kappa=1, theta=1 / 3):
+    def __init__(self, grid, force_load, E, nu, dx, dt, boundary_conditions=None, boundary_values=None, kappa=1, theta=1 / 3):
         super().__init__(grid, boundary_conditions)
         self.grid = grid
         self.boundary_conditions = boundary_conditions
+        self.boundary_values = boundary_values
 
         # ----------get material variables------
         mu = E / (2 * (1 + nu))
@@ -88,7 +89,8 @@ class SolidsStepper(Stepper):
     def warp_implementation(self, f_0, f_1):
         wp.launch(self.collision.warp_kernel, inputs=[f_0, self.force, self.displacement, self.omega, self.theta], dim=f_0.shape[1:])
         wp.launch(self.stream.warp_kernel, inputs=[f_0, f_1], dim=f_0.shape[1:])
-        f_1 = self.boundaries(f_1, f_1, self.boundary_conditions, self.displacement)
+        if self.boundary_conditions != None:
+            f_1 = self.boundaries(f_1, f_0, self.boundary_conditions, self.boundary_values)
 
     def get_macroscopics(self, f):
         # get updated displacement

@@ -39,7 +39,7 @@ class SolidsDirichlet(Operator):
             f_pre: Any,
             f_post: Any,
             boundary_array: Any,
-            displacement: Any,
+            boundary_values: Any,
         ):
             i, j, k = wp.tid()  # for 2d k will equal 1
             if boundary_array[0, i, j, 0] == wp.int8(0):
@@ -54,9 +54,9 @@ class SolidsDirichlet(Operator):
                         x_dir = wp.float32(c[new_direction][0])
                         y_dir = wp.float32(c[new_direction][1])  # ToDo: Cast to computational precision
                         weight = w[new_direction]
-                        f_post[new_direction, i, j, 0] = f_pre[l, i, j, 0] + 6.0 * weight * (
-                            x_dir * displacement[0, i, j, 0] + y_dir * displacement[1, i, j, 0]
-                        )
+                        f_post[new_direction, i, j, 0] = f_pre[l, i, j, 0] #+ 6.0 * weight * (x_dir * boundary_values[l*2, i, j, 0] + y_dir * boundary_values[l*2+1, i, j, 0])
+                    else:
+                        f_post[l, i, j, 0] = f_pre[l, i, j, 0]
             else:
                 for l in range(self.velocity_set.q):
                     f_post[l, i, j, 0] = f_pre[l, i, j, 0]
@@ -64,11 +64,11 @@ class SolidsDirichlet(Operator):
         return None, kernel
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f_pre, f_post, bc_mask, displacement):
+    def warp_implementation(self, f_pre, f_post, bc_mask, boundary_values):
         # Launch the warp kernel
         wp.launch(
             self.warp_kernel,
-            inputs=[f_pre, f_post, bc_mask, displacement],
+            inputs=[f_pre, f_post, bc_mask, boundary_values],
             dim=f_pre.shape[1:],
         )
         return f_post
@@ -80,14 +80,14 @@ def init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet):
     # 0: ghost node
     # 1: interior node
     # 2: boundary node
-    host_boundary_info = np.zeros(shape=(12, grid.shape[0], grid.shape[1], 1), dtype=np.int8)
+    host_boundary_info = np.zeros(shape=(10, grid.shape[0], grid.shape[1], 1), dtype=np.int8)
+    host_boundary_values = np.zeros(shape=(18, grid.shape[0], grid.shape[1], 1), dtype=np.float32) #todo: change to compute precision
 
     # step 1: set all nodes with negative potential to interior
     for i in range(grid.shape[0]):
         for j in range(grid.shape[1]):
             if potential(i * dx + 0.5 * dx, j * dx + 0.5 * dx) <= 0:
                 host_boundary_info[0, i, j, 0] = 1
-    # save_image(host_boundary_info[0,:,:,0], 1)
 
     # step 2: for each interior node, check if all neighbor nodes are also interior; if not, set to boundary
     for i in range(grid.shape[0]):
@@ -96,7 +96,10 @@ def init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet):
                 for direction in range(velocity_set.q):
                     x_direction = velocity_set._c[0, direction]
                     y_direction = velocity_set._c[1, direction]
-                    if host_boundary_info[0, (i + x_direction) % grid.shape[0], (j + y_direction) % grid.shape[1], 0] == 0:
+                    on_boundary = False
+                    on_boundary = on_boundary or i+x_direction < 0 or i+x_direction>=grid.shape[0] #check if on edge of grid, automatically counts as boundary node too
+                    on_boundary = on_boundary or j+y_direction < 0 or j+y_direction>=grid.shape[1]
+                    if on_boundary or host_boundary_info[0, (i + x_direction) , (j + y_direction) , 0] == 0:
                         host_boundary_info[direction + 1, i, j, 0] = 1
                         host_boundary_info[0, i, j, 0] = 1
                         #get the boundary condition
@@ -114,8 +117,8 @@ def init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet):
                         if counter == max_steps: #if not able to cross potential in one dx, node must be located on domain boundary. In this case we'll set to the boundary to the condition at the domain boundary
                             bc_x = cur_x + 0.5*dx*x_direction
                             bc_y = cur_y + 0.5*dx*y_direction
-                        host_boundary_info[10], host_boundary_info[11] = bc_dirichlet(bc_x, bc_y)[0], bc_dirichlet(bc_x, bc_y)[1]
+                        host_boundary_values[direction*2], host_boundary_values[direction*2 + 1] = bc_dirichlet(bc_x, bc_y)[0], bc_dirichlet(bc_x, bc_y)[1]
 
     save_image(host_boundary_info[9, :, :, 0], 2)
     # move to device
-    return wp.from_numpy(host_boundary_info, dtype=wp.int8)
+    return wp.from_numpy(host_boundary_info, dtype=wp.int8), wp.from_numpy(host_boundary_values, dtype=wp.float32)
