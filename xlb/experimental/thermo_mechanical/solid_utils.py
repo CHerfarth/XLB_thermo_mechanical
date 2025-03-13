@@ -47,7 +47,6 @@ solid_vec = wp.vec(
 )  # this is the default precision policy; it can be changed by calling set_precision_policy()
 
 
-
 def set_precision_policy(precision_policy):
     global solid_vec
     solid_vec = wp.vec(9, dtype=PrecisionPolicy.FP32FP32)
@@ -101,7 +100,6 @@ def calc_populations(m: solid_vec):
     return f
 
 
-
 @wp.func
 def calc_equilibrium(m: solid_vec, theta: Any):
     m_eq = solid_vec()
@@ -125,19 +123,15 @@ def get_force_load(manufactured_displacement, x, y, mu, K):
     return (np.vectorize(sympy.lambdify([x, y], b_x, "numpy")), np.vectorize(sympy.lambdify([x, y], b_y, "numpy")))
 
 
-def get_macroscopics(displacement_device):
-    displacement_host = displacement_device.numpy()  # post-processing needed? #adjust at later point for stress
-    return displacement_host
-
 def get_function_on_grid(f, x, y, dx, grid):
-    f = np.vectorize(sympy.lambdify([x,y], f, "numpy"))
-    f_scaled = lambda x_node, y_node: f((x_node + 0.5)*dx, (y_node+0.5)*dx) 
+    f = np.vectorize(sympy.lambdify([x, y], f, "numpy"))
+    f_scaled = lambda x_node, y_node: f((x_node + 0.5) * dx, (y_node + 0.5) * dx)
     f_on_grid = np.fromfunction(f_scaled, shape=grid.shape)
     return f_on_grid
 
 
 def get_error_norm(current, expected, dx):
-    error_matrix = np.subtract(current,expected)
-    l2_norm = np.sqrt(np.sum(np.linalg.norm(error_matrix, axis=0)**2))*dx
+    error_matrix = np.subtract(current, expected)
+    l2_norm = np.sqrt(np.sum(np.linalg.norm(error_matrix, axis=0) ** 2)) * dx
     linf_norm = np.max(np.linalg.norm(error_matrix, axis=0))
     return l2_norm, linf_norm

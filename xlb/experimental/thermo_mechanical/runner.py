@@ -17,33 +17,28 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 import xlb.experimental.thermo_mechanical.solid_bounceback as bc
 
 
-def output_image(displacement_device, timestep, name):
-    #get current displacement ToDo: stress?
-    displacement_host = utils.get_macroscopics(displacement_device)
+def output_image(displacement_host, timestep, name):
     dis_x = displacement_host[0, :, :, 0]
     dis_y = displacement_host[1, :, :, 0]
-    #output as vtk files
+    # output as vtk files
     dis_mag = np.sqrt(np.square(dis_x) + np.square(dis_y))
     fields = {"dis_x": dis_x, "dis_y": dis_y, "dis_mag": dis_mag}
     save_fields_vtk(fields, timestep=timestep, prefix=name)
     save_image(dis_mag, timestep)
 
 
-def process_error(displacement_device, manufactured_displacement, timestep, dx, norms_over_time):
-    #get current displacement ToDo: stress?
-    displacement_host = utils.get_macroscopics(displacement_device)
-    #calculate error to expected solution
-    l2, linf = utils.get_error_norm(displacement_host[:,:,:,0], manufactured_displacement, dx)
+def process_error(displacement_host, manufactured_displacement, timestep, dx, norms_over_time):
+    # calculate error to expected solution
+    l2, linf = utils.get_error_norm(displacement_host[:, :, :, 0], manufactured_displacement, dx)
     norms_over_time.append((i, l2, linf))
     return l2, linf
 
+
 def write_results(norms_over_time, name):
-    with open(name, 'w', newline='') as file:
+    with open(name, "w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(['Timestep', 'L2','Linf'])
+        writer.writerow(["Timestep", "L2", "Linf"])
         writer.writerows(norms_over_time)
-
-
 
 
 if __name__ == "__main__":
@@ -74,34 +69,43 @@ if __name__ == "__main__":
     lamb = E / (2 * (1 - nu)) - mu
     K = lamb + mu
 
-    #set boundary potential
-    potential = lambda x, y: x-y
-    boundary_array = bc.init_bc_from_lambda(potential, grid, dx, velocity_set) 
 
     # get force load
     x, y = sympy.symbols("x y")
     manufactured_u = sympy.cos(x)
     manufactured_v = sympy.cos(y)
-    manufactured_displacement = np.array([utils.get_function_on_grid(manufactured_u, x, y, dx, grid), utils.get_function_on_grid(manufactured_v, x, y, dx, grid)])
+    manufactured_displacement = np.array([
+        utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
+        utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
+    ])
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y, mu, K)
+    manufactured_u = sympy.lambdify([x, y], manufactured_u)
+    manufactured_v = sympy.lambdify([x, y], manufactured_v)
 
-    #initialize stepper
+
+    # set boundary potential
+    potential = lambda x, y: x - y
+    bc_dirichlet = lambda x, y: (manufactured_u(x,y) * dt, manufactured_v(x,y) *dt)
+    boundary_array = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet)
+
+    # initialize stepper
     stepper = SolidsStepper(grid, force_load, E, nu, dx, dt, boundary_conditions=boundary_array)
-
 
     # startup grids
     f_0 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     displacement = grid.create_field(cardinality=2, dtype=precision_policy.store_precision)
 
-    norms_over_time = list() #to track error over time
+    norms_over_time = list()  # to track error over time
     tolerance = 1e-6
 
     l2, linf = 0, 0
     for i in range(timesteps):
-        stepper(f_0, f_1, displacement)
+        stepper(f_0, f_1)
+
         f_0, f_1 = f_1, f_0
         if i % 10 == 0:
+            displacement = stepper.get_macroscopics(f_0)
             l2_new, linf_new = process_error(displacement, manufactured_displacement, i, dx, norms_over_time)
             if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:
                 print("Final timestep:{}".format(i))
@@ -109,6 +113,6 @@ if __name__ == "__main__":
             l2, linf = l2_new, linf_new
             output_image(displacement, i, "figure")
 
-    #write out error norms
-    print("Final error: {}".format(norms_over_time[len(norms_over_time)-1]))
+    # write out error norms
+    print("Final error: {}".format(norms_over_time[len(norms_over_time) - 1]))
     write_results(norms_over_time, "results.csv")

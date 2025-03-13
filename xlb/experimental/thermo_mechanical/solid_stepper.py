@@ -11,6 +11,7 @@ from xlb.compute_backend import ComputeBackend
 
 from xlb.experimental.thermo_mechanical.solid_collision import SolidsCollision
 from xlb.experimental.thermo_mechanical.solid_bounceback import SolidsDirichlet
+from xlb.experimental.thermo_mechanical.solid_macroscopic import SolidMacroscopics
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 # Mapping:
@@ -27,7 +28,7 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 
 class SolidsStepper(Stepper):
-    def __init__(self, grid, force_load, E, nu, dx, dt, boundary_conditions=[], kappa=1, theta=1/3):
+    def __init__(self, grid, force_load, E, nu, dx, dt, boundary_conditions=[], kappa=1, theta=1 / 3):
         super().__init__(grid, boundary_conditions)
         self.grid = grid
         self.boundary_conditions = boundary_conditions
@@ -73,15 +74,22 @@ class SolidsStepper(Stepper):
 
         # ---------define operators----------
         self.collision = SolidsCollision(self.omega, self.force, self.theta)
-        self.stream = Stream(
-            self.velocity_set, self.precision_policy, self.compute_backend
-        )  
-        self.boundaries = SolidsDirichlet() 
-        self.macroscopic = None  # needed?
+        self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)
+        self.boundaries = SolidsDirichlet()
+        self.macroscopic = SolidMacroscopics(
+            self.grid, self.force, self.boundary_conditions, self.velocity_set, self.precision_policy, self.compute_backend
+        )
         self.equilibrium = None  # needed?
 
+        # ---------create fields for macroscopics---------
+        self.displacement = grid.create_field(cardinality=2, dtype=self.precision_policy.store_precision)
+
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f_0, f_1, displacement):
-        wp.launch(self.collision.warp_kernel, inputs=[f_0, self.force, self.omega, self.theta, displacement], dim=f_0.shape[1:])
+    def warp_implementation(self, f_0, f_1):
+        wp.launch(self.collision.warp_kernel, inputs=[f_0, self.force, self.displacement, self.omega, self.theta], dim=f_0.shape[1:])
         wp.launch(self.stream.warp_kernel, inputs=[f_0, f_1], dim=f_0.shape[1:])
-        f_1 = self.boundaries(f_1, f_1, self.boundary_conditions)
+        f_1 = self.boundaries(f_1, f_1, self.boundary_conditions, self.displacement)
+
+    def get_macroscopics(self, f):
+        # get updated displacement
+        return self.macroscopic(f, self.displacement, self.theta)
