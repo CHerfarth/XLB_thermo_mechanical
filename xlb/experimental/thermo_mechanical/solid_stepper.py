@@ -10,6 +10,7 @@ from xlb.operator import Operator
 from xlb.compute_backend import ComputeBackend
 
 from xlb.experimental.thermo_mechanical.solid_collision import SolidsCollision
+from xlb.experimental.thermo_mechanical.solid_bounceback import SolidsDirichlet
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 # Mapping:
@@ -75,6 +76,7 @@ class SolidsStepper(Stepper):
         self.stream = Stream(
             self.velocity_set, self.precision_policy, self.compute_backend
         )  
+        self.boundaries = SolidsDirichlet() 
         self.macroscopic = None  # needed?
         self.equilibrium = None  # needed?
 
@@ -82,3 +84,4 @@ class SolidsStepper(Stepper):
     def warp_implementation(self, f_0, f_1, displacement):
         wp.launch(self.collision.warp_kernel, inputs=[f_0, self.force, self.omega, self.theta, displacement], dim=f_0.shape[1:])
         wp.launch(self.stream.warp_kernel, inputs=[f_0, f_1], dim=f_0.shape[1:])
+        f_1 = self.boundaries(f_1, f_1, self.boundary_conditions)

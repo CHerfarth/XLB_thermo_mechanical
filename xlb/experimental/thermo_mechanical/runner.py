@@ -14,6 +14,7 @@ import sympy
 import csv
 import math
 import xlb.experimental.thermo_mechanical.solid_utils as utils
+import xlb.experimental.thermo_mechanical.solid_bounceback as bc
 
 
 def output_image(displacement_device, timestep, name):
@@ -25,6 +26,7 @@ def output_image(displacement_device, timestep, name):
     dis_mag = np.sqrt(np.square(dis_x) + np.square(dis_y))
     fields = {"dis_x": dis_x, "dis_y": dis_y, "dis_mag": dis_mag}
     save_fields_vtk(fields, timestep=timestep, prefix=name)
+    save_image(dis_mag, timestep)
 
 
 def process_error(displacement_device, manufactured_displacement, timestep, dx, norms_over_time):
@@ -52,8 +54,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 1000
-    nodes_y = 1000
+    nodes_x = 40
+    nodes_y = 40
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -62,8 +64,8 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 50000
-    dt = 0.01
+    timesteps = 50
+    dt = 0.05
 
     # get params
     E = 0.085 * 2.5
@@ -72,13 +74,20 @@ if __name__ == "__main__":
     lamb = E / (2 * (1 - nu)) - mu
     K = lamb + mu
 
+    #set boundary potential
+    potential = lambda x, y: x-y
+    boundary_array = bc.init_bc_from_lambda(potential, grid, dx, velocity_set) 
+
     # get force load
     x, y = sympy.symbols("x y")
     manufactured_u = sympy.cos(x)
     manufactured_v = sympy.cos(y)
     manufactured_displacement = np.array([utils.get_function_on_grid(manufactured_u, x, y, dx, grid), utils.get_function_on_grid(manufactured_v, x, y, dx, grid)])
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y, mu, K)
-    stepper = SolidsStepper(grid, force_load, E, nu, dx, dt)
+
+    #initialize stepper
+    stepper = SolidsStepper(grid, force_load, E, nu, dx, dt, boundary_conditions=boundary_array)
+
 
     # startup grids
     f_0 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
@@ -92,12 +101,13 @@ if __name__ == "__main__":
     for i in range(timesteps):
         stepper(f_0, f_1, displacement)
         f_0, f_1 = f_1, f_0
-        if i % 100 == 0:
+        if i % 10 == 0:
             l2_new, linf_new = process_error(displacement, manufactured_displacement, i, dx, norms_over_time)
             if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:
                 print("Final timestep:{}".format(i))
                 break
             l2, linf = l2_new, linf_new
+            output_image(displacement, i, "figure")
 
     #write out error norms
     print("Final error: {}".format(norms_over_time[len(norms_over_time)-1]))
