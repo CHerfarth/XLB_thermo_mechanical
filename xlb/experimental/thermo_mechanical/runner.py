@@ -17,24 +17,6 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 import xlb.experimental.thermo_mechanical.solid_bounceback as bc
 
 
-def output_image(displacement_host, timestep, name, potential=None, dx=None):
-    dis_x = displacement_host[0, :, :, 0]
-    dis_y = displacement_host[1, :, :, 0]
-    if potential != None:
-        dis_x = utils.restrict_solution_to_domain(dis_x, potential, dx)
-        dis_y = utils.restrict_solution_to_domain(dis_y, dx)
-    # output as vtk files
-    dis_mag = np.sqrt(np.square(dis_x) + np.square(dis_y))
-    fields = {"dis_x": dis_x, "dis_y": dis_y, "dis_mag": dis_mag}
-    save_fields_vtk(fields, timestep=timestep, prefix=name)
-    save_image(dis_mag, timestep)
-
-
-def process_error(displacement_host, manufactured_displacement, timestep, dx, norms_over_time):
-    # calculate error to expected solution
-    l2, linf = utils.get_error_norm(displacement_host[:, :, :, 0], manufactured_displacement, dx)
-    norms_over_time.append((i, l2, linf))
-    return l2, linf
 
 
 def write_results(norms_over_time, name):
@@ -84,7 +66,6 @@ if __name__ == "__main__":
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y, mu, K)
     manufactured_u = sympy.lambdify([x, y], manufactured_u)
     manufactured_v = sympy.lambdify([x, y], manufactured_v)
-    #print(manufactured_u(1,3))
 
 
     # set boundary potential
@@ -113,14 +94,13 @@ if __name__ == "__main__":
         f_1, f_2, f_3 = f_3, f_1, f_2
         if i % 10 == 0:
             displacement = stepper.get_macroscopics(f_1)
-            l2_new, linf_new = process_error(displacement, expected_solution, i, dx, norms_over_time)
+            l2_new, linf_new = utils.process_error(displacement, expected_solution, i, dx, norms_over_time)
             print(l2_new)
             if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:
                 print("Final timestep:{}".format(i))
                 break
             l2, linf = l2_new, linf_new
-            output_image(displacement, i, "figure")
+            utils.output_image(displacement, i, "figure")
 
     # write out error norms
     print("Final error: {}".format(norms_over_time[len(norms_over_time) - 1]))
-    write_results(norms_over_time, "results.csv")

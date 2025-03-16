@@ -162,3 +162,23 @@ def restrict_solution_to_domain(array, potential, dx): #ToDo: make more efficien
             if potential(i*dx + 0.5*dx, j*dx + 0.5*dx) > 0:
                 array[:,i,j] = np.nan
     return array 
+
+
+
+def output_image(displacement_host, timestep, name, potential=None, dx=None):
+    dis_x = displacement_host[0, :, :, 0]
+    dis_y = displacement_host[1, :, :, 0]
+    if potential != None:
+        dis_x = utils.restrict_solution_to_domain(dis_x, potential, dx)
+        dis_y = utils.restrict_solution_to_domain(dis_y, dx)
+    # output as vtk files
+    dis_mag = np.sqrt(np.square(dis_x) + np.square(dis_y))
+    fields = {"dis_x": dis_x, "dis_y": dis_y, "dis_mag": dis_mag}
+    save_fields_vtk(fields, timestep=timestep, prefix=name)
+    save_image(dis_mag, timestep)
+
+def process_error(displacement_host, manufactured_displacement, timestep, dx, norms_over_time):
+    # calculate error to expected solution
+    l2, linf = get_error_norm(displacement_host[:, :, :, 0], manufactured_displacement, dx)
+    norms_over_time.append((timestep, l2, linf))
+    return l2, linf
