@@ -65,7 +65,9 @@ class SolidsDirichlet(Operator):
                         x_dir = (c[0, new_direction])
                         y_dir = (c[1, new_direction])  
                         weight = w[new_direction]
-                        #f_current[new_direction, i, j, 0] = f_previous[l, i, j, 0] + 6.0 * weight * (x_dir * boundary_values[l*2, i, j, 0] + y_dir * boundary_values[l*2+1, i, j, 0])
+                        #print(boundary_values[l*2, i, j, 0])
+                        #print(boundary_values[l*2+1, i, j, 0])
+                        f_current[new_direction, i, j, 0] = f_previous[l, i, j, 0] + 6.0 * weight * (x_dir * boundary_values[l*2, i, j, 0] + y_dir * boundary_values[l*2+1, i, j, 0])
                         #Todo: try with zero bc
                         
 
@@ -112,7 +114,7 @@ def init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet):
                         cur_x, cur_y = i*dx + 0.5*dx, j*dx + 0.5*dx
                         bc_x = cur_x + 0.5*dx*x_direction
                         bc_y = cur_y + 0.5*dx*y_direction
-                        host_boundary_values[direction*2], host_boundary_values[direction*2 + 1] = bc_dirichlet(bc_x, bc_y)[0], bc_dirichlet(bc_x, bc_y)[1]
+                        host_boundary_values[direction*2, i, j, 0], host_boundary_values[direction*2 + 1, i, j, 0] = bc_dirichlet(bc_x, bc_y)[0], bc_dirichlet(bc_x, bc_y)[1]
                         print("Node {}, {}".format(i, j))
                         print("at: {}, {}".format(cur_x, cur_y))
                         print("Direction: {}, {}".format(x_direction, y_direction))
@@ -127,13 +129,12 @@ def init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet):
                         max_steps = 100
                         stepsize = dx/max_steps
                         counter = 0
-                        #print("{}, {}, {}, {}, {}, {}".format(i,j,cur_x, cur_y, x_direction, y_direction))
                         while (potential(bc_x, bc_y) < 0): #move along direction of pathway until on boundary
                             bc_x += stepsize*x_direction
                             bc_y += stepsize*y_direction
                             counter += 1
                             assert(counter <= max_steps)
-                        host_boundary_values[direction*2], host_boundary_values[direction*2 + 1] = bc_dirichlet(bc_x, bc_y)[0], bc_dirichlet(bc_x, bc_y)[1]
+                        host_boundary_values[direction*2, i, j, 0], host_boundary_values[direction*2 + 1, i, j, 0] = bc_dirichlet(bc_x, bc_y)[0], bc_dirichlet(bc_x, bc_y)[1]
 
     save_image(host_boundary_info[0, :, :, 0], 2)
     # move to device

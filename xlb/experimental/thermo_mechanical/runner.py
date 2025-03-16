@@ -17,9 +17,12 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 import xlb.experimental.thermo_mechanical.solid_bounceback as bc
 
 
-def output_image(displacement_host, timestep, name):
+def output_image(displacement_host, timestep, name, potential=None, dx=None):
     dis_x = displacement_host[0, :, :, 0]
     dis_y = displacement_host[1, :, :, 0]
+    if potential != None:
+        dis_x = utils.restrict_solution_to_domain(dis_x, potential, dx)
+        dis_y = utils.restrict_solution_to_domain(dis_y, dx)
     # output as vtk files
     dis_mag = np.sqrt(np.square(dis_x) + np.square(dis_y))
     fields = {"dis_x": dis_x, "dis_y": dis_y, "dis_mag": dis_mag}
@@ -49,18 +52,18 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 200
-    nodes_y = 200
+    nodes_x = 20
+    nodes_y = 20
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
-    length_x = 6
-    length_y = 6
+    length_x = 1
+    length_y = 1
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     timesteps = 5000
-    dt = 0.01
+    dt = 0.001
 
     # get params
     E = 0.085 * 2.5
@@ -72,8 +75,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(x*sympy.pi)
-    manufactured_v = sympy.cos(y*sympy.pi)
+    manufactured_u = sympy.cos(x*2*sympy.pi)*sympy.cos(y*2*sympy.pi) + 3
+    manufactured_v = sympy.cos(y*2*sympy.pi)*sympy.cos(x*2*sympy.pi) + 3
     manufactured_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -85,8 +88,8 @@ if __name__ == "__main__":
 
 
     # set boundary potential
-    potential = lambda x, y: (x-3) 
-    bc_dirichlet = lambda x, y: (manufactured_u(x,y) * dt/dx, manufactured_v(x,y) *dt/dx)
+    potential = lambda x, y: (0.5-x)**2 + (0.5-y)**2 - 0.2 
+    bc_dirichlet = lambda x, y: (manufactured_u(x,y), manufactured_v(x,y))
     boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet)
 
     #adjust expected solution

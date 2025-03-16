@@ -138,13 +138,15 @@ def get_function_on_grid(f, x, y, dx, grid):
 
 def get_error_norm(current, expected, dx):
     error_matrix = np.subtract(current, expected)
+    # Filter out NaN values
+    error_matrix = error_matrix[~np.isnan(error_matrix)]
     l2_norm = np.sqrt(np.sum(np.linalg.norm(error_matrix, axis=0) ** 2)) * dx
-    linf_norm = np.max(np.max(error_matrix, axis=0)) #ToDo diesdas
+    linf_norm = np.max(np.linalg.norm(error_matrix, axis=0)) #ToDo diesdas
     return l2_norm, linf_norm
 
 def restrict_solution_to_domain(array, potential, dx): #ToDo: make more efficient (fancy numpy funcs)
     for i in range(array.shape[1]):
         for j in range(array.shape[2]):
             if potential(i*dx + 0.5*dx, j*dx + 0.5*dx) > 0:
-                array[:,i,j] = 0
+                array[:,i,j] = np.nan
     return array 

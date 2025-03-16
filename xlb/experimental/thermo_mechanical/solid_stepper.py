@@ -93,8 +93,8 @@ class SolidsStepper(Stepper):
         wp.launch(utils.copy_populations, inputs=[f_previous, self.temp_f, self.velocity_set.q], dim=f_current.shape[1:])
         wp.launch(self.collision.warp_kernel, inputs=[f_current, self.force, self.displacement, self.omega, self.theta], dim=f_current.shape[1:])
         wp.launch(self.stream.warp_kernel, inputs=[f_current, f_previous], dim=f_current.shape[1:])
-        #if self.boundary_conditions != None:
-            #self.boundaries(f_previous, self.temp_f, self.boundary_conditions, self.boundary_values)
+        if self.boundary_conditions != None:
+            self.boundaries(f_previous, self.temp_f, self.boundary_conditions, self.boundary_values)
 
     def get_macroscopics(self, f):
         # get updated displacement
