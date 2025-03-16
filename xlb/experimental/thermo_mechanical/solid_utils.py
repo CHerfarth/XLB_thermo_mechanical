@@ -3,6 +3,7 @@ from xlb.precision_policy import PrecisionPolicy
 from typing import Any
 import sympy
 import numpy as np
+from xlb.utils import save_fields_vtk, save_image
 
 
 # Mapping:
@@ -157,6 +158,7 @@ def get_expected_stress(manufactured_displacement, x, y, lamb, mu):
     return s_xx, s_yy, s_xy
 
 def restrict_solution_to_domain(array, potential, dx): #ToDo: make more efficient (fancy numpy funcs)
+    print(array.shape)
     for i in range(array.shape[1]):
         for j in range(array.shape[2]):
             if potential(i*dx + 0.5*dx, j*dx + 0.5*dx) > 0:
@@ -169,8 +171,8 @@ def output_image(displacement_host, timestep, name, potential=None, dx=None):
     dis_x = displacement_host[0, :, :, 0]
     dis_y = displacement_host[1, :, :, 0]
     if potential != None:
-        dis_x = utils.restrict_solution_to_domain(dis_x, potential, dx)
-        dis_y = utils.restrict_solution_to_domain(dis_y, dx)
+        dis_x = restrict_solution_to_domain(dis_x, potential, dx)
+        dis_y = restrict_solution_to_domain(dis_y, dx)
     # output as vtk files
     dis_mag = np.sqrt(np.square(dis_x) + np.square(dis_y))
     fields = {"dis_x": dis_x, "dis_y": dis_y, "dis_mag": dis_mag}
