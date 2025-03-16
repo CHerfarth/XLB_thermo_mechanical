@@ -37,9 +37,9 @@ class SolidsCollision(Collision):
         def collide(
             f: wp.array4d(dtype=Any),
             force: wp.array4d(dtype=Any),
+            displacement: wp.array4d(dtype=Any),
             omega: utils.solid_vec,
             theta: Any,
-            displacement: wp.array4d(dtype=Any),
         ):
             i, j, k = wp.tid()  # for 2d, k will equal 1
 

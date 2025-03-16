@@ -6,8 +6,6 @@ import numpy as np
 import pandas as pd
 
 
-
-
 def plot_single(data, x_label, y_label, title, name, color="blue", xlim=None, ylim=None):
     data = data.to_numpy()
     fig, ax = plt.subplots()
@@ -35,7 +33,7 @@ def plot_double(
         ax.scatter(data1[:, 0], data1[:, 1], color=color1, label=label1)
         ax.scatter(data2[:, 0], data2[:, 1], color=color2, label=label2)
     ax.grid(True)
-    plt.yscale('log')
+    plt.yscale("log")
     ax.set_title(title)
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
@@ -49,4 +47,13 @@ def plot_double(
 
 data = pd.read_csv("results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64)
 print(data.head())
-plot_double(data.drop("Linf", axis=1), data.drop("L2", axis=1), "Timestep", "Error", "Error Norms over Time", "results.png", label1="L2 Norm", label2="L-Inf Norm")
+plot_double(
+    data.drop("Linf", axis=1),
+    data.drop("L2", axis=1),
+    "Timestep",
+    "Error",
+    "Error Norms over Time",
+    "results.png",
+    label1="L2 Norm",
+    label2="L-Inf Norm",
+)

@@ -10,6 +10,8 @@ from xlb.operator import Operator
 from xlb.compute_backend import ComputeBackend
 
 from xlb.experimental.thermo_mechanical.solid_collision import SolidsCollision
+from xlb.experimental.thermo_mechanical.solid_bounceback import SolidsDirichlet
+from xlb.experimental.thermo_mechanical.solid_macroscopic import SolidMacroscopics
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 # Mapping:
@@ -26,10 +28,11 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 
 class SolidsStepper(Stepper):
-    def __init__(self, grid, force_load, E, nu, dx, dt, boundary_conditions=[], kappa=1, theta=1/3):
+    def __init__(self, grid, force_load, E, nu, dx, dt, boundary_conditions=None, boundary_values=None, kappa=1, theta=1 / 3):
         super().__init__(grid, boundary_conditions)
         self.grid = grid
         self.boundary_conditions = boundary_conditions
+        self.boundary_values = boundary_values
 
         # ----------get material variables------
         mu = E / (2 * (1 + nu))
@@ -65,6 +68,7 @@ class SolidsStepper(Stepper):
         host_force_x = np.fromfunction(
             b_x_scaled, shape=(self.grid.shape[0], self.grid.shape[1])
         )  # create array with force evaluated at the grid points
+        print(host_force_x)
         host_force_y = np.fromfunction(b_y_scaled, shape=(self.grid.shape[0], self.grid.shape[1]))
         host_force = np.array([[host_force_x, host_force_y]])
         host_force = np.transpose(host_force, (1, 2, 3, 0))  # swap dims to make array compatible with what grid_factory would have produced
@@ -72,13 +76,26 @@ class SolidsStepper(Stepper):
 
         # ---------define operators----------
         self.collision = SolidsCollision(self.omega, self.force, self.theta)
-        self.stream = Stream(
-            self.velocity_set, self.precision_policy, self.compute_backend
-        )  
-        self.macroscopic = None  # needed?
+        self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)
+        self.boundaries = SolidsDirichlet()
+        self.macroscopic = SolidMacroscopics(
+            self.grid, self.force, self.boundary_conditions, self.velocity_set, self.precision_policy, self.compute_backend
+        )
         self.equilibrium = None  # needed?
 
+        # ---------create fields for macroscopics---------
+        self.displacement = grid.create_field(cardinality=2, dtype=self.precision_policy.store_precision)
+        #----------create field for temp stuff------------
+        self.temp_f = grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
+
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f_0, f_1, displacement):
-        wp.launch(self.collision.warp_kernel, inputs=[f_0, self.force, self.omega, self.theta, displacement], dim=f_0.shape[1:])
-        wp.launch(self.stream.warp_kernel, inputs=[f_0, f_1], dim=f_0.shape[1:])
+    def warp_implementation(self, f_current, f_previous):
+        wp.launch(utils.copy_populations, inputs=[f_previous, self.temp_f, self.velocity_set.q], dim=f_current.shape[1:])
+        wp.launch(self.collision.warp_kernel, inputs=[f_current, self.force, self.displacement, self.omega, self.theta], dim=f_current.shape[1:])
+        wp.launch(self.stream.warp_kernel, inputs=[f_current, f_previous], dim=f_current.shape[1:])
+        if self.boundary_conditions != None:
+            self.boundaries(f_previous, self.temp_f, self.boundary_conditions, self.boundary_values)
+
+    def get_macroscopics(self, f):
+        # get updated displacement
+        return self.macroscopic(f, self.displacement, self.theta)

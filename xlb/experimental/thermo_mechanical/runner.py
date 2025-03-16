@@ -14,34 +14,34 @@ import sympy
 import csv
 import math
 import xlb.experimental.thermo_mechanical.solid_utils as utils
+import xlb.experimental.thermo_mechanical.solid_bounceback as bc
 
 
-def output_image(displacement_device, timestep, name):
-    #get current displacement ToDo: stress?
-    displacement_host = utils.get_macroscopics(displacement_device)
+def output_image(displacement_host, timestep, name, potential=None, dx=None):
     dis_x = displacement_host[0, :, :, 0]
     dis_y = displacement_host[1, :, :, 0]
-    #output as vtk files
+    if potential != None:
+        dis_x = utils.restrict_solution_to_domain(dis_x, potential, dx)
+        dis_y = utils.restrict_solution_to_domain(dis_y, dx)
+    # output as vtk files
     dis_mag = np.sqrt(np.square(dis_x) + np.square(dis_y))
     fields = {"dis_x": dis_x, "dis_y": dis_y, "dis_mag": dis_mag}
     save_fields_vtk(fields, timestep=timestep, prefix=name)
+    save_image(dis_mag, timestep)
 
 
-def process_error(displacement_device, manufactured_displacement, timestep, dx, norms_over_time):
-    #get current displacement ToDo: stress?
-    displacement_host = utils.get_macroscopics(displacement_device)
-    #calculate error to expected solution
-    l2, linf = utils.get_error_norm(displacement_host[:,:,:,0], manufactured_displacement, dx)
+def process_error(displacement_host, manufactured_displacement, timestep, dx, norms_over_time):
+    # calculate error to expected solution
+    l2, linf = utils.get_error_norm(displacement_host[:, :, :, 0], manufactured_displacement, dx)
     norms_over_time.append((i, l2, linf))
     return l2, linf
 
+
 def write_results(norms_over_time, name):
-    with open(name, 'w', newline='') as file:
+    with open(name, "w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(['Timestep', 'L2','Linf'])
+        writer.writerow(["Timestep", "L2", "Linf"])
         writer.writerows(norms_over_time)
-
-
 
 
 if __name__ == "__main__":
@@ -52,18 +52,18 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 1000
-    nodes_y = 1000
+    nodes_x = 20
+    nodes_y = 20
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
-    length_x = 6 * math.pi
-    length_y = 6 * math.pi
+    length_x = 1
+    length_y = 1
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 50000
-    dt = 0.01
+    timesteps = 5000
+    dt = 0.001
 
     # get params
     E = 0.085 * 2.5
@@ -72,33 +72,55 @@ if __name__ == "__main__":
     lamb = E / (2 * (1 - nu)) - mu
     K = lamb + mu
 
+
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(x)
-    manufactured_v = sympy.cos(y)
-    manufactured_displacement = np.array([utils.get_function_on_grid(manufactured_u, x, y, dx, grid), utils.get_function_on_grid(manufactured_v, x, y, dx, grid)])
+    manufactured_u = sympy.cos(x*2*sympy.pi)*sympy.cos(y*2*sympy.pi) + 3
+    manufactured_v = sympy.cos(y*2*sympy.pi)*sympy.cos(x*2*sympy.pi) + 3
+    manufactured_displacement = np.array([
+        utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
+        utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
+    ])
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y, mu, K)
-    stepper = SolidsStepper(grid, force_load, E, nu, dx, dt)
+    manufactured_u = sympy.lambdify([x, y], manufactured_u)
+    manufactured_v = sympy.lambdify([x, y], manufactured_v)
+    #print(manufactured_u(1,3))
+
+
+    # set boundary potential
+    potential = lambda x, y: (0.5-x)**2 + (0.5-y)**2 - 0.2 
+    bc_dirichlet = lambda x, y: (manufactured_u(x,y), manufactured_v(x,y))
+    boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet)
+
+    #adjust expected solution
+    #expected_solution = manufactured_displacement
+    expected_solution = utils.restrict_solution_to_domain(manufactured_displacement, potential, dx)
+
+    # initialize stepper
+    stepper = SolidsStepper(grid, force_load, E, nu, dx, dt, boundary_conditions=boundary_array, boundary_values=boundary_values)
 
     # startup grids
-    f_0 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    displacement = grid.create_field(cardinality=2, dtype=precision_policy.store_precision)
+    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
 
-    norms_over_time = list() #to track error over time
+    norms_over_time = list()  # to track error over time
     tolerance = 1e-6
 
     l2, linf = 0, 0
     for i in range(timesteps):
-        stepper(f_0, f_1, displacement)
-        f_0, f_1 = f_1, f_0
-        if i % 100 == 0:
-            l2_new, linf_new = process_error(displacement, manufactured_displacement, i, dx, norms_over_time)
+        stepper(f_1, f_3)
+        f_1, f_2, f_3 = f_3, f_1, f_2
+        if i % 10 == 0:
+            displacement = stepper.get_macroscopics(f_1)
+            l2_new, linf_new = process_error(displacement, expected_solution, i, dx, norms_over_time)
+            print(l2_new)
             if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:
                 print("Final timestep:{}".format(i))
                 break
             l2, linf = l2_new, linf_new
+            output_image(displacement, i, "figure")
 
-    #write out error norms
-    print("Final error: {}".format(norms_over_time[len(norms_over_time)-1]))
+    # write out error norms
+    print("Final error: {}".format(norms_over_time[len(norms_over_time) - 1]))
     write_results(norms_over_time, "results.csv")
