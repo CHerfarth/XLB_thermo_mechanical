@@ -168,8 +168,8 @@ name = "convergence.png"
 fig, ax = plt.subplots()
 
 #plot dispersement error
-ax.plot(data['epsilon'], data['error_L2_disp'], "-b",label='L2 disp')
-ax.plot(data['epsilon'], data['error_Linf_disp'], "--b", label='Linf disp')
+ax.plot(data['epsilon'], data['error_L2_disp'], "-ob",label='L2 disp')
+ax.plot(data['epsilon'], data['error_Linf_disp'], "--ob", label='Linf disp')
 
 #set scales, grid, title
 plt.yscale('log')

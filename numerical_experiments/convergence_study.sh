@@ -3,9 +3,8 @@
 epsilon=1.0
 nodes_x=5
 nodes_y=5
-timesteps=1000000
+timesteps=1000
 dt=0.1
-post_process_interval=5000
 iterations=10
 
 #for bookkeeping
@@ -18,8 +17,9 @@ echo "epsilon,error_L2_disp,error_Linf_disp" > $results_file
 
 for ((i=0; i<iterations; i++))
 do
+    post_process_interval=$(echo "500/$dt"| bc)
     echo "--------------------"
-    echo "Simulating with $nodes_x nodes and timestep of size $dt     --->  epsilon = $epsilon"
+    echo "Simulating with $nodes_x nodes and timestep of size $dt, # of timesteps: $timesteps, post_process_interval: $post_process_interval     --->  epsilon = $epsilon"
 
     python3 convergence_study.py $nodes_x $nodes_y $timesteps $dt $post_process_interval >  tmp_1.txt
     cat tmp_1.txt >> $log_file #write to log
@@ -41,6 +41,7 @@ do
     nodes_x=$((nodes_x*2))
     nodes_y=$((nodes_y*2))
     dt=$(echo "$dt*0.25"|bc -l)
+    timesteps=$((timesteps*4))
 
     echo "Iteration $i done"
 done

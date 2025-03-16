@@ -141,3 +141,15 @@ def get_error_norm(current, expected, dx):
     l2_norm = np.sqrt(np.sum(np.linalg.norm(error_matrix, axis=0)**2))*dx
     linf_norm = np.max(np.linalg.norm(error_matrix, axis=0))
     return l2_norm, linf_norm
+
+
+def get_expected_stress(manufactured_displacement, x, y, lamb, mu):
+    man_u = manufactured_displacement[0]
+    man_v = manufactured_displacement[1]
+    e_xx = sympy.diff(man_u, x)
+    e_yy = sympy.diff(man_u, y)
+    e_xy = 0.5*(sympy.diff(man_u, y) + sympy.diff(man_v, y))
+    s_xx = lamb*(e_xx + e_yy) + 2*mu*e_xx
+    s_yy = lamb*(e_xx + e_yy) + 2*mu*e_yy
+    s_xy = lamb*(e_xx + e_yy) + 2*mu*e_xy
+    return s_xx, s_yy, s_xy
