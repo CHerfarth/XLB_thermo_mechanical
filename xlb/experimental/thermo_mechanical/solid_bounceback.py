@@ -46,26 +46,28 @@ class SolidsDirichlet(Operator):
                         1
                     ):  # this means the interior node is connected to a ghost node in direction l; the bounce back bc needs to be applied
                         new_direction = opp_indices[l]
-                        print("------------------------")
-                        print("Node:")
-                        print(i)
-                        print(j)
-                        print("Previous direction:")
-                        print(l)
-                        print(c[0,l])
-                        print(c[1,l])
-                        print("New Direction:")
-                        print(new_direction)
-                        print(c[0, new_direction])
-                        print(c[1, new_direction])
-                        print("Weight")
-                        print(w[new_direction])
-                        print(boundary_values[l*2, i, j, 0])
-                        print(boundary_values[l*2+1, i, j, 0])
+                        #print("------------------------")
+                        #print("Node:")
+                        #print(i)
+                        #print(j)
+                        #print("Previous direction:")
+                        #print(l)
+                        #print(c[0,l])
+                        #print(c[1,l])
+                        #print("New Direction:")
+                        #print(new_direction)
+                        #print(c[0, new_direction])
+                        #print(c[1, new_direction])
+                        #print("Weight")
+                        #print(w[new_direction])
+                        #print(boundary_values[l*2, i, j, 0])
+                        #print(boundary_values[l*2+1, i, j, 0])
                         x_dir = (c[0, new_direction])
                         y_dir = (c[1, new_direction])  
                         weight = w[new_direction]
                         #f_current[new_direction, i, j, 0] = f_previous[l, i, j, 0] + 6.0 * weight * (x_dir * boundary_values[l*2, i, j, 0] + y_dir * boundary_values[l*2+1, i, j, 0])
+                        #Todo: try with zero bc
+                        
 
         return None, kernel
 
