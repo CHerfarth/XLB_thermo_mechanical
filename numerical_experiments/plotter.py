@@ -159,6 +159,36 @@ data = pd.read_csv(args.file, skiprows=0, sep=",", engine="python", dtype=np.flo
 print(data.head())
 plot_single(data, "Epsilon", "L2 Norm of Error", "Convergence", "convergence.png")
 
+x_label = "Epsilon"
+y_label = "Error"
+title = "Convergence"
+name = "convergence.png"
+
+#data = data.to_numpy()
+fig, ax = plt.subplots()
+
+#plot dispersement error
+ax.plot(data['epsilon'], data['error_L2_disp'], "-b",label='L2 disp')
+ax.plot(data['epsilon'], data['error_Linf_disp'], "--b", label='Linf disp')
+
+#set scales, grid, title
+plt.yscale('log')
+plt.xscale('log')
+ax.grid(True)
+ax.set_title(title)
+
+#plot convergence triangle
+draw_loglog_slope(fig, ax, (0.6,0.6), 1, 2, "black", inverted=True)
+plt.xlabel(x_label, labelpad=20, fontsize=12)
+plt.ylabel(y_label, labelpad=20, fontsize=12)
+
+#wrap up
+plt.legend()
+plt.tight_layout()
+plt.savefig(name)
+
+
+
 
 
 

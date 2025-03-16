@@ -58,6 +58,7 @@ if __name__ == "__main__":
     parser.add_argument("nodes_y", type=int)
     parser.add_argument("timesteps", type=int)
     parser.add_argument("dt", type=float)
+    parser.add_argument("post_process_interval", type=int)
     args = parser.parse_args()
 
 
@@ -84,8 +85,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(x*4*sympy.pi)
-    manufactured_v = sympy.cos(y*4*sympy.pi)
+    manufactured_u = 9 * sympy.cos(2*sympy.pi*x)*sympy.sin(2*sympy.pi*y)
+    manufactured_v = 7 * sympy.sin(2*sympy.pi*x)*sympy.cos(2*sympy.pi*y)
     manufactured_displacement = np.array([utils.get_function_on_grid(manufactured_u, x, y, dx, grid), utils.get_function_on_grid(manufactured_v, x, y, dx, grid)])
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y, mu, K)
     stepper = SolidsStepper(grid, force_load, E, nu, dx, dt)
@@ -96,13 +97,14 @@ if __name__ == "__main__":
     displacement = grid.create_field(cardinality=2, dtype=precision_policy.store_precision)
 
     norms_over_time = list() #to track error over time
-    tolerance = 1e-6
+    post_process_interval = args.post_process_interval
+    tolerance = 1e-8
 
     l2, linf = 0, 0
     for i in range(timesteps):
         stepper(f_0, f_1, displacement)
         f_0, f_1 = f_1, f_0
-        if i % 100 == 0:
+        if i % post_process_interval == 0:
             l2_new, linf_new = process_error(displacement, manufactured_displacement, i, dx, norms_over_time)
             if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:
                 #print("Final timestep:{}".format(i))
@@ -110,5 +112,8 @@ if __name__ == "__main__":
             l2, linf = l2_new, linf_new
 
     #write out error norms
-    print("Final error: {}".format(norms_over_time[len(norms_over_time)-1][1]))
-    write_results(norms_over_time, "results.csv")
+    last_norms = norms_over_time[len(norms_over_time)-1]
+    print("Final error L2_disp: {}".format(last_norms[1]))
+    print("Final error Linf_disp: {}".format(last_norms[2]))
+    print("in {} timesteps".format(last_norms[0]))
+    #write_results(norms_over_time, "results.csv")
