@@ -142,7 +142,8 @@ def get_error_norm(current, expected, dx):
     # Filter out NaN values
     error_matrix = error_matrix[~np.isnan(error_matrix)]
     l2_norm = np.sqrt(np.sum(np.linalg.norm(error_matrix, axis=0) ** 2)) * dx
-    linf_norm = np.max(np.linalg.norm(error_matrix, axis=0)) 
+    #linf_norm = np.max(np.linalg.norm(error_matrix, axis=0)) 
+    linf_norm = np.max(np.max(np.abs(error_matrix), axis=0))
     return l2_norm, linf_norm
 
 

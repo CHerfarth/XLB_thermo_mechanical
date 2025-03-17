@@ -136,6 +136,6 @@ def init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet):
                             assert(counter <= max_steps)
                         host_boundary_values[direction*2, i, j, 0], host_boundary_values[direction*2 + 1, i, j, 0] = bc_dirichlet(bc_x, bc_y)[0], bc_dirichlet(bc_x, bc_y)[1]
 
-    save_image(host_boundary_info[0, :, :, 0], 2)
+#    save_image(host_boundary_info[0, :, :, 0], 2)
     # move to device
     return wp.from_numpy(host_boundary_info, dtype=wp.int8), wp.from_numpy(host_boundary_values, dtype=wp.float32)
