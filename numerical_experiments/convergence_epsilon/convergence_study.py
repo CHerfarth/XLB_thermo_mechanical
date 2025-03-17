@@ -38,7 +38,7 @@ if __name__ == "__main__":
     parser.add_argument("nodes_y", type=int)
     parser.add_argument("timesteps", type=int)
     parser.add_argument("dt", type=float)
-    parser.add_argument("include_bc", type=bool)
+    parser.add_argument("include_bc", type=int)
     args = parser.parse_args()
 
 
@@ -83,10 +83,11 @@ if __name__ == "__main__":
     # set boundary potential
     manufactured_u = sympy.lambdify([x, y], manufactured_u)
     manufactured_v = sympy.lambdify([x, y], manufactured_v)
-    potential = lambda x, y: (0.5-x)**2 + (0.5-y)**2 - 20
+    potential = lambda x, y: (0.5-x)**2 + (0.5-y)**2 - 0.25
     bc_dirichlet = lambda x, y: (manufactured_u(x,y), manufactured_v(x,y))
     boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet)
-    if args.include_bc != True:
+    print(args.include_bc)
+    if args.include_bc == 0:
         potential = None
         bc_dirichlet = None
         boundary_array, boundary_values = None, None

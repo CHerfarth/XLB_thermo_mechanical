@@ -68,7 +68,6 @@ class SolidsStepper(Stepper):
         host_force_x = np.fromfunction(
             b_x_scaled, shape=(self.grid.shape[0], self.grid.shape[1])
         )  # create array with force evaluated at the grid points
-        print(host_force_x)
         host_force_y = np.fromfunction(b_y_scaled, shape=(self.grid.shape[0], self.grid.shape[1]))
         host_force = np.array([[host_force_x, host_force_y]])
         host_force = np.transpose(host_force, (1, 2, 3, 0))  # swap dims to make array compatible with what grid_factory would have produced

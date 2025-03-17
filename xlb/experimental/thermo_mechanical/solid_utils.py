@@ -5,6 +5,8 @@ import sympy
 import numpy as np
 from xlb.utils import save_fields_vtk, save_image
 
+np.seterr(all="ignore")
+
 
 # Mapping:
 #    i  j   |   f_q
@@ -135,13 +137,13 @@ def get_error_norms(current_macroscopics, expected_macroscopics, dx, timestep=0)
     error_matrix = np.subtract(current_macroscopics[0:4,:,:,0], expected_macroscopics[0:4,:,:])
     #step 1: handle displacement
     l2_disp = np.sqrt(np.nansum(np.linalg.norm(error_matrix[0:2,:,:], axis=0) ** 2)) * dx
-    linf_disp = np.nanmax(np.nanmax(np.abs(error_matrix[0:2,:,:]), axis=0))
+    linf_disp = np.nanmax(np.max(np.abs(error_matrix[0:2,:,:]), axis=0))
     #step 2: handle stress
     l2_stress = np.sqrt(np.nansum(np.linalg.norm(error_matrix[2:4,:,:], axis=0) ** 2)) * dx
-    linf_stress = np.nanmax(np.nanmax(np.abs(error_matrix[2:4,:,:]), axis=0))
+    linf_stress = np.nanmax(np.max(np.abs(error_matrix[2:4,:,:]), axis=0))
     #step 3: output error image 
-    error_inf = np.nanmax(np.abs(error_matrix[2:4, :, :]), axis=0)
-    fields = {"error_inf": error_inf}
+    #error_inf = np.nanmax(np.abs(error_matrix[2:4, :, :]), axis=0)
+    #fields = {"error_inf": error_inf}
     #save_fields_vtk(fields, timestep=timestep, prefix="error")
     return l2_disp, linf_disp, l2_stress, linf_stress
 
@@ -149,17 +151,11 @@ def get_expected_stress(manufactured_displacement, x, y, lamb, mu):
     man_u = manufactured_displacement[0]
     man_v = manufactured_displacement[1]
     e_xx = sympy.diff(man_u, x)
-    print(e_xx)
     e_yy = sympy.diff(man_v, y)
-    print(e_yy)
     e_xy = 0.5*(sympy.diff(man_u, y) + sympy.diff(man_v, x))
-    print(e_xy)
     s_xx = lamb*(e_xx + e_yy) + 2*mu*e_xx
     s_yy = lamb*(e_xx + e_yy) + 2*mu*e_yy
     s_xy = lamb*(e_xx + e_yy) + 2*mu*e_xy
-    print(s_xx)
-    print(s_yy)
-    print(s_xy)
     return s_xx, s_yy, s_xy
 
 def restrict_solution_to_domain(array, potential, dx): #ToDo: make more efficient (fancy numpy funcs)
