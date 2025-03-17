@@ -14,6 +14,7 @@ import csv
 import math
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 import xlb.experimental.thermo_mechanical.solid_bounceback as bc
+from xlb.utils import save_fields_vtk, save_image
 
 
 
@@ -63,18 +64,29 @@ if __name__ == "__main__":
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
     ])
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y, mu, K)
-    manufactured_u = sympy.lambdify([x, y], manufactured_u)
-    manufactured_v = sympy.lambdify([x, y], manufactured_v)
+
+    #get expected stress
+    s_xx, s_yy, s_xy = utils.get_expected_stress((manufactured_u, manufactured_v), x, y, lamb, mu)
+    expected_stress = np.array([utils.get_function_on_grid(s_xx, x, y, dx, grid), utils.get_function_on_grid(s_yy, x, y, dx, grid), utils.get_function_on_grid(s_xy, x, y, dx, grid)])
 
 
     # set boundary potential
+    manufactured_u = sympy.lambdify([x, y], manufactured_u)
+    manufactured_v = sympy.lambdify([x, y], manufactured_v)
     potential = lambda x, y: (0.5-x)**2 + (0.5-y)**2 - 0.2 
     bc_dirichlet = lambda x, y: (manufactured_u(x,y), manufactured_v(x,y))
     boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet)
 
     #adjust expected solution
-    #expected_solution = manufactured_displacement
-    expected_solution = utils.restrict_solution_to_domain(manufactured_displacement, potential, dx)
+    expected_displacement = utils.restrict_solution_to_domain(manufactured_displacement, potential, dx)
+    expected_stress = utils.restrict_solution_to_domain(expected_stress, potential, dx)
+    s_xx = expected_stress[0,:,:]
+    s_yy = expected_stress[1,:,:]
+    s_xy = expected_stress[2,:,:]
+    fields = {"s_xx": s_xx, "s_yy": s_yy, "s_xy": s_xy}
+    save_fields_vtk(fields, timestep=13,prefix="expected")
+
+
 
     # initialize stepper
     stepper = SolidsStepper(grid, force_load, E, nu, dx, dt, boundary_conditions=boundary_array, boundary_values=boundary_values)
@@ -92,14 +104,14 @@ if __name__ == "__main__":
         stepper(f_1, f_3)
         f_1, f_2, f_3 = f_3, f_1, f_2
         if i % 100 == 0:
-            displacement = stepper.get_macroscopics(f_1)
-            l2_new, linf_new = utils.process_error(displacement, expected_solution, i, dx, norms_over_time)
-            print(l2_new)
+            macroscopics = stepper.get_macroscopics(f_1)
+            l2_new, linf_new, l2_stress, linf_stress = utils.process_error(macroscopics, expected_displacement, expected_stress, i, dx, norms_over_time)
+            print(l2_stress, linf_stress)
             if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:
                 print("Final timestep:{}".format(i))
                 break
             l2, linf = l2_new, linf_new
-            utils.output_image(displacement, i, "figure")
+            utils.output_image(macroscopics, i, "figure")
 
     # write out error norms
     print("Final error: {}".format(norms_over_time[len(norms_over_time) - 1]))

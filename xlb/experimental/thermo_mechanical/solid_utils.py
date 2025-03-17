@@ -8,18 +8,6 @@ from xlb.utils import save_fields_vtk, save_image
 
 # Mapping:
 #    i  j   |   f_q
-#    1  0   |   1
-#    0  1   |   2
-#   -1  0   |   3
-#    0 -1   |   4
-#    1  1   |   5
-#   -1  1   |   6
-#   -1 -1   |   7
-#    1 -1   |   8
-#    0  0   |   9    (irrelevant)
-
-# New Mapping:
-#    i  j   |   f_q
 #    0  0   |   0
 #    0  1   |   1
 #   0  -1   |   2
@@ -32,15 +20,15 @@ from xlb.utils import save_fields_vtk, save_image
 
 # Mapping for moments:
 #    i  j   |   m_q
-#    1  0   |   1
-#    0  1   |   2
-#    1  1   |   3
-#    s      |   4
-#    d      |   5
-#    1  2   |   6
-#    2  1   |   7
-#    2  2   |   8
-#    0  0   |   9 (irrelevant)
+#    1  0   |   0
+#    0  1   |   1
+#    1  1   |   2
+#    s      |   3
+#    d      |   4
+#    1  2   |   5
+#    2  1   |   6
+#    2  2   |   7
+#    0  0   |   8 (irrelevant)
 
 
 solid_vec = wp.vec(
@@ -50,7 +38,7 @@ solid_vec = wp.vec(
 
 def set_precision_policy(precision_policy):
     global solid_vec
-    solid_vec = wp.vec(9, dtype=PrecisionPolicy.FP32FP32)
+    solid_vec = wp.vec(9, dtype=precision_policy.FP32FP32.compute_precision.wp_dtype)
 
 
 @wp.func
@@ -65,6 +53,12 @@ def read_local_population(f: wp.array4d(dtype=Any), x: wp.int32, y: wp.int32):
 def write_population_to_global(f: wp.array4d(dtype=Any), f_local: solid_vec, x: wp.int32, y: wp.int32):
     for i in range(9):
         f[i, x, y, 0] = f_local[i]
+
+@wp.func
+def write_vec_to_global(array: wp.array4d(dtype=Any), array_local: Any, x: wp.int32, y: wp.int32, dim: wp.int32):
+    for i in range(dim):
+        array[i, x, y, 0] = array_local[i]
+
 
 
 @wp.func
@@ -171,17 +165,21 @@ def restrict_solution_to_domain(array, potential, dx): #ToDo: make more efficien
 def output_image(displacement_host, timestep, name, potential=None, dx=None):
     dis_x = displacement_host[0, :, :, 0]
     dis_y = displacement_host[1, :, :, 0]
+    s_xx = displacement_host[2, :, :,  0]
+    s_yy = displacement_host[3, :, :, 0]
+    s_xy = displacement_host[4, :, :, 0]
     if potential != None:
         dis_x = restrict_solution_to_domain(dis_x, potential, dx)
         dis_y = restrict_solution_to_domain(dis_y, dx)
     # output as vtk files
     dis_mag = np.sqrt(np.square(dis_x) + np.square(dis_y))
-    fields = {"dis_x": dis_x, "dis_y": dis_y, "dis_mag": dis_mag}
+    fields = {"dis_x": dis_x, "dis_y": dis_y, "dis_mag": dis_mag, "s_xx": s_xx, "s_yy": s_yy, "s_xy": s_xy}
     save_fields_vtk(fields, timestep=timestep, prefix=name)
     save_image(dis_mag, timestep)
 
-def process_error(displacement_host, manufactured_displacement, timestep, dx, norms_over_time):
+def process_error(displacement_host, manufactured_displacement, expected_stress, timestep, dx, norms_over_time):
     # calculate error to expected solution
-    l2, linf = get_error_norm(displacement_host[:, :, :, 0], manufactured_displacement, dx)
-    norms_over_time.append((timestep, l2, linf))
-    return l2, linf
+    l2_disp, linf_disp = get_error_norm(displacement_host[0:2, :, :, 0], manufactured_displacement, dx)
+    l2_stress, linf_stress = get_error_norm(displacement_host[2:5, :, :, 0], expected_stress, dx)
+    norms_over_time.append((timestep, l2_disp, linf_disp, l2_stress, linf_stress))
+    return l2_disp, linf_disp, l2_stress, linf_stress

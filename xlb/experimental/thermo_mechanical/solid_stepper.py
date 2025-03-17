@@ -79,23 +79,23 @@ class SolidsStepper(Stepper):
         self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)
         self.boundaries = SolidsDirichlet()
         self.macroscopic = SolidMacroscopics(
-            self.grid, self.force, self.boundary_conditions, self.velocity_set, self.precision_policy, self.compute_backend
+            self.grid, self.force, self.omega, self.theta, self.boundary_conditions, self.velocity_set, self.precision_policy, self.compute_backend
         )
         self.equilibrium = None  # needed?
 
-        # ---------create fields for macroscopics---------
-        self.displacement = grid.create_field(cardinality=2, dtype=self.precision_policy.store_precision)
         #----------create field for temp stuff------------
         self.temp_f = grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f_current, f_previous):
         wp.launch(utils.copy_populations, inputs=[f_previous, self.temp_f, self.velocity_set.q], dim=f_current.shape[1:])
-        wp.launch(self.collision.warp_kernel, inputs=[f_current, self.force, self.displacement, self.omega, self.theta], dim=f_current.shape[1:])
+        wp.launch(self.collision.warp_kernel, inputs=[f_current, self.force, self.omega, self.theta], dim=f_current.shape[1:])
         wp.launch(self.stream.warp_kernel, inputs=[f_current, f_previous], dim=f_current.shape[1:])
         if self.boundary_conditions != None:
             self.boundaries(f_previous, self.temp_f, self.boundary_conditions, self.boundary_values)
 
     def get_macroscopics(self, f):
+        #udate bared moments
+        self.macroscopic(f)
         # get updated displacement
-        return self.macroscopic(f, self.displacement, self.theta)
+        return self.macroscopic.get_macroscopics()

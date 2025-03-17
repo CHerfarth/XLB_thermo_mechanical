@@ -37,7 +37,6 @@ class SolidsCollision(Collision):
         def collide(
             f: wp.array4d(dtype=Any),
             force: wp.array4d(dtype=Any),
-            displacement: wp.array4d(dtype=Any),
             omega: utils.solid_vec,
             theta: Any,
         ):
@@ -50,8 +49,6 @@ class SolidsCollision(Collision):
             # apply half-forcing and get displacement
             m[0] += 0.5 * force[0, i, j, 0]
             m[1] += 0.5 * force[1, i, j, 0]
-            displacement[0, i, j, 0] = m[0]
-            displacement[1, i, j, 0] = m[1]
 
             m_eq = utils.calc_equilibrium(m, theta)
 
