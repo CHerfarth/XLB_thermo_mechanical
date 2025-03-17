@@ -79,7 +79,7 @@ class SolidsStepper(Stepper):
         self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)
         self.boundaries = SolidsDirichlet()
         self.macroscopic = SolidMacroscopics(
-            self.grid, self.force, self.omega, self.theta, self.boundary_conditions, self.velocity_set, self.precision_policy, self.compute_backend
+            self.grid, self.force, self.omega, self.theta, self.L, self.T, self.boundary_conditions, self.velocity_set, self.precision_policy, self.compute_backend
         )
         self.equilibrium = None  # needed?
 

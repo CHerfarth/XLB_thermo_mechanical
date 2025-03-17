@@ -39,7 +39,7 @@ class SolidsDirichlet(Operator):
             i, j, k = wp.tid()  # for 2d k will equal 1
             if boundary_array[0, i, j, 0] == wp.int8(0): #if outside domain, just set to 0
                 for l in range(self.velocity_set.q):
-                    f_current[l, i, j, 0] = 0.0
+                    f_current[l, i, j, 0] = wp.nan
             elif boundary_array[0, i, j, 0] == wp.int8(2): #for boundary nodes: check which directions need to be given by BC
                 for l in range(self.velocity_set.q):
                     if boundary_array[l + 1, i, j, 0] == wp.int8(
@@ -115,11 +115,11 @@ def init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet):
                         bc_x = cur_x + 0.5*dx*x_direction
                         bc_y = cur_y + 0.5*dx*y_direction
                         host_boundary_values[direction*2, i, j, 0], host_boundary_values[direction*2 + 1, i, j, 0] = bc_dirichlet(bc_x, bc_y)[0], bc_dirichlet(bc_x, bc_y)[1]
-                        print("Node {}, {}".format(i, j))
+                        '''print("Node {}, {}".format(i, j))
                         print("at: {}, {}".format(cur_x, cur_y))
                         print("Direction: {}, {}".format(x_direction, y_direction))
                         print("Boundary at: {}, {}".format(bc_x, bc_y))
-                        print("bc: {}, {}".format(bc_dirichlet(bc_x, bc_y)[0], bc_dirichlet(bc_x, bc_y)[1]))
+                        print("bc: {}, {}".format(bc_dirichlet(bc_x, bc_y)[0], bc_dirichlet(bc_x, bc_y)[1]))'''
                     elif host_boundary_info[0, (i + x_direction) , (j + y_direction) , 0] == 0:
                         host_boundary_info[direction + 1, i, j, 0] = 1
                         host_boundary_info[0, i, j, 0] = 2

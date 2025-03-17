@@ -59,7 +59,7 @@ if __name__ == "__main__":
     x, y = sympy.symbols("x y")
     manufactured_u = 3*sympy.cos(6*sympy.pi*x) + 3
     manufactured_v = 3*sympy.cos(6*sympy.pi*y) + 3
-    manufactured_displacement = np.array([
+    expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
     ])
@@ -76,9 +76,12 @@ if __name__ == "__main__":
     potential = lambda x, y: (0.5-x)**2 + (0.5-y)**2 - 0.2 
     bc_dirichlet = lambda x, y: (manufactured_u(x,y), manufactured_v(x,y))
     boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet)
+    #potential = None
+    #boundary_array = None
+    #boundary_values = None
 
     #adjust expected solution
-    expected_displacement = utils.restrict_solution_to_domain(manufactured_displacement, potential, dx)
+    expected_displacement = utils.restrict_solution_to_domain(expected_displacement, potential, dx)
     expected_stress = utils.restrict_solution_to_domain(expected_stress, potential, dx)
     s_xx = expected_stress[0,:,:]
     s_yy = expected_stress[1,:,:]
@@ -106,12 +109,12 @@ if __name__ == "__main__":
         if i % 100 == 0:
             macroscopics = stepper.get_macroscopics(f_1)
             l2_new, linf_new, l2_stress, linf_stress = utils.process_error(macroscopics, expected_displacement, expected_stress, i, dx, norms_over_time)
-            print(l2_stress, linf_stress)
+            print(l2_new, linf_new, l2_stress, linf_stress)
+            utils.output_image(macroscopics, i, "figure", potential, dx)
             if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:
                 print("Final timestep:{}".format(i))
                 break
             l2, linf = l2_new, linf_new
-            utils.output_image(macroscopics, i, "figure")
 
     # write out error norms
     print("Final error: {}".format(norms_over_time[len(norms_over_time) - 1]))

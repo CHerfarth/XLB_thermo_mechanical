@@ -11,12 +11,14 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 
 class SolidMacroscopics(Operator):
-    def __init__(self, grid, force, omega, theta, boundaries=None, velocity_set=None, precision_policy=None, compute_backend=None):
+    def __init__(self, grid, force, omega, theta, L, T, boundaries=None, velocity_set=None, precision_policy=None, compute_backend=None):
         super().__init__(velocity_set=velocity_set, precision_policy=precision_policy, compute_backend=compute_backend)
         self.force = force
         self.omega = omega
         self.theta = theta
         self.boundaries = boundaries
+        self.L = L
+        self.T = T
         self.bared_moments = grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
         #Mapping for macroscopics:
         # 0: dis_x
@@ -51,7 +53,7 @@ class SolidMacroscopics(Operator):
             utils.write_population_to_global(bared_moments, m, i, j)
         
         @wp.kernel
-        def write_out(macroscopics: Any, bared_moments: Any):
+        def write_out(macroscopics: Any, bared_moments: Any, L:Any, T: Any):
             i, j, k = wp.tid()
             bared_m_local = utils.read_local_population(bared_moments, i, j)
 
@@ -69,9 +71,9 @@ class SolidMacroscopics(Operator):
             macro = macro_vec()
             macro[0] = dis_x
             macro[1] = dis_y
-            macro[2] = s_xx
-            macro[3] = s_yy
-            macro[4] = s_xy
+            macro[2] = s_xx * L / T
+            macro[3] = s_yy * L / T #ToDo: Add kappa to rescaling!
+            macro[4] = s_xy * L / T
             utils.write_vec_to_global(macroscopics, macro, i, j, 5)
 
 
@@ -89,7 +91,7 @@ class SolidMacroscopics(Operator):
     def get_macroscopics(self):
        wp.launch(
             self.warp_kernel[1],
-            inputs=[self.macroscopics, self.bared_moments],
+            inputs=[self.macroscopics, self.bared_moments, self.L, self.T],
             dim=self.macroscopics.shape[1:],
        ) 
        return self.macroscopics.numpy()
