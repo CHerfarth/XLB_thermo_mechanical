@@ -1,11 +1,11 @@
 #!/bin/bash
 
 epsilon=1.0
-nodes_x=5
-nodes_y=5
-timesteps=1000
+nodes_x=40
+nodes_y=40
+timesteps=5000
 dt=0.1
-iterations=7
+iterations=2
 
 #for bookkeeping
 current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
@@ -13,15 +13,14 @@ log_file="log_"$current_date_time".txt"
 results_file="results_"$current_date_time".csv"
 echo "All output logged in $log_file"
 echo "Writing results to $results_file"
-echo "epsilon,error_L2_disp,error_Linf_disp" > $results_file
+echo "epsilon,error_L2_disp,error_Linf_disp,error_L2_stress,error_Linf_stress" > $results_file
 
 for ((i=0; i<iterations; i++))
 do
-    post_process_interval=$(echo "500/$dt"| bc)
     echo "--------------------"
-    echo "Simulating with $nodes_x nodes and timestep of size $dt, # of timesteps: $timesteps, post_process_interval: $post_process_interval     --->  epsilon = $epsilon"
+    echo "Simulating with $nodes_x nodes and timestep of size $dt, # of timesteps: $timesteps     --->  epsilon = $epsilon"
 
-    python3 convergence_study.py $nodes_x $nodes_y $timesteps $dt $post_process_interval >  tmp_1.txt
+    python3 $1 $nodes_x $nodes_y $timesteps $dt $3 >  tmp_1.txt #True, because simulating with bc
     cat tmp_1.txt >> $log_file #write to log
 
     #get L2 disp error
@@ -32,8 +31,16 @@ do
     cat tmp_1.txt | grep "Linf_disp" > tmp_2.txt
     error_Linf_disp=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
 
-    echo "Error: $error_L2_disp, $error_Linf_disp"
-    echo "$epsilon,$error_L2_disp, $error_Linf_disp" >> $results_file
+    #get L2 stress
+    cat tmp_1.txt | grep "L2_stress" > tmp_2.txt
+    error_L2_stress=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+    
+    #get Linf stress
+    cat tmp_1.txt | grep "Linf_stress" > tmp_2.txt
+    error_Linf_stress=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+
+    echo "Error: $error_L2_disp, $error_Linf_disp, $error_L2_stress, $error_Linf_stress"
+    echo "$epsilon,$error_L2_disp, $error_Linf_disp, $error_L2_stress, $error_Linf_stress" >> $results_file
     rm tmp*
 
     #decrease expsilon
@@ -46,4 +53,4 @@ do
     echo "Iteration $i done"
 done
 
-python3 plotter.py $results_file
+python3 $2 $results_file

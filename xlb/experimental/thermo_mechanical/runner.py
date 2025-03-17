@@ -34,8 +34,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 200
-    nodes_y = 200
+    nodes_x = 500
+    nodes_y = 500
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -57,8 +57,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = 3*sympy.cos(6*sympy.pi*x) + 3
-    manufactured_v = 3*sympy.cos(6*sympy.pi*y) + 3
+    manufactured_u = 3*sympy.cos(6*sympy.pi*x) #+ 3
+    manufactured_v = 3*sympy.cos(6*sympy.pi*y) #+ 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -73,16 +73,13 @@ if __name__ == "__main__":
     # set boundary potential
     manufactured_u = sympy.lambdify([x, y], manufactured_u)
     manufactured_v = sympy.lambdify([x, y], manufactured_v)
-    potential = lambda x, y: (0.5-x)**2 + (0.5-y)**2 - 0.2 
+    potential = lambda x, y: (0.5-x)**2 + (0.5-y)**2 - 20
     bc_dirichlet = lambda x, y: (manufactured_u(x,y), manufactured_v(x,y))
     boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet)
-    #potential = None
-    #boundary_array = None
-    #boundary_values = None
 
     #adjust expected solution
-    expected_displacement = utils.restrict_solution_to_domain(expected_displacement, potential, dx)
-    expected_stress = utils.restrict_solution_to_domain(expected_stress, potential, dx)
+    expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
+    #expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
     s_xx = expected_stress[0,:,:]
     s_yy = expected_stress[1,:,:]
     s_xy = expected_stress[2,:,:]
@@ -108,7 +105,7 @@ if __name__ == "__main__":
         f_1, f_2, f_3 = f_3, f_1, f_2
         if i % 100 == 0:
             macroscopics = stepper.get_macroscopics(f_1)
-            l2_new, linf_new, l2_stress, linf_stress = utils.process_error(macroscopics, expected_displacement, expected_stress, i, dx, norms_over_time)
+            l2_new, linf_new, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
             print(l2_new, linf_new, l2_stress, linf_stress)
             utils.output_image(macroscopics, i, "figure", potential, dx)
             if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:

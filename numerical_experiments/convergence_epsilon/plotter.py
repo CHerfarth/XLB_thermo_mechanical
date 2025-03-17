@@ -107,85 +107,46 @@ def draw_loglog_slope(fig, ax, origin, width_inches, slope, color, inverted=Fals
 
 
 
-def plot_single(data, x_label, y_label, title, name, color="blue", xlim=None, ylim=None):
-    data = data.to_numpy()
-    print(data)
+if __name__ == "__main__":
+    #get command line arguments
+    parser = argparse.ArgumentParser("plot_convergence")
+    parser.add_argument("file", type=str)
+    args = parser.parse_args()
+
+    data = pd.read_csv(args.file, skiprows=0, sep=",", engine="python", dtype=np.float64)
+    print(data.head())
+
+    x_label = "Epsilon"
+    y_label = "Error"
+    title = "Convergence"
+    name = "convergence.png"
+
+    #data = data.to_numpy()
     fig, ax = plt.subplots()
-    ax.plot(data[:, 0], data[:, 1], color=color)
+
+    #plot dispersement error
+    ax.plot(data['epsilon'], data['error_L2_disp'], "-ob",label='L2 disp')
+    ax.plot(data['epsilon'], data['error_Linf_disp'], "--ob", label='Linf disp')
+
+    #plot stress error
+    ax.plot(data['epsilon'], data['error_L2_stress'], "-og",label='L2 stress')
+    ax.plot(data['epsilon'], data['error_Linf_stress'], "--og",label='Linf stress')
+
+    #set scales, grid, title
     plt.yscale('log')
     plt.xscale('log')
     ax.grid(True)
     ax.set_title(title)
-    ax.set_xlim(xlim)
-    ax.set_ylim(ylim)
+
+    #plot convergence triangle
     draw_loglog_slope(fig, ax, (0.6,0.6), 1, 2, "black", inverted=True)
     plt.xlabel(x_label, labelpad=20, fontsize=12)
     plt.ylabel(y_label, labelpad=20, fontsize=12)
+
+    #wrap up
+    plt.legend()
     plt.tight_layout()
     plt.savefig(name)
-
-
-def plot_double(
-    data1, data2, x_label, y_label, title, name, color1="blue", color2="red", label1=None, label2=None, xlim=None, ylim=None, scatter=False
-):
-    data1 = data1.to_numpy()
-    data2 = data2.to_numpy()
-    fig, ax = plt.subplots()
-    if scatter == False:
-        ax.plot(data1[:, 0], data1[:, 1], "--", color=color1, label=label1)
-        ax.plot(data2[:, 0], data2[:, 1], "--", color=color2, label=label2)
-    else:
-        ax.scatter(data1[:, 0], data1[:, 1], color=color1, label=label1)
-        ax.scatter(data2[:, 0], data2[:, 1], color=color2, label=label2)
-    ax.grid(True)
-    plt.yscale('log')
-    ax.set_title(title)
-    ax.set_xlim(xlim)
-    ax.set_ylim(ylim)
-    plt.xlabel(x_label, labelpad=20, fontsize=12)
-    plt.ylabel(y_label, labelpad=20, fontsize=12)
-    if label1 != None and label2 != None:
-        plt.legend(loc="upper right")
-    plt.tight_layout()
-    plt.savefig(name)
-
-
-#get command line arguments
-parser = argparse.ArgumentParser("plot_convergence")
-parser.add_argument("file", type=str)
-args = parser.parse_args()
-
-data = pd.read_csv(args.file, skiprows=0, sep=",", engine="python", dtype=np.float64)
-print(data.head())
-plot_single(data, "Epsilon", "L2 Norm of Error", "Convergence", "convergence.png")
-
-x_label = "Epsilon"
-y_label = "Error"
-title = "Convergence"
-name = "convergence.png"
-
-#data = data.to_numpy()
-fig, ax = plt.subplots()
-
-#plot dispersement error
-ax.plot(data['epsilon'], data['error_L2_disp'], "-ob",label='L2 disp')
-ax.plot(data['epsilon'], data['error_Linf_disp'], "--ob", label='Linf disp')
-
-#set scales, grid, title
-plt.yscale('log')
-plt.xscale('log')
-ax.grid(True)
-ax.set_title(title)
-
-#plot convergence triangle
-draw_loglog_slope(fig, ax, (0.6,0.6), 1, 2, "black", inverted=True)
-plt.xlabel(x_label, labelpad=20, fontsize=12)
-plt.ylabel(y_label, labelpad=20, fontsize=12)
-
-#wrap up
-plt.legend()
-plt.tight_layout()
-plt.savefig(name)
 
 
 

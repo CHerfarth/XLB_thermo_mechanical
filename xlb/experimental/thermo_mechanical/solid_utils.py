@@ -131,20 +131,19 @@ def get_function_on_grid(f, x, y, dx, grid):
     return f_on_grid
 
 
-def get_error_norm(current, expected, dx):
-    error_matrix = np.subtract(current, expected)
-    print(error_matrix.shape)
-    print(error_matrix.shape)
-    l2_norm = np.sqrt(np.nansum(np.linalg.norm(error_matrix, axis=0) ** 2)) * dx
-    #linf_norm = np.max(np.linalg.norm(error_matrix, axis=0)) 
-    linf_norm = np.nanmax(np.nanmax(np.abs(error_matrix), axis=0))
-    print(error_matrix.shape)
-    error_inf = np.nanmax(np.abs(error_matrix), axis=0)
-    print(error_inf.shape)
-    fields = {"error_stress": error_inf}
-    save_fields_vtk(fields, timestep=0, prefix="error")
-    return l2_norm, linf_norm
-
+def get_error_norms(current_macroscopics, expected_macroscopics, dx, timestep=0):
+    error_matrix = np.subtract(current_macroscopics[0:4,:,:,0], expected_macroscopics[0:4,:,:])
+    #step 1: handle displacement
+    l2_disp = np.sqrt(np.nansum(np.linalg.norm(error_matrix[0:2,:,:], axis=0) ** 2)) * dx
+    linf_disp = np.nanmax(np.nanmax(np.abs(error_matrix[0:2,:,:]), axis=0))
+    #step 2: handle stress
+    l2_stress = np.sqrt(np.nansum(np.linalg.norm(error_matrix[2:4,:,:], axis=0) ** 2)) * dx
+    linf_stress = np.nanmax(np.nanmax(np.abs(error_matrix[2:4,:,:]), axis=0))
+    #step 3: output error image 
+    error_inf = np.nanmax(np.abs(error_matrix[2:4, :, :]), axis=0)
+    fields = {"error_inf": error_inf}
+    #save_fields_vtk(fields, timestep=timestep, prefix="error")
+    return l2_disp, linf_disp, l2_stress, linf_stress
 
 def get_expected_stress(manufactured_displacement, x, y, lamb, mu):
     man_u = manufactured_displacement[0]
@@ -164,6 +163,8 @@ def get_expected_stress(manufactured_displacement, x, y, lamb, mu):
     return s_xx, s_yy, s_xy
 
 def restrict_solution_to_domain(array, potential, dx): #ToDo: make more efficient (fancy numpy funcs)
+    if potential == None:
+        return array
     for i in range(array.shape[1]):
         for j in range(array.shape[2]):
             if potential(i*dx + 0.5*dx, j*dx + 0.5*dx) > 0:
@@ -173,8 +174,6 @@ def restrict_solution_to_domain(array, potential, dx): #ToDo: make more efficien
 
 
 def output_image(macroscopics, timestep, name, potential=None, dx=None):
-    if potential != None:
-        macroscopics = restrict_solution_to_domain(macroscopics, potential, dx)
     dis_x = macroscopics[0, :, :, 0]
     dis_y = macroscopics[1, :, :, 0]
     s_xx = macroscopics[2, :, :,  0]
@@ -186,9 +185,8 @@ def output_image(macroscopics, timestep, name, potential=None, dx=None):
     save_fields_vtk(fields, timestep=timestep, prefix=name)
     save_image(dis_mag, timestep)
 
-def process_error(macroscopics, expected_displacement, expected_stress, timestep, dx, norms_over_time):
+def process_error(macroscopics, expected_macroscopics, timestep, dx, norms_over_time):
     # calculate error to expected solution
-    l2_disp, linf_disp = get_error_norm(macroscopics[0:2, :, :, 0], expected_displacement, dx)
-    l2_stress, linf_stress = get_error_norm(macroscopics[2:4, :, :, 0], expected_stress[0:2,:,:], dx)
+    l2_disp, linf_disp, l2_stress, linf_stress = get_error_norms(macroscopics, expected_macroscopics, dx, timestep)
     norms_over_time.append((timestep, l2_disp, linf_disp, l2_stress, linf_stress))
     return l2_disp, linf_disp, l2_stress, linf_stress
