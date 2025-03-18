@@ -117,6 +117,6 @@ if __name__ == "__main__":
     print("Final error L2_disp: {}".format(last_norms[1]))
     print("Final error Linf_disp: {}".format(last_norms[2]))
     print("Final error L2_stress: {}".format(last_norms[3]))
-    print("Final erro Linf_stress: {}".format(last_norms[4]))
+    print("Final error Linf_stress: {}".format(last_norms[4]))
     print("in {} timesteps".format(last_norms[0]))
     #write_results(norms_over_time, "results.csv")

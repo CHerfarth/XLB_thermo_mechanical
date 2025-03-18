@@ -139,8 +139,8 @@ def get_error_norms(current_macroscopics, expected_macroscopics, dx, timestep=0)
     l2_disp = np.sqrt(np.nansum(np.linalg.norm(error_matrix[0:2,:,:], axis=0) ** 2)) * dx
     linf_disp = np.nanmax(np.max(np.abs(error_matrix[0:2,:,:]), axis=0))
     #step 2: handle stress
-    l2_stress = np.sqrt(np.nansum(np.linalg.norm(error_matrix[2:4,:,:], axis=0) ** 2)) * dx
-    linf_stress = np.nanmax(np.max(np.abs(error_matrix[2:4,:,:]), axis=0))
+    l2_stress = np.sqrt(np.nansum(np.linalg.norm(error_matrix[2:5,:,:], axis=0) ** 2)) * dx
+    linf_stress = np.nanmax(np.max(np.abs(error_matrix[2:5,:,:]), axis=0))
     #step 3: output error image 
     #error_inf = np.nanmax(np.abs(error_matrix[2:4, :, :]), axis=0)
     #fields = {"error_inf": error_inf}
@@ -155,7 +155,7 @@ def get_expected_stress(manufactured_displacement, x, y, lamb, mu):
     e_xy = 0.5*(sympy.diff(man_u, y) + sympy.diff(man_v, x))
     s_xx = lamb*(e_xx + e_yy) + 2*mu*e_xx
     s_yy = lamb*(e_xx + e_yy) + 2*mu*e_yy
-    s_xy = lamb*(e_xx + e_yy) + 2*mu*e_xy
+    s_xy = 2*mu*e_xy
     return s_xx, s_yy, s_xy
 
 def restrict_solution_to_domain(array, potential, dx): #ToDo: make more efficient (fancy numpy funcs)
