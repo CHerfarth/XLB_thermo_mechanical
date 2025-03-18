@@ -81,12 +81,8 @@ if __name__ == "__main__":
 
 
     # set boundary potential
-    manufactured_u = sympy.lambdify([x, y], manufactured_u)
-    manufactured_v = sympy.lambdify([x, y], manufactured_v)
     potential = lambda x, y: (0.5-x)**2 + (0.5-y)**2 - 0.25
-    bc_dirichlet = lambda x, y: (manufactured_u(x,y), manufactured_v(x,y))
-    boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet)
-    print(args.include_bc)
+    boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, (manufactured_u, manufactured_v), x, y)
     if args.include_bc == 0:
         potential = None
         bc_dirichlet = None

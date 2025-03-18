@@ -77,12 +77,7 @@ if __name__ == "__main__":
 
     #adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
-    #expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
-    s_xx = expected_stress[0,:,:]
-    s_yy = expected_stress[1,:,:]
-    s_xy = expected_stress[2,:,:]
-    fields = {"s_xx": s_xx, "s_yy": s_yy, "s_xy": s_xy}
-    save_fields_vtk(fields, timestep=13,prefix="expected")
+    expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
 
 
 
