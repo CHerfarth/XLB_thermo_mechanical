@@ -34,8 +34,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 500
-    nodes_y = 500
+    nodes_x = 20
+    nodes_y = 20
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -71,11 +71,9 @@ if __name__ == "__main__":
 
 
     # set boundary potential
-    manufactured_u = sympy.lambdify([x, y], manufactured_u)
-    manufactured_v = sympy.lambdify([x, y], manufactured_v)
-    potential = lambda x, y: (0.5-x)**2 + (0.5-y)**2 - 20
+    potential = lambda x, y: (0.5-x)**2 + (0.5-y)**2 - 0.25
     bc_dirichlet = lambda x, y: (manufactured_u(x,y), manufactured_v(x,y))
-    boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet)
+    boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, (manufactured_u, manufactured_v), x, y)
 
     #adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)

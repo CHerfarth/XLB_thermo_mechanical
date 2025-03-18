@@ -88,10 +88,21 @@ class SolidMacroscopics(Operator):
             dim=f.shape[1:],
         )
 
-    def get_macroscopics(self):
+    def get_macroscopics_host(self):
        wp.launch(
             self.warp_kernel[1],
             inputs=[self.macroscopics, self.bared_moments, self.L, self.T],
             dim=self.macroscopics.shape[1:],
        ) 
        return self.macroscopics.numpy()
+
+    def get_macroscopics_device(self):
+       wp.launch(
+            self.warp_kernel[1],
+            inputs=[self.macroscopics, self.bared_moments, self.L, self.T],
+            dim=self.macroscopics.shape[1:],
+       ) 
+       return self.macroscopics
+
+    def get_bared_moments_device(self):
+        return self.bared_moments

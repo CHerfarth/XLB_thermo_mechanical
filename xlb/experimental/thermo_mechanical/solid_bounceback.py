@@ -1,5 +1,6 @@
 import numpy as np
 import warp as wp
+import sympy
 from typing import Any
 
 from xlb.velocity_set.velocity_set import VelocitySet
@@ -7,6 +8,7 @@ from xlb.precision_policy import PrecisionPolicy
 from xlb.utils import save_image
 from xlb.compute_backend import ComputeBackend
 from xlb.operator.operator import Operator
+import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 
 class SolidsDirichlet(Operator):
@@ -14,6 +16,7 @@ class SolidsDirichlet(Operator):
 
     def __init__(
         self,
+        K, mu,
         velocity_set: VelocitySet = None,
         precision_policy: PrecisionPolicy = None,
         compute_backend: ComputeBackend = None,
@@ -23,6 +26,8 @@ class SolidsDirichlet(Operator):
             precision_policy,
             compute_backend,
         )
+        self.K = K
+        self.mu = mu
 
     def _construct_warp(self):
         opp_indices = self.velocity_set.opp_indices
@@ -35,6 +40,9 @@ class SolidsDirichlet(Operator):
             f_previous: Any,
             boundary_array: Any,
             boundary_values: Any,
+            bared_moments: Any,
+            K: Any,
+            mu: Any,
         ):
             i, j, k = wp.tid()  # for 2d k will equal 1
             if boundary_array[0, i, j, 0] == wp.int8(0): #if outside domain, just set to 0
@@ -46,57 +54,87 @@ class SolidsDirichlet(Operator):
                         1
                     ):  # this means the interior node is connected to a ghost node in direction l; the bounce back bc needs to be applied
                         new_direction = opp_indices[l]
-                        #print("------------------------")
-                        #print("Node:")
-                        #print(i)
-                        #print(j)
-                        #print("Previous direction:")
-                        #print(l)
-                        #print(c[0,l])
-                        #print(c[1,l])
-                        #print("New Direction:")
-                        #print(new_direction)
-                        #print(c[0, new_direction])
-                        #print(c[1, new_direction])
-                        #print("Weight")
-                        #print(w[new_direction])
-                        #print(boundary_values[l*2, i, j, 0])
-                        #print(boundary_values[l*2+1, i, j, 0])
                         x_dir = (c[0, new_direction])
                         y_dir = (c[1, new_direction])  
                         weight = w[new_direction]
-                        #print(boundary_values[l*2, i, j, 0])
-                        #print(boundary_values[l*2+1, i, j, 0])
-                        f_current[new_direction, i, j, 0] = f_previous[l, i, j, 0] + 6.0 * weight * (x_dir * boundary_values[l*2, i, j, 0] + y_dir * boundary_values[l*2+1, i, j, 0])
-                        #Todo: try with zero bc
+                        #get values from value array
+                        u_x = boundary_values[l*7,i,j,0]
+                        u_y = boundary_values[l*7+1,i,j,0]
+                        q_ij = boundary_values[l*7+6, i,j,0]
+                        #get moments
+                        m_local = utils.read_local_population(bared_moments, i, j)
+                        m_s = m_local[3]
+                        m_d = m_local[4]
+                        m_11 = m_local[2]
+                        dx_u_x = -0.25*( m_s/K + m_d/mu)
+                        dy_u_y = -0.25*( m_s/K - m_d/mu)
+                        cross_dev = -0.25*(2.*m_11/mu) #dy_u_x + dx_u_y
+
+                        #bounceback with zero order correction
+                        f_current[new_direction, i, j, 0] = f_previous[l, i, j, 0] + 6.0 * weight * (x_dir * u_x+ y_dir * u_y)
+                        #add first order correction
+                        print(q_ij)
+                        if wp.abs(x_dir) + wp.abs(y_dir) > 1:
+                            print("first order correction")
+                            f_current[new_direction, i, j, 0] += 6.*weight*(q_ij - 0.5)*(wp.abs(x_dir)*dx_u_x + wp.abs(y_dir)*dy_u_y) 
+                        else:
+                            print("second order correction")
+                            f_current[new_direction, i, j, 0] += 6.*weight*(q_ij-0.5)*(dx_u_x+dy_u_y+x_dir*y_dir*(cross_dev))
                         
 
         return None, kernel
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f_current, f_previous, bc_mask, boundary_values):
+    def warp_implementation(self, f_current, f_previous, bc_mask, boundary_values, bared_moments):
         # Launch the warp kernel
         wp.launch(
             self.warp_kernel,
-            inputs=[f_current, f_previous, bc_mask, boundary_values],
+            inputs=[f_current, f_previous, bc_mask, boundary_values, bared_moments, self.K, self.mu],
             dim=f_current.shape[1:],
         )
 
 
 # --------------utils used to construct bc arrays----------------
-def init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet):
+def init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet_sympy, x, y):
     # Mapping:
     # 0: ghost node
     # 1: interior node
     # 2: boundary node
+
+
+
+    #Mapping for boundary values:
+    # 0: u_x
+    # 1: u_y
+    # 2: dx u_x
+    # 3: dy u_x
+    # 4: dx u_y
+    # 5: dy u_y
+    # 6: q_ij
+
+
+    values_per_direction = 7
     host_boundary_info = np.zeros(shape=(10, grid.shape[0], grid.shape[1], 1), dtype=np.int8)
-    host_boundary_values = np.zeros(shape=(18, grid.shape[0], grid.shape[1], 1), dtype=np.float32) #todo: change to compute precision
+    host_boundary_values = np.zeros(shape=(velocity_set.q*values_per_direction, grid.shape[0], grid.shape[1], 1), dtype=np.float32) #todo: change to compute precision
+
+    #lambdify bc
+    bc_dirichlet = [sympy.lambdify([x,y], bc_dirichlet_sympy[0]), sympy.lambdify([x,y], bc_dirichlet_sympy[1])]
+
+    #get derivative of BC
+    bc_dirichlet_devs = [sympy.diff(bc_dirichlet_sympy[0], x), sympy.diff(bc_dirichlet_sympy[0], y), sympy.diff(bc_dirichlet_sympy[1], x), sympy.diff(bc_dirichlet_sympy[1], y)]
+    #lambdify derivatives
+    for i in range(4):
+        bc_dirichlet_devs[i] = sympy.lambdify([x,y], bc_dirichlet_devs[i])
+
+    #concatenate with non-derivative BC
+    bc_dirichlet = np.concatenate((bc_dirichlet, bc_dirichlet_devs))
 
     # step 1: set all nodes with negative potential to interior
     for i in range(grid.shape[0]):
         for j in range(grid.shape[1]):
             if potential(i * dx + 0.5 * dx, j * dx + 0.5 * dx) <= 0:
                 host_boundary_info[0, i, j, 0] = 1
+
 
     # step 2: for each interior node, check if all neighbor nodes are also interior; if not, set to boundary
     for i in range(grid.shape[0]):
@@ -108,33 +146,36 @@ def init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet):
                     on_boundary = False
                     on_boundary = on_boundary or i+x_direction < 0 or i+x_direction>=grid.shape[0] #check if on edge of grid, automatically counts as boundary node too
                     on_boundary = on_boundary or j+y_direction < 0 or j+y_direction>=grid.shape[1]
-                    if on_boundary:
-                        host_boundary_info[direction + 1, i, j, 0] = 1
-                        host_boundary_info[0, i, j, 0] = 2
-                        cur_x, cur_y = i*dx + 0.5*dx, j*dx + 0.5*dx
+
+                    #check if boundary node
+                    boundary_node = False
+                    cur_x, cur_y = i*dx + 0.5*dx, j*dx + 0.5*dx
+                    bc_x, bc_y = cur_x, cur_y
+                    q_ij = 0.5
+                    
+                    if on_boundary: #if already on boundary of grid, just move the 0.5 to the side
+                        boundary_node = True
                         bc_x = cur_x + 0.5*dx*x_direction
                         bc_y = cur_y + 0.5*dx*y_direction
-                        host_boundary_values[direction*2, i, j, 0], host_boundary_values[direction*2 + 1, i, j, 0] = bc_dirichlet(bc_x, bc_y)[0], bc_dirichlet(bc_x, bc_y)[1]
-                        '''print("Node {}, {}".format(i, j))
-                        print("at: {}, {}".format(cur_x, cur_y))
-                        print("Direction: {}, {}".format(x_direction, y_direction))
-                        print("Boundary at: {}, {}".format(bc_x, bc_y))
-                        print("bc: {}, {}".format(bc_dirichlet(bc_x, bc_y)[0], bc_dirichlet(bc_x, bc_y)[1]))'''
                     elif host_boundary_info[0, (i + x_direction) , (j + y_direction) , 0] == 0:
-                        host_boundary_info[direction + 1, i, j, 0] = 1
-                        host_boundary_info[0, i, j, 0] = 2
-                        #get the boundary condition
-                        cur_x, cur_y = i*dx + 0.5*dx, j*dx + 0.5*dx
-                        bc_x, bc_y = cur_x, cur_y
+                        boundary_node = True
                         max_steps = 100
                         stepsize = dx/max_steps
                         counter = 0
-                        while (potential(bc_x, bc_y) < 0): #move along direction of pathway until on boundary
+                        while (potential(bc_x, bc_y) < 0): #otherwise distance to boundary needs to be found, move along direction of pathway until on boundary
                             bc_x += stepsize*x_direction
                             bc_y += stepsize*y_direction
                             counter += 1
                             assert(counter <= max_steps)
-                        host_boundary_values[direction*2, i, j, 0], host_boundary_values[direction*2 + 1, i, j, 0] = bc_dirichlet(bc_x, bc_y)[0], bc_dirichlet(bc_x, bc_y)[1]
+                        q_ij = counter/max_steps
+                    
+                    if boundary_node:
+                        host_boundary_info[direction + 1, i, j, 0] = 1
+                        host_boundary_info[0, i, j, 0] = 2
+                        for k in range(values_per_direction-1):
+                            host_boundary_values[direction*values_per_direction+k,i,j,0] = bc_dirichlet[k](bc_x, bc_y)
+                        host_boundary_values[(direction+1)*values_per_direction-1, i, j, 0] = q_ij
+
 
 #    save_image(host_boundary_info[0, :, :, 0], 2)
     # move to device

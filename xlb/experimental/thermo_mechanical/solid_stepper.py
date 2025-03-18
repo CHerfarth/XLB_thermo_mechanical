@@ -76,7 +76,7 @@ class SolidsStepper(Stepper):
         # ---------define operators----------
         self.collision = SolidsCollision(self.omega, self.force, self.theta)
         self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)
-        self.boundaries = SolidsDirichlet()
+        self.boundaries = SolidsDirichlet(self.K, self.mu)
         self.macroscopic = SolidMacroscopics(
             self.grid, self.force, self.omega, self.theta, self.L, self.T, self.boundary_conditions, self.velocity_set, self.precision_policy, self.compute_backend
         )
@@ -88,13 +88,14 @@ class SolidsStepper(Stepper):
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f_current, f_previous):
         wp.launch(utils.copy_populations, inputs=[f_previous, self.temp_f, self.velocity_set.q], dim=f_current.shape[1:])
+        self.macroscopic(f_previous)
         wp.launch(self.collision.warp_kernel, inputs=[f_current, self.force, self.omega, self.theta], dim=f_current.shape[1:])
         wp.launch(self.stream.warp_kernel, inputs=[f_current, f_previous], dim=f_current.shape[1:])
         if self.boundary_conditions != None:
-            self.boundaries(f_previous, self.temp_f, self.boundary_conditions, self.boundary_values)
+            self.boundaries(f_previous, self.temp_f, self.boundary_conditions, self.boundary_values, self.macroscopic.get_bared_moments_device()) 
 
     def get_macroscopics(self, f):
         #udate bared moments
         self.macroscopic(f)
         # get updated displacement
-        return self.macroscopic.get_macroscopics()
+        return self.macroscopic.get_macroscopics_host()
