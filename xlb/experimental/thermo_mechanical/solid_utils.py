@@ -135,9 +135,15 @@ def get_function_on_grid(f, x, y, dx, grid):
 
 def get_error_norms(current_macroscopics, expected_macroscopics, dx, timestep=0):
     error_matrix = np.subtract(current_macroscopics[0:4,:,:,0], expected_macroscopics[0:4,:,:])
+    '''print("----------CURRENT-----------")
+    print(current_macroscopics)
+    print("____________EXPECTED______________")
+    print(expected_macroscopics)
+    print("__________ERROR____________")
+    print(error_matrix)'''
     #step 1: handle displacement
     l2_disp = np.sqrt(np.nansum(np.linalg.norm(error_matrix[0:2,:,:], axis=0) ** 2)) * dx
-    linf_disp = np.nanmax(np.max(np.abs(error_matrix[0:2,:,:]), axis=0))
+    linf_disp = np.nanmax(np.nan_to_num(np.max(np.abs(error_matrix[0:2,:,:]), axis=0)))
     #step 2: handle stress
     l2_stress = np.sqrt(np.nansum(np.linalg.norm(error_matrix[2:5,:,:], axis=0) ** 2)) * dx
     linf_stress = np.nanmax(np.max(np.abs(error_matrix[2:5,:,:]), axis=0))

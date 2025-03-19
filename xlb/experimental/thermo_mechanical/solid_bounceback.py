@@ -73,9 +73,9 @@ class SolidsDirichlet(Operator):
                         #bounceback with zero order correction
                         f_current[new_direction, i, j, 0] = f_previous[l, i, j, 0] + 6.0 * weight * (x_dir * u_x+ y_dir * u_y)
                         #add first order correction
-                        if wp.abs(x_dir) + wp.abs(y_dir) < 2:
-                            f_current[new_direction, i, j, 0] += 6.*weight*(q_ij - 0.5)*(wp.abs(x_dir)*dx_u_x + wp.abs(y_dir)*dy_u_y) 
-                        else:
+                        if wp.abs(x_dir) + wp.abs(y_dir) == 1:
+                            f_current[new_direction, i, j, 0] += 6.*weight*(q_ij - 0.5)*(wp.abs(x_dir)*dx_u_x + wp.abs(y_dir)*dy_u_y)
+                        if wp.abs(x_dir) + wp.abs(y_dir) == 2:
                             f_current[new_direction, i, j, 0] += 6.*weight*(q_ij-0.5)*(dx_u_x+dy_u_y+x_dir*y_dir*(cross_dev))
                         
 
@@ -92,22 +92,35 @@ class SolidsDirichlet(Operator):
 
 
 # --------------utils used to construct bc arrays----------------
-def init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet_sympy, x, y):
+def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_displacement, indicator, x, y, mu, K):
     # Mapping:
     # 0: ghost node
     # 1: interior node
-    # 2: boundary node
+    # 2: boundary node with dirichlet bc
+    # 3: boundary node with VN bc
 
 
 
-    #Mapping for boundary values:
+
+    #Mapping for boundary values, dirichlet:
     # 0: u_x
     # 1: u_y
-    # 2: dx u_x
-    # 3: dy u_x
-    # 4: dx u_y
-    # 5: dy u_y
+    # 2: 
+    # 3: 
+    # 4: 
+    # 5: 
     # 6: q_ij
+
+    #Mapping for boundary values, VN:
+    # 0: n_x
+    # 1: n_y
+    # 2: T_x
+    # 3: T_y
+    # 4:
+    # 5:
+    # 6: q_ij
+
+    potential = sympy.lambdify([x,y], potential_sympy)
 
 
     values_per_direction = 7
@@ -115,10 +128,10 @@ def init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet_sympy, x
     host_boundary_values = np.zeros(shape=(velocity_set.q*values_per_direction, grid.shape[0], grid.shape[1], 1), dtype=np.float32) #todo: change to compute precision
 
     #lambdify bc
-    bc_dirichlet = [sympy.lambdify([x,y], bc_dirichlet_sympy[0]), sympy.lambdify([x,y], bc_dirichlet_sympy[1])]
+    bc_dirichlet = [sympy.lambdify([x,y], manufactured_displacement[0]), sympy.lambdify([x,y], manufactured_displacement[1])]
 
     #get derivative of BC
-    bc_dirichlet_devs = [sympy.diff(bc_dirichlet_sympy[0], x), sympy.diff(bc_dirichlet_sympy[0], y), sympy.diff(bc_dirichlet_sympy[1], x), sympy.diff(bc_dirichlet_sympy[1], y)]
+    bc_dirichlet_devs = [sympy.diff(manufactured_displacement[0], x), sympy.diff(manufactured_displacement[0], y), sympy.diff(manufactured_displacement[1], x), sympy.diff(manufactured_displacement[1], y)]
     #lambdify derivatives
     for i in range(4):
         bc_dirichlet_devs[i] = sympy.lambdify([x,y], bc_dirichlet_devs[i])
@@ -132,6 +145,9 @@ def init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet_sympy, x
             if potential(i * dx + 0.5 * dx, j * dx + 0.5 * dx) <= 0:
                 host_boundary_info[0, i, j, 0] = 1
 
+    #get gradients of potential
+    dx_potential = sympy.lambdify([x,y], sympy.diff(potential_sympy, x))
+    dy_potential = sympy.lambdify([x,y], sympy.diff(potential_sympy, y))
 
     # step 2: for each interior node, check if all neighbor nodes are also interior; if not, set to boundary
     for i in range(grid.shape[0]):
@@ -166,11 +182,31 @@ def init_bc_from_lambda(potential, grid, dx, velocity_set, bc_dirichlet_sympy, x
                             assert(counter <= max_steps)
                         q_ij = counter/max_steps
                     
-                    if boundary_node:
+                    #if dirichlet bc: set values
+                    if boundary_node and indicator(bc_x, bc_y) < 0:
                         host_boundary_info[direction + 1, i, j, 0] = 1
                         host_boundary_info[0, i, j, 0] = 2
                         for k in range(values_per_direction-1):
                             host_boundary_values[direction*values_per_direction+k,i,j,0] = bc_dirichlet[k](bc_x, bc_y)
+                        host_boundary_values[(direction+1)*values_per_direction-1, i, j, 0] = q_ij
+                    elif boundary_node and indicator(bc_x, bc_y) > 0: #if VN: find T
+                        host_boundary_info[direction+1, i, j, 0] = 1
+                        host_boundary_info[0,i,j,0] = 3
+                        #find n
+                        n = [dx_potential(bc_x, bc_y), dy_potential(bc_x, bc_y)]
+                        n = n/np.linalg.norm(n) #normalise
+                        #find T
+                        dx_ux = bc_dirichlet[2](bc_x, bc_y)
+                        dy_ux = bc_dirichlet[3](bc_x,bc_y)
+                        dx_uy = bc_dirichlet[4](bc_x,bc_y)
+                        dy_uy = bc_dirichlet[5](bc_x,bc_y)
+                        T_x = (K-mu)*(dx_ux + dy_uy)*n[0] + mu*(2*dx_ux*n[0] + (dx_uy+dy_ux)*n[1])
+                        T_y = (K-mu)*(dx_ux + dy_uy)*n[1] + mu*((dx_uy + dy_ux)*n[0] + 2*dy_uy*n[1])
+                        #write to array
+                        host_boundary_values[direction*values_per_direction, i, j, 0] = n[0]
+                        host_boundary_values[direction*values_per_direction+1, i, j, 0] = n[1]
+                        host_boundary_values[direction*values_per_direction+2,i,j,0] = T_x
+                        host_boundary_values[direction*values_per_direction+3,i,j,0] = T_y
                         host_boundary_values[(direction+1)*values_per_direction-1, i, j, 0] = q_ij
 
 

@@ -44,8 +44,8 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 50000
-    dt = 0.001
+    timesteps = 1000
+    dt = 0.01
 
     # get params
     E = 0.085 * 2.5
@@ -71,14 +71,15 @@ if __name__ == "__main__":
 
 
     # set boundary potential
-    potential = lambda x, y: (0.5-x)**2 + (0.5-y)**2 - 0.25
-    bc_dirichlet = lambda x, y: (manufactured_u(x,y), manufactured_v(x,y))
-    boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, (manufactured_u, manufactured_v), x, y)
+    potential_sympy = (0.5-x)**2 + (0.5-y)**2 - 0.25
+    potential = sympy.lambdify([x,y], potential_sympy) 
+    indicator = lambda x, y: -1
+    boundary_array, boundary_values = bc.init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y, mu, K)
+    #potential, boundary_array, boundary_values = None, None, None
 
     #adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
-
 
 
     # initialize stepper
@@ -96,7 +97,7 @@ if __name__ == "__main__":
     for i in range(timesteps):
         stepper(f_1, f_3)
         f_1, f_2, f_3 = f_3, f_1, f_2
-        if i % 100 == 0:
+        '''if i % 100 == 0:
             macroscopics = stepper.get_macroscopics(f_1)
             l2_new, linf_new, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
             print(l2_new, linf_new, l2_stress, linf_stress)
@@ -104,7 +105,17 @@ if __name__ == "__main__":
             if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:
                 print("Final timestep:{}".format(i))
                 break
-            l2, linf = l2_new, linf_new
+            l2, linf = l2_new, linf_new'''
 
     # write out error norms
-    print("Final error: {}".format(norms_over_time[len(norms_over_time) - 1]))
+    #print("Final error: {}".format(norms_over_time[len(norms_over_time) - 1]))
+    macroscopics = stepper.get_macroscopics(f_1) 
+    utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
+    #write out error norms
+    last_norms = norms_over_time[len(norms_over_time)-1]
+    print("Final error L2_disp: {}".format(last_norms[1]))
+    print("Final error Linf_disp: {}".format(last_norms[2]))
+    print("Final error L2_stress: {}".format(last_norms[3]))
+    print("Final error Linf_stress: {}".format(last_norms[4]))
+    print("in {} timesteps".format(last_norms[0]))
+    #write_results(norms_over_time, "results.csv")
