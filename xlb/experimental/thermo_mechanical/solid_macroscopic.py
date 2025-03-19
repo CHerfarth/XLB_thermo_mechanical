@@ -20,7 +20,7 @@ class SolidMacroscopics(Operator):
         self.L = L
         self.T = T
         self.bared_moments = grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
-        #Mapping for macroscopics:
+        # Mapping for macroscopics:
         # 0: dis_x
         # 1: dis_y
         # 2: s_xx
@@ -31,7 +31,6 @@ class SolidMacroscopics(Operator):
             self.boundaries = grid.create_field(cardinality=10, dtype=precision_policy.store_precision, fill_value=1)
 
     def _construct_warp(self):
-
         macro_vec = wp.vec(5, dtype=self.compute_dtype)
 
         @wp.kernel
@@ -47,41 +46,39 @@ class SolidMacroscopics(Operator):
             m[1] += 0.5 * force[1, i, j, 0]
 
             m_eq = utils.calc_equilibrium(m, theta)  # do something with this?
-            for l in range(m._length_): 
-                m[l] = 0.5*omega[l]*m_eq[l] + (1.-0.5*omega[l])*m[l]
-            
+            for l in range(m._length_):
+                m[l] = 0.5 * omega[l] * m_eq[l] + (1.0 - 0.5 * omega[l]) * m[l]
+
             utils.write_population_to_global(bared_moments, m, i, j)
-        
+
         @wp.kernel
-        def write_out(macroscopics: Any, bared_moments: Any, L:Any, T: Any):
+        def write_out(macroscopics: Any, bared_moments: Any, L: Any, T: Any):
             i, j, k = wp.tid()
             bared_m_local = utils.read_local_population(bared_moments, i, j)
 
-            #calculate macroscopics
+            # calculate macroscopics
             dis_x = bared_m_local[0]
             dis_y = bared_m_local[1]
             bared_m_s = bared_m_local[3]
             bared_m_d = bared_m_local[4]
             bared_m_11 = bared_m_local[2]
-            s_xx = -0.5*(bared_m_s + bared_m_d)
-            s_yy = -0.5*(bared_m_s - bared_m_d)
+            s_xx = -0.5 * (bared_m_s + bared_m_d)
+            s_yy = -0.5 * (bared_m_s - bared_m_d)
             s_xy = -bared_m_11
 
-            #write macroscopics to global array
+            # write macroscopics to global array
             macro = macro_vec()
             macro[0] = dis_x
             macro[1] = dis_y
             macro[2] = s_xx * L / T
-            macro[3] = s_yy * L / T #ToDo: Add kappa to rescaling!
+            macro[3] = s_yy * L / T  # ToDo: Add kappa to rescaling!
             macro[4] = s_xy * L / T
             utils.write_vec_to_global(macroscopics, macro, i, j, 5)
-
-
 
         return None, (update, write_out)
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f): #updates all bared moments
+    def warp_implementation(self, f):  # updates all bared moments
         wp.launch(
             self.warp_kernel[0],
             inputs=[f, self.bared_moments, self.force, self.omega, self.boundaries, self.theta],
@@ -89,20 +86,20 @@ class SolidMacroscopics(Operator):
         )
 
     def get_macroscopics_host(self):
-       wp.launch(
+        wp.launch(
             self.warp_kernel[1],
             inputs=[self.macroscopics, self.bared_moments, self.L, self.T],
             dim=self.macroscopics.shape[1:],
-       ) 
-       return self.macroscopics.numpy()
+        )
+        return self.macroscopics.numpy()
 
     def get_macroscopics_device(self):
-       wp.launch(
+        wp.launch(
             self.warp_kernel[1],
             inputs=[self.macroscopics, self.bared_moments, self.L, self.T],
             dim=self.macroscopics.shape[1:],
-       ) 
-       return self.macroscopics
+        )
+        return self.macroscopics
 
     def get_bared_moments_device(self):
         return self.bared_moments

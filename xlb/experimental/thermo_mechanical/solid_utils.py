@@ -56,11 +56,11 @@ def write_population_to_global(f: wp.array4d(dtype=Any), f_local: solid_vec, x: 
     for i in range(9):
         f[i, x, y, 0] = f_local[i]
 
+
 @wp.func
 def write_vec_to_global(array: wp.array4d(dtype=Any), array_local: Any, x: wp.int32, y: wp.int32, dim: wp.int32):
     for i in range(dim):
         array[i, x, y, 0] = array_local[i]
-
 
 
 @wp.func
@@ -78,9 +78,10 @@ def calc_moments(f: solid_vec):
     m[8] = 0.0
     return m
 
+
 @wp.kernel
 def copy_populations(origin: wp.array4d(dtype=Any), dest: wp.array4d(dtype=Any), dim: Any):
-    i,j,k = wp.tid()
+    i, j, k = wp.tid()
     for l in range(dim):
         dest[l, i, j, 0] = origin[l, i, j, 0]
 
@@ -134,51 +135,52 @@ def get_function_on_grid(f, x, y, dx, grid):
 
 
 def get_error_norms(current_macroscopics, expected_macroscopics, dx, timestep=0):
-    error_matrix = np.subtract(current_macroscopics[0:4,:,:,0], expected_macroscopics[0:4,:,:])
-    '''print("----------CURRENT-----------")
+    error_matrix = np.subtract(current_macroscopics[0:4, :, :, 0], expected_macroscopics[0:4, :, :])
+    """print("----------CURRENT-----------")
     print(current_macroscopics)
     print("____________EXPECTED______________")
     print(expected_macroscopics)
     print("__________ERROR____________")
-    print(error_matrix)'''
-    #step 1: handle displacement
-    l2_disp = np.sqrt(np.nansum(np.linalg.norm(error_matrix[0:2,:,:], axis=0) ** 2)) * dx
-    linf_disp = np.nanmax(np.nan_to_num(np.max(np.abs(error_matrix[0:2,:,:]), axis=0)))
-    #step 2: handle stress
-    l2_stress = np.sqrt(np.nansum(np.linalg.norm(error_matrix[2:5,:,:], axis=0) ** 2)) * dx
-    linf_stress = np.nanmax(np.max(np.abs(error_matrix[2:5,:,:]), axis=0))
-    #step 3: output error image 
-    #error_inf = np.nanmax(np.abs(error_matrix[2:4, :, :]), axis=0)
-    #fields = {"error_inf": error_inf}
-    #save_fields_vtk(fields, timestep=timestep, prefix="error")
+    print(error_matrix)"""
+    # step 1: handle displacement
+    l2_disp = np.sqrt(np.nansum(np.linalg.norm(error_matrix[0:2, :, :], axis=0) ** 2)) * dx
+    linf_disp = np.nanmax(np.nan_to_num(np.max(np.abs(error_matrix[0:2, :, :]), axis=0)))
+    # step 2: handle stress
+    l2_stress = np.sqrt(np.nansum(np.linalg.norm(error_matrix[2:5, :, :], axis=0) ** 2)) * dx
+    linf_stress = np.nanmax(np.max(np.abs(error_matrix[2:5, :, :]), axis=0))
+    # step 3: output error image
+    # error_inf = np.nanmax(np.abs(error_matrix[2:4, :, :]), axis=0)
+    # fields = {"error_inf": error_inf}
+    # save_fields_vtk(fields, timestep=timestep, prefix="error")
     return l2_disp, linf_disp, l2_stress, linf_stress
+
 
 def get_expected_stress(manufactured_displacement, x, y, lamb, mu):
     man_u = manufactured_displacement[0]
     man_v = manufactured_displacement[1]
     e_xx = sympy.diff(man_u, x)
     e_yy = sympy.diff(man_v, y)
-    e_xy = 0.5*(sympy.diff(man_u, y) + sympy.diff(man_v, x))
-    s_xx = lamb*(e_xx + e_yy) + 2*mu*e_xx
-    s_yy = lamb*(e_xx + e_yy) + 2*mu*e_yy
-    s_xy = 2*mu*e_xy
+    e_xy = 0.5 * (sympy.diff(man_u, y) + sympy.diff(man_v, x))
+    s_xx = lamb * (e_xx + e_yy) + 2 * mu * e_xx
+    s_yy = lamb * (e_xx + e_yy) + 2 * mu * e_yy
+    s_xy = 2 * mu * e_xy
     return s_xx, s_yy, s_xy
 
-def restrict_solution_to_domain(array, potential, dx): #ToDo: make more efficient (fancy numpy funcs)
+
+def restrict_solution_to_domain(array, potential, dx):  # ToDo: make more efficient (fancy numpy funcs)
     if potential == None:
         return array
     for i in range(array.shape[1]):
         for j in range(array.shape[2]):
-            if potential(i*dx + 0.5*dx, j*dx + 0.5*dx) > 0:
-                array[:,i,j] = np.nan
-    return array 
-
+            if potential(i * dx + 0.5 * dx, j * dx + 0.5 * dx) > 0:
+                array[:, i, j] = np.nan
+    return array
 
 
 def output_image(macroscopics, timestep, name, potential=None, dx=None):
     dis_x = macroscopics[0, :, :, 0]
     dis_y = macroscopics[1, :, :, 0]
-    s_xx = macroscopics[2, :, :,  0]
+    s_xx = macroscopics[2, :, :, 0]
     s_yy = macroscopics[3, :, :, 0]
     s_xy = macroscopics[4, :, :, 0]
     # output as vtk files
@@ -186,6 +188,7 @@ def output_image(macroscopics, timestep, name, potential=None, dx=None):
     fields = {"dis_x": dis_x, "dis_y": dis_y, "dis_mag": dis_mag, "s_xx": s_xx, "s_yy": s_yy, "s_xy": s_xy}
     save_fields_vtk(fields, timestep=timestep, prefix=name)
     save_image(dis_mag, timestep)
+
 
 def process_error(macroscopics, expected_macroscopics, timestep, dx, norms_over_time):
     # calculate error to expected solution
