@@ -75,40 +75,43 @@ class SolidsDirichlet(Operator):
                 f_current[new_direction, i, j, 0] += 6.0 * weight * (q_ij - 0.5) * (dx_u_x + dy_u_y + x_dir * y_dir * (cross_dev))
 
         @wp.func
-        def vn_functional(l: Any, i: Any, j: Any, f_current: Any, f_previous: Any, boundary_values: Any, bared_moments: Any, K: Any, mu: Any):
-            theta = 1/3 #assuming this, see issue on github
-            new_direction = opp_indices[l]
+        def vn_functional(old_direction: Any, i: Any, j: Any, f_current: Any, f_previous: Any, boundary_values: Any, bared_moments: Any, K: wp.float32, mu: wp.float32):
+            theta = 1./3. #assuming this, see issue on github
+            new_direction = opp_indices[old_direction]
             x_dir = c[0, new_direction]
             y_dir = c[1, new_direction]
             weight = w[new_direction]
             #read out values
-            n_x = boundary_values[l*7, i, j, 0]
-            n_y = boundary_values[l*7+1, i, j, 0]
-            T_x = boundary_values[l*7+2, i, j, 0]
-            T_y = boundary_values[l*7+3,  i, j, 0]
-            q_ij = boundary_values[l*7+6, i, j, 0]
+            n_x = boundary_values[old_direction*7, i, j, 0]
+            n_y = boundary_values[old_direction*7+1, i, j, 0]
+            T_x = boundary_values[old_direction*7+2, i, j, 0]
+            T_y = boundary_values[old_direction*7+3,  i, j, 0]
+            q_ij = boundary_values[old_direction*7+6, i, j, 0]
             #get zeta
             zeta = 1.
             if wp.abs(n_x) > wp.abs(n_y): 
                 zeta = -1.
             #get c's
-            c_1 = (2*(1-theta)*(K-mu))/(theta*(1-theta-4*mu))
-            c_2 = (2*mu)/(theta - 2*mu)
-            c_3 = (4*mu)/(1-theta-4*mu)
+            print(mu)
+            print(K)
+            print(theta)
+            c_1 = (2.*(1.-theta)*(K-mu))/(theta*(1.-theta-4.*mu))
+            c_2 = (2.*mu)/(theta - 2.*mu)
+            c_3 = (4.*mu)/(1.-theta-4.*mu)
 
             sum = 0.
             if wp.abs(x_dir) + wp.abs(y_dir) == 1: #case V1 
                 for m in range(q):
                     k = c[0, m]
                     l = c[1,m]
-                    a_ijkl = wp.abs(k)*wp.abs(l)*(1 + x_dir*n_x + y_dir*n_y)*c_1
+                    a_ijkl = wp.abs(k)*wp.abs(l)*(1. + x_dir*n_x + y_dir*n_y)*c_1
                     a_ijkl += k*l*(x_dir*n_y + y_dir*n_x)*c_2
                     a_ijkl += (wp.abs(k)*(1.-wp.abs(l))*(wp.abs(x_dir) + x_dir*n_x) + wp.abs(l)*(1.-wp.abs(k))*(wp.abs(y_dir) + y_dir*n_y))*c_3
-                    if wp.isclose(x_dir, -k) and wp.isclose(y_dir, -l):
+                    if x_dir == -k and y_dir == -l:
                         a_ijkl += -1.
                     sum += a_ijkl*f_previous[m, i, j, 0]
                 #now add source term
-                s_ij  = i*T_x + j*T_x
+                s_ij  = x_dir*T_x + y_dir*T_x
                 sum += s_ij
             if wp.abs(x_dir) + wp.abs(y_dir) == 1: #case V2
                 for m in range(q):
@@ -116,13 +119,14 @@ class SolidsDirichlet(Operator):
                     l = c[1,m]
                     a_ijkl = wp.abs(k)*wp.abs(l)*(0.5*(1.+zeta)*x_dir*n_x + 0.5*(1.-zeta)*y_dir*n_y)*c_1
                     a_ijkl += k*l*(x_dir*y_dir + 0.5*(1.+zeta)*x_dir*n_y + 0.5*(1.-zeta)*y_dir*n_x)*c_2
-                    a_ijkl += 0.5*(wp.abs(k)*(1-wp.abs(l))*0.5*(1.+zeta)*x_dir*n_x + wp.abs(l)*(1-wp.abs(k))*0.5*(1.-zeta)*y_dir*n_y)*c_3
-                    if wp.isclose(x_dir, -k) and wp.isclose(y_dir, -l):
+                    a_ijkl += 0.5*(wp.abs(k)*(1.-wp.abs(l))*0.5*(1.+zeta)*x_dir*n_x + wp.abs(l)*(1.-wp.abs(k))*0.5*(1.-zeta)*y_dir*n_y)*c_3
+                    if x_dir == -k and y_dir == -l:
                         a_ijkl += -1.
                     sum += a_ijkl*f_previous[m, i, j, 0]
                 #now add source term
-                s_ij = 0.25*(x_dir*(1.+zeta)*T_x + j*(1.-zeta)*T_y)
+                s_ij = 0.25*(x_dir*(1.+zeta)*T_x + y_dir*(1.-zeta)*T_y)
                 sum += s_ij
+            f_current[new_direction, i, j, 0] = sum
 
             
 
@@ -148,6 +152,10 @@ class SolidsDirichlet(Operator):
                         1
                     ):  # this means the interior node is connected to a ghost node in direction l; the bounce back bc needs to be applied
                         dirichlet_functional(l, i, j, f_current, f_previous, boundary_values, bared_moments, K, mu)
+            elif boundary_array[0,i,j,0] == wp.int(8): #for boundary nodes: check which directions need to be given VN BC
+                for l in range(self.velocity_set.q):
+                    if boundary_array[l+1,i,j,0] == wp.int8(1):
+                        vn_functional(l, i, j, f_current, f_previous, boundary_values, bared_moments, K, mu)
 
         @wp.kernel
         def make_bc_dimensionless_kernel(

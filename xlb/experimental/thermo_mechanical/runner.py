@@ -73,7 +73,7 @@ if __name__ == "__main__":
     # set boundary potential
     potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
     potential = sympy.lambdify([x, y], potential_sympy)
-    indicator = lambda x, y: -1
+    indicator = lambda x, y: 1
     boundary_array, boundary_values = bc.init_bc_from_lambda(
         potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y, mu, K
     )
