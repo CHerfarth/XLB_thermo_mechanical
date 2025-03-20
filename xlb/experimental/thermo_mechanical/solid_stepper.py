@@ -76,7 +76,7 @@ class SolidsStepper(Stepper):
         # ---------define operators----------
         self.collision = SolidsCollision(self.omega, self.force, self.theta)
         self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)
-        self.boundaries = SolidsDirichlet(self.K, self.mu)
+        self.boundaries = SolidsDirichlet(self.boundary_conditions, self.boundary_values, self.K, self.mu, dimensionless=False, T=self.T, L=self.L, velocity_set=self.velocity_set, precision_policy=self.precision_policy, compute_backend=self.compute_backend)
         self.macroscopic = SolidMacroscopics(
             self.grid,
             self.force,
@@ -101,7 +101,7 @@ class SolidsStepper(Stepper):
         wp.launch(self.collision.warp_kernel, inputs=[f_current, self.force, self.omega, self.theta], dim=f_current.shape[1:])
         wp.launch(self.stream.warp_kernel, inputs=[f_current, f_previous], dim=f_current.shape[1:])
         if self.boundary_conditions != None:
-            self.boundaries(f_previous, self.temp_f, self.boundary_conditions, self.boundary_values, self.macroscopic.get_bared_moments_device())
+            self.boundaries(f_previous, self.temp_f, self.macroscopic.get_bared_moments_device())
 
     def get_macroscopics(self, f):
         # udate bared moments

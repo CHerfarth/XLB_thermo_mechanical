@@ -16,8 +16,13 @@ class SolidsDirichlet(Operator):
 
     def __init__(
         self,
+        boundary_array,
+        boundary_values,
         K,
         mu,
+        dimensionless = True,
+        T = None,
+        L = None,
         velocity_set: VelocitySet = None,
         precision_policy: PrecisionPolicy = None,
         compute_backend: ComputeBackend = None,
@@ -27,8 +32,14 @@ class SolidsDirichlet(Operator):
             precision_policy,
             compute_backend,
         )
+        self.boundary_array = boundary_array
+        self.boundary_values = boundary_values
         self.K = K
         self.mu = mu
+        self.T = T
+        self.L = L
+        if (dimensionless == False and boundary_array != None):
+            self.make_dimensionless()
 
     def _construct_warp(self):
         opp_indices = self.velocity_set.opp_indices
@@ -118,7 +129,7 @@ class SolidsDirichlet(Operator):
 
 
         @wp.kernel
-        def kernel(
+        def bc_kernel(
             f_current: Any,
             f_previous: Any,
             boundary_array: Any,
@@ -138,16 +149,33 @@ class SolidsDirichlet(Operator):
                     ):  # this means the interior node is connected to a ghost node in direction l; the bounce back bc needs to be applied
                         dirichlet_functional(l, i, j, f_current, f_previous, boundary_values, bared_moments, K, mu)
 
-        return dirichlet_functional, kernel
+        @wp.kernel
+        def make_bc_dimensionless_kernel(
+            boundary_array: Any,
+            boundary_values: Any,
+            T: Any,
+            L: Any,
+        ):
+            i, j, k = wp.tid()
+            if boundary_array[0,i,j,0] == wp.int8(3): #dimensionless scaling only needed for VN BC
+                for l in range(self.velocity_set.q):
+                    boundary_values[l*7+2, i, j, 0] = boundary_values[l*7+2, i, j, 0]*T/L #ToDo: kappa??
+                    boundary_values[l*7+3, i, j, 0] = boundary_values[l*7+3, i, j, 0]*T/L
+            
+
+        return (dirichlet_functional, vn_functional), (bc_kernel, make_bc_dimensionless_kernel)
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f_current, f_previous, bc_mask, boundary_values, bared_moments):
+    def warp_implementation(self, f_current, f_previous, bared_moments):
         # Launch the warp kernel
         wp.launch(
-            self.warp_kernel,
-            inputs=[f_current, f_previous, bc_mask, boundary_values, bared_moments, self.K, self.mu],
+            self.warp_kernel[0],
+            inputs=[f_current, f_previous, self.boundary_array, self.boundary_values, bared_moments, self.K, self.mu],
             dim=f_current.shape[1:],
         )
+
+    def make_dimensionless(self):
+        wp.launch(self.warp_kernel[1], inputs=[self.boundary_array, self.boundary_values, self.T, self.L], dim=self.boundary_array.shape[1:])
 
 
 # --------------utils used to construct bc arrays----------------
