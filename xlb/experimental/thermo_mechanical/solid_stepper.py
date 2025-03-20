@@ -76,7 +76,18 @@ class SolidsStepper(Stepper):
         # ---------define operators----------
         self.collision = SolidsCollision(self.omega, self.force, self.theta)
         self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)
-        self.boundaries = SolidsDirichlet(self.boundary_conditions, self.boundary_values, self.K, self.mu, dimensionless=False, T=self.T, L=self.L, velocity_set=self.velocity_set, precision_policy=self.precision_policy, compute_backend=self.compute_backend)
+        self.boundaries = SolidsDirichlet(
+            self.boundary_conditions,
+            self.boundary_values,
+            self.K,
+            self.mu,
+            dimensionless=False,
+            T=self.T,
+            L=self.L,
+            velocity_set=self.velocity_set,
+            precision_policy=self.precision_policy,
+            compute_backend=self.compute_backend,
+        )
         self.macroscopic = SolidMacroscopics(
             self.grid,
             self.force,

@@ -32,8 +32,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 20
-    nodes_y = 20
+    nodes_x = 10
+    nodes_y = 10
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 1000
+    timesteps = 10
     dt = 0.01
 
     # get params
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     potential = sympy.lambdify([x, y], potential_sympy)
     indicator = lambda x, y: 1
     boundary_array, boundary_values = bc.init_bc_from_lambda(
-        potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y, mu, K
+        potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y, K, mu
     )
     # potential, boundary_array, boundary_values = None, None, None
 
@@ -98,6 +98,10 @@ if __name__ == "__main__":
     for i in range(timesteps):
         stepper(f_1, f_3)
         f_1, f_2, f_3 = f_3, f_1, f_2
+        macroscopics = stepper.get_macroscopics(f_1)
+        l2_disp, l2_inf, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
+        utils.output_image(macroscopics, i, "figure", potential, dx)
+        print(l2_disp, l2_inf, l2_stress, linf_stress)
         """if i % 100 == 0:
             macroscopics = stepper.get_macroscopics(f_1)
             l2_new, linf_new, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
