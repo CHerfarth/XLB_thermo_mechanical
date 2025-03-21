@@ -1,12 +1,12 @@
 #!/bin/bash
 
 epsilon=1.0
-nodes_x=20
-nodes_y=20
-timesteps=2000
+nodes_x=50
+nodes_y=50
+timesteps=1000
 post_process_interval=10
-dt=1
-iterations=10
+dt=0.1
+iterations=12
 applying_bc=0
 
 #for bookkeeping
@@ -26,7 +26,7 @@ do
     cat tmp_1.txt >> $log_file #write to log
 
     #plot convergence
-    python3 plotter.py tmp_results.csv $dt dt_{$dt}_nodesx_{$nodes_x}.png
+    python3 plotter.py tmp_results.csv $dt dt_${dt}_nodesx_${nodes_x}.png
 
     #get L2 disp error
     cat tmp_1.txt | grep "L2_disp" > tmp_2.txt
@@ -49,11 +49,11 @@ do
     rm tmp*
 
     #decrease expsilon
-    dt=$(echo "$dt*0.5"|bc -l)
-    timesteps=$((timesteps*2))
-    post_process_interval=$((post_process_interval*2))
+    dt=$(echo "$dt*0.25"|bc -l)
+    #timesteps=$((timesteps*2))
+    #post_process_interval=$((post_process_interval*2))
 
     echo "Iteration $i done"
 done
 
-python3 $2 $results_file
+#python3 $2 $results_file

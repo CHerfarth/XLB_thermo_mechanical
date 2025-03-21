@@ -16,13 +16,12 @@ args = parser.parse_args()
 
 data = pd.read_csv(args.results_csv, skiprows=0, sep=",", engine="python", dtype=np.float64)
 print(data.head())
-x_label = "Time"
+x_label = "Timestep"
 y_label = "Error"
 title = "Error Norms over Time"
-name = "test.png"
 dt = args.dt
 
-data['time'] = data['timestep']*dt
+data['time'] = data['timestep']
 
 
 fig, ax = plt.subplots()

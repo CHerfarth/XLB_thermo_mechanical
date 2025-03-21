@@ -116,6 +116,7 @@ if __name__ == "__main__":
         stepper.get_macroscopics(f_1)
         if (i % post_process_interval == 0):
             macroscopics = stepper.get_macroscopics(f_1)
+            print(np.linalg.norm(macroscopics))
             #if i != 0 and (macroscopics - old_macroscopics).norm() < tolerance:
             #    break
             #old_macroscopics = macroscopics
