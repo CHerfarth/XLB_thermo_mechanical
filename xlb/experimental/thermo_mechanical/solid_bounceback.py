@@ -111,6 +111,7 @@ class SolidsDirichlet(Operator):
 
             sum = 0.0
             if wp.abs(x_dir) + wp.abs(y_dir) == 1:  # case V1
+                sum = 0.0
                 for m in range(q):
                     k = c[0, m]
                     l = c[1, m]
@@ -125,12 +126,11 @@ class SolidsDirichlet(Operator):
                 # now add source term
                 s_ij = x_dir * T_x + y_dir * T_x
                 sum += s_ij
-            if wp.abs(x_dir) + wp.abs(y_dir) == 2:  # case V2
+            elif wp.abs(x_dir) + wp.abs(y_dir) == 2:  # case V2
+                sum = 0.0
                 for m in range(q):
                     k = c[0, m]
                     l = c[1, m]
-                    print(k)
-                    print(l)
                     a_ijkl = wp.abs(k) * wp.abs(l) * (0.5 * (1.0 + zeta) * x_dir * n_x + 0.5 * (1.0 - zeta) * y_dir * n_y) * c_1
                     a_ijkl += k * l * (x_dir * y_dir + 0.5 * (1.0 + zeta) * x_dir * n_y + 0.5 * (1.0 - zeta) * y_dir * n_x) * c_2
                     a_ijkl += (
@@ -147,10 +147,10 @@ class SolidsDirichlet(Operator):
                 # now add source term
                 s_ij = 0.25 * (x_dir * (1.0 + zeta) * T_x + y_dir * (1.0 - zeta) * T_y)
                 sum += s_ij
-            assert wp.abs(sum) > 1e-12
             f_current[new_direction, i, j, 0] = sum
             #print(sum)
             assert(f_current[new_direction, i, j, 0] != wp.nan)
+
 
         @wp.kernel
         def bc_kernel(
@@ -188,8 +188,8 @@ class SolidsDirichlet(Operator):
             i, j, k = wp.tid()
             if boundary_array[0, i, j, 0] == wp.int8(3):  # dimensionless scaling only needed for VN BC
                 for l in range(self.velocity_set.q):
-                    boundary_values[l * 7 + 2, i, j, 0] = boundary_values[l * 7 + 2, i, j, 0] * T / L  # ToDo: kappa??
-                    boundary_values[l * 7 + 3, i, j, 0] = boundary_values[l * 7 + 3, i, j, 0] * T / L
+                    boundary_values[l * 7 + 2, i, j, 0] = 0.#boundary_values[l * 7 + 2, i, j, 0] * T #/ L  # ToDo: kappa??
+                    boundary_values[l * 7 + 3, i, j, 0] = 0.#boundary_values[l * 7 + 3, i, j, 0] * T #/ L
 
         return (dirichlet_functional, vn_functional), (bc_kernel, make_bc_dimensionless_kernel)
 

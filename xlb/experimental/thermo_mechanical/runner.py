@@ -25,6 +25,7 @@ def write_results(norms_over_time, name):
 
 
 if __name__ == "__main__":
+    wp.config.mode = "debug"  
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP32FP32
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
@@ -42,8 +43,8 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 10
-    dt = 0.01
+    timesteps = 100
+    dt = 0.005
 
     # get params
     E = 0.085 * 2.5
@@ -71,7 +72,7 @@ if __name__ == "__main__":
     ])
 
     # set boundary potential
-    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
+    potential_sympy = -1 + 0*x + 0*y#(0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.15
     potential = sympy.lambdify([x, y], potential_sympy)
     indicator = lambda x, y: 1
     boundary_array, boundary_values = bc.init_bc_from_lambda(
