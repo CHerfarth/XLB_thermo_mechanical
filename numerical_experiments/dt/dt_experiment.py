@@ -107,27 +107,21 @@ if __name__ == "__main__":
 
     norms_over_time = list() #to track error over time
     post_process_interval = args.post_process_interval
-    tolerance = 1e-10
-    old_macroscopics = (stepper.get_macroscopics(f_1)).copy()
-    print(np.linalg.norm(old_macroscopics))
+    tolerance = 1e-9
 
     l2, linf = 0, 0
     for i in range(timesteps):
         stepper(f_1, f_3)
         f_1, f_2, f_3 = f_3, f_1, f_2
-        print(np.linalg.norm(old_macroscopics))
         stepper.get_macroscopics(f_1)
         if (i % post_process_interval == 0):
             macroscopics = stepper.get_macroscopics(f_1)
-            if i != 0 and np.linalg.norm(old_macroscopics - macroscopics) < tolerance:
-                print(np.linalg.norm(old_macroscopics - macroscopics))
-                print(np.linalg.norm(macroscopics))
-                print(np.linalg.norm(old_macroscopics))
-                break
-            old_macroscopics = macroscopics
+            #if i != 0 and (macroscopics - old_macroscopics).norm() < tolerance:
+            #    break
+            #old_macroscopics = macroscopics
             utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
 
-    macroscopics = stepper.get_macroscopics(f_1) 
+    macroscopics = stepper.get_macroscopics(f_1)
     utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
     #write out error norms
     last_norms = norms_over_time[len(norms_over_time)-1]
@@ -135,5 +129,5 @@ if __name__ == "__main__":
     print("Final error Linf_disp: {}".format(last_norms[2]))
     print("Final error L2_stress: {}".format(last_norms[3]))
     print("Final error Linf_stress: {}".format(last_norms[4]))
-    print("in {} timesteps".format(last_norms[0]))
-    write_results(norms_over_time, args.output_file) 
+    #print("in {} timesteps".format(last_norms[0]))
+    write_results(norms_over_time, args.output_file)

@@ -3,26 +3,30 @@
 epsilon=1.0
 nodes_x=20
 nodes_y=20
-timesteps=1000
-dt=0.1
-iterations=6
+timesteps=2000
+post_process_interval=10
+dt=1
+iterations=10
+applying_bc=0
 
 #for bookkeeping
 current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
 log_file="log_"$current_date_time".txt"
 results_file="results_"$current_date_time".csv"
 echo "All output logged in $log_file"
-echo "Writing results to $results_file"
-echo "Applying BC: $3"
-echo "epsilon,error_L2_disp,error_Linf_disp,error_L2_stress,error_Linf_stress" > $results_file
+echo "Applying BC: $applying_bc"
+echo "dt,error_L2_disp,error_Linf_disp,error_L2_stress,error_Linf_stress" > $results_file
 
 for ((i=0; i<iterations; i++))
 do
     echo "--------------------"
     echo "Simulating with $nodes_x nodes and timestep of size $dt, # of timesteps: $timesteps     --->  epsilon = $epsilon"
 
-    python3 $1 $nodes_x $nodes_y $timesteps $dt $3 >  tmp_1.txt 
+    python3 dt_experiment.py $nodes_x $nodes_y $timesteps $dt $applying_bc $post_process_interval tmp_results.csv >  tmp_1.txt 
     cat tmp_1.txt >> $log_file #write to log
+
+    #plot convergence
+    python3 plotter.py tmp_results.csv $dt dt_{$dt}_nodesx_{$nodes_x}.png
 
     #get L2 disp error
     cat tmp_1.txt | grep "L2_disp" > tmp_2.txt
@@ -41,15 +45,13 @@ do
     error_Linf_stress=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
 
     echo "Error: $error_L2_disp, $error_Linf_disp, $error_L2_stress, $error_Linf_stress"
-    echo "$epsilon,$error_L2_disp, $error_Linf_disp, $error_L2_stress, $error_Linf_stress" >> $results_file
+    echo "$dt,$error_L2_disp, $error_Linf_disp, $error_L2_stress, $error_Linf_stress" >> $results_file
     rm tmp*
 
     #decrease expsilon
-    epsilon=$(echo "$epsilon*0.5" |bc -l)
-    nodes_x=$((nodes_x*2))
-    nodes_y=$((nodes_y*2))
-    dt=$(echo "$dt*0.25"|bc -l)
-    timesteps=$((timesteps*4))
+    dt=$(echo "$dt*0.5"|bc -l)
+    timesteps=$((timesteps*2))
+    post_process_interval=$((post_process_interval*2))
 
     echo "Iteration $i done"
 done

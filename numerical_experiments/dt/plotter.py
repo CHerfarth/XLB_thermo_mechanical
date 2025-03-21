@@ -10,6 +10,7 @@ import argparse
 parser = argparse.ArgumentParser("convergence_study")
 parser.add_argument("results_csv",type=str)
 parser.add_argument("dt",type=float)
+parser.add_argument("output_file")
 args = parser.parse_args()
 
 
@@ -38,4 +39,4 @@ plt.xlabel(x_label, labelpad=20, fontsize=12)
 plt.ylabel(y_label, labelpad=20, fontsize=12)
 plt.legend(loc="upper right")
 plt.tight_layout()
-plt.savefig(name)
+plt.savefig(args.output_file)
