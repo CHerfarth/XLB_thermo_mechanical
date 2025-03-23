@@ -25,7 +25,7 @@ def write_results(norms_over_time, name):
 
 
 if __name__ == "__main__":
-    wp.config.mode = "debug"  
+    wp.config.mode = "debug"
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP32FP32
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
@@ -33,8 +33,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 10
-    nodes_y = 10
+    nodes_x = 30
+    nodes_y = 30
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     # get force load
     x, y = sympy.symbols("x y")
     manufactured_u = 3 * sympy.cos(6 * sympy.pi * x)  # + 3
-    manufactured_v = 3 * sympy.cos(6 * sympy.pi * y)  # + 3
+    manufactured_v = 0  # 3 * sympy.cos(6 * sympy.pi * y)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     ])
 
     # set boundary potential
-    potential_sympy = -1 + 0*x + 0*y#(0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.15
+    potential_sympy = -1  # (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.15
     potential = sympy.lambdify([x, y], potential_sympy)
     indicator = lambda x, y: 1
     boundary_array, boundary_values = bc.init_bc_from_lambda(

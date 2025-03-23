@@ -72,15 +72,16 @@ class SolidsStepper(Stepper):
         host_force = np.array([[host_force_x, host_force_y]])
         host_force = np.transpose(host_force, (1, 2, 3, 0))  # swap dims to make array compatible with what grid_factory would have produced
         self.force = wp.from_numpy(host_force, dtype=self.precision_policy.store_precision.wp_dtype)  # ...and move to device
-
+        print(type(self.force))
         # ---------define operators----------
         self.collision = SolidsCollision(self.omega, self.force, self.theta)
         self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)
         self.boundaries = SolidsDirichlet(
-            self.boundary_conditions,
-            self.boundary_values,
-            self.K,
-            self.mu,
+            boundary_array=self.boundary_conditions,
+            boundary_values=self.boundary_values,
+            force=self.force,
+            K=self.K,
+            mu=self.mu,
             dimensionless=False,
             T=self.T,
             L=self.L,
@@ -107,12 +108,12 @@ class SolidsStepper(Stepper):
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f_current, f_previous):
-        #wp.launch(utils.copy_populations, inputs=[f_previous, self.temp_f, self.velocity_set.q], dim=f_current.shape[1:])
+        wp.launch(utils.copy_populations, inputs=[f_previous, self.temp_f, self.velocity_set.q], dim=f_current.shape[1:])
         self.macroscopic(f_current)
         wp.launch(self.collision.warp_kernel, inputs=[f_current, self.force, self.omega, self.theta], dim=f_current.shape[1:])
         wp.launch(self.stream.warp_kernel, inputs=[f_current, f_previous], dim=f_current.shape[1:])
         if self.boundary_conditions != None:
-            self.boundaries(f_previous, f_current, self.macroscopic.get_bared_moments_device())
+            self.boundaries(f_previous, self.temp_f, self.macroscopic.get_bared_moments_device())
 
     def get_macroscopics(self, f):
         # udate bared moments

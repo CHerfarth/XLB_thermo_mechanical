@@ -56,7 +56,6 @@ class SolidsCollision(Collision):
             for l in range(m._length_):
                 m[l] = omega[l] * m_eq[l] + (1.0 - omega[l]) * m[l]
 
-
             # half-forcing
             m[0] += 0.5 * force[0, i, j, 0]
             m[1] += 0.5 * force[1, i, j, 0]
