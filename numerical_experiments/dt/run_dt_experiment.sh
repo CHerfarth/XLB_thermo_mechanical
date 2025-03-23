@@ -3,10 +3,10 @@
 epsilon=1.0
 nodes_x=50
 nodes_y=50
-timesteps=1000
+timesteps=10000
 post_process_interval=10
 dt=0.1
-iterations=12
+iterations=8
 applying_bc=0
 
 #for bookkeeping
@@ -15,7 +15,7 @@ log_file="log_"$current_date_time".txt"
 results_file="results_"$current_date_time".csv"
 echo "All output logged in $log_file"
 echo "Applying BC: $applying_bc"
-echo "dt,error_L2_disp,error_Linf_disp,error_L2_stress,error_Linf_stress" > $results_file
+echo "dt,iteration,l2_disp,linf_disp,l2_stress,linf_stress" > $results_file
 
 for ((i=0; i<iterations; i++))
 do
@@ -26,7 +26,7 @@ do
     cat tmp_1.txt >> $log_file #write to log
 
     #plot convergence
-    python3 plotter.py tmp_results.csv $dt dt_${dt}_nodesx_${nodes_x}.png
+    python3 plotter_single.py tmp_results.csv $dt dt_${dt}_nodesx_${nodes_x}.png
 
     #get L2 disp error
     cat tmp_1.txt | grep "L2_disp" > tmp_2.txt
@@ -44,8 +44,13 @@ do
     cat tmp_1.txt | grep "Linf_stress" > tmp_2.txt
     error_Linf_stress=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
 
+    #get timesteps
+    cat tmp_1.txt | grep "iteration" > tmp_2.txt
+    iteration=$(cat tmp_2.txt | grep -oE '[0-9]+')
+
+
     echo "Error: $error_L2_disp, $error_Linf_disp, $error_L2_stress, $error_Linf_stress"
-    echo "$dt,$error_L2_disp, $error_Linf_disp, $error_L2_stress, $error_Linf_stress" >> $results_file
+    echo "$dt,$iteration,$error_L2_disp, $error_Linf_disp, $error_L2_stress, $error_Linf_stress" >> $results_file
     rm tmp*
 
     #decrease expsilon
@@ -56,4 +61,4 @@ do
     echo "Iteration $i done"
 done
 
-#python3 $2 $results_file
+python3 plotter_double.py $results_file total_results.png

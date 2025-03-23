@@ -107,20 +107,23 @@ if __name__ == "__main__":
 
     norms_over_time = list() #to track error over time
     post_process_interval = args.post_process_interval
-    tolerance = 1e-9
+    tolerance = 1e-3
+    old_macroscopics = list()
+    converged = False
 
     l2, linf = 0, 0
     for i in range(timesteps):
         stepper(f_1, f_3)
         f_1, f_2, f_3 = f_3, f_1, f_2
-        stepper.get_macroscopics(f_1)
         if (i % post_process_interval == 0):
             macroscopics = stepper.get_macroscopics(f_1)
-            print(np.linalg.norm(macroscopics))
-            #if i != 0 and (macroscopics - old_macroscopics).norm() < tolerance:
-            #    break
-            #old_macroscopics = macroscopics
+            for old_macroscopic in old_macroscopics:
+                if np.linalg.norm(old_macroscopic - macroscopics) < tolerance:
+                    converged = True
+                print(np.linalg.norm(old_macroscopic - macroscopics))
+            old_macroscopics.append(macroscopics)
             utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
+            if converged: break
 
     macroscopics = stepper.get_macroscopics(f_1)
     utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
@@ -130,5 +133,6 @@ if __name__ == "__main__":
     print("Final error Linf_disp: {}".format(last_norms[2]))
     print("Final error L2_stress: {}".format(last_norms[3]))
     print("Final error Linf_stress: {}".format(last_norms[4]))
+    print("Final iteration: {}".format(i))
     #print("in {} timesteps".format(last_norms[0]))
     write_results(norms_over_time, args.output_file)
