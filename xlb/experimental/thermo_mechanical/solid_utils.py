@@ -29,13 +29,26 @@ np.seterr(all="ignore")
 #    d      |   4
 #    1  2   |   5
 #    2  1   |   6
-#    2  2   |   7
+#    f      |   7
 #    0  0   |   8 (irrelevant)
 
 
 solid_vec = wp.vec(
     9, dtype=PrecisionPolicy.FP32FP32.compute_precision.wp_dtype
 )  # this is the default precision policy; it can be changed by calling set_precision_policy()
+K_scaled = 1.
+mu_scaled = 1.
+theta = 1.
+
+def set_K_scaled(K):
+    global K_scaled
+    K_scaled = K
+def set_mu_scaled(mu):
+    global mu_scaled
+    mu_scaled = mu
+def set_theta(theta_):
+    global theta
+    theta = theta_
 
 
 def set_precision_policy(precision_policy):
@@ -76,6 +89,11 @@ def calc_moments(f: solid_vec):
     m[6] = f[7] + f[4] - f[8] - f[5]
     m[7] = f[7] + f[4] + f[8] + f[5]
     m[8] = 0.0
+    #m_7 is m_22 right now, we now convert it to m_f
+    tau_s = 2.*K_scaled/(1.+theta)
+    tau_f = 0.5 #todo: make modular, as function argument etc
+    gamma = (theta*tau_f)/((1.+theta)*(tau_s-tau_f))
+    m[7] += gamma * m[3]
     return m
 
 
@@ -89,6 +107,11 @@ def copy_populations(origin: wp.array4d(dtype=Any), dest: wp.array4d(dtype=Any),
 @wp.func
 def calc_populations(m: solid_vec):
     f = solid_vec()
+    #m_7 is m_f right now, we convert it back to m_22
+    tau_s = 2.*K_scaled/(1.+theta)
+    tau_f = 0.5 #todo: make modular, as function argument etc
+    gamma = (theta*tau_f)/((1.+theta)*(tau_s-tau_f))
+    m[7] += -gamma*m[3] 
     # Todo: find better way to do this!
     f[3] = 2.0 * m[0] + m[3] + m[4] - 2.0 * m[5] - 2.0 * m[7]
     f[1] = 2.0 * m[1] + m[3] - m[4] - 2.0 * m[6] - 2.0 * m[7]

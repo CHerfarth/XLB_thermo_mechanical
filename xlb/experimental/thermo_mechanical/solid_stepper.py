@@ -47,18 +47,20 @@ class SolidsStepper(Stepper):
         self.lamb = lamb * self.T / (self.L * self.L * self.kappa)
         self.K = K * self.T / (self.L * self.L * self.kappa)
         self.theta = theta
-
+        utils.set_theta(self.theta)
+        utils.set_K_scaled(self.K)
+        utils.set_mu_scaled(self.mu)
         # ----------calculate omega------------
         omega_11 = 1.0 / (self.mu / theta + 0.5)
         omega_s = 1.0 / (2 * (1 / (1 + theta)) * self.K + 0.5)
         omega_d = 1.0 / (2 * (1 / (1 - theta)) * self.mu + 0.5)
         tau_12 = 0.5
         tau_21 = 0.5
-        tau_22 = 0.5
+        tau_f = 0.5
         omega_12 = 1 / (tau_12 + 0.5)
         omega_21 = 1 / (tau_21 + 0.5)
-        omega_22 = 1 / (tau_22 + 0.5)
-        self.omega = utils.solid_vec(0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_22, 0.0)
+        omega_f = 1 / (tau_f + 0.5)
+        self.omega = utils.solid_vec(0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_f, 0.0)
 
         # ----------handle force load---------
         b_x_scaled = (

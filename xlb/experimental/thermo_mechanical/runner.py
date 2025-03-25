@@ -56,7 +56,7 @@ if __name__ == "__main__":
     # get force load
     x, y = sympy.symbols("x y")
     manufactured_u = 3 * sympy.cos(6 * sympy.pi * x)  # + 3
-    manufactured_v = 0  # 3 * sympy.cos(6 * sympy.pi * y)  # + 3
+    manufactured_v = 3 * sympy.cos(6 * sympy.pi * y)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     boundary_array, boundary_values = bc.init_bc_from_lambda(
         potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y, K, mu
     )
-    # potential, boundary_array, boundary_values = None, None, None
+    potential, boundary_array, boundary_values = None, None, None
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
