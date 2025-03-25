@@ -43,12 +43,15 @@ theta = 1.
 def set_K_scaled(K):
     global K_scaled
     K_scaled = K
+    print("K: {}".format(K_scaled))
 def set_mu_scaled(mu):
     global mu_scaled
     mu_scaled = mu
+    print("Mu: {}".format(mu))
 def set_theta(theta_):
     global theta
     theta = theta_
+    print("Theta: {}".format(theta))
 
 
 def set_precision_policy(precision_policy):

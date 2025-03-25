@@ -43,7 +43,7 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 100
+    timesteps = 10000
     dt = 0.005
 
     # get params
@@ -55,8 +55,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = 3 * sympy.cos(6 * sympy.pi * x)  # + 3
-    manufactured_v = 3 * sympy.cos(6 * sympy.pi * y)  # + 3
+    manufactured_u = sympy.cos(2 * sympy.pi * x)  # + 3
+    manufactured_v = 0#3 * sympy.cos(6 * sympy.pi * y)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     boundary_array, boundary_values = bc.init_bc_from_lambda(
         potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y, K, mu
     )
-    potential, boundary_array, boundary_values = None, None, None
+    #potential, boundary_array, boundary_values = None, None, None
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
@@ -101,9 +101,7 @@ if __name__ == "__main__":
         f_1, f_2, f_3 = f_3, f_1, f_2
         macroscopics = stepper.get_macroscopics(f_1)
         l2_disp, l2_inf, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
-        utils.output_image(macroscopics, i, "figure", potential, dx)
-        print(l2_disp, l2_inf, l2_stress, linf_stress)
-        """if i % 100 == 0:
+        if i % 1 == 0:
             macroscopics = stepper.get_macroscopics(f_1)
             l2_new, linf_new, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
             print(l2_new, linf_new, l2_stress, linf_stress)
@@ -111,7 +109,7 @@ if __name__ == "__main__":
             if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:
                 print("Final timestep:{}".format(i))
                 break
-            l2, linf = l2_new, linf_new"""
+            l2, linf = l2_new, linf_new
 
     # write out error norms
     # print("Final error: {}".format(norms_over_time[len(norms_over_time) - 1]))
