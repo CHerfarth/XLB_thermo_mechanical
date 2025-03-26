@@ -111,7 +111,7 @@ class SolidsDirichlet(Operator):
             c_3 = (4.0 * mu) / (1.0 - theta - 4.0 * mu)
 
             local_sum = 0.0
-            if wp.abs(x_dir) + wp.abs(y_dir) == 1:  # case V1
+            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir)- 1.)<1e-3:  # case V1
                 local_sum = 0.0
                 for m in range(q):
                     k = c[0, m]
@@ -123,13 +123,8 @@ class SolidsDirichlet(Operator):
                     ) * c_3
                     if x_dir == -k and y_dir == -l:
                         a_ijkl += -1.0
-                    #print(a_ijkl)
-                    # if x_dir == k and y_dir == l: a_ijkl = 0.
                     local_sum += a_ijkl * f_previous[m, i, j, 0]
-                # now add source term
-                #s_ij = x_dir * T_x + y_dir * T_x
-                #local_sum += s_ij
-            elif wp.abs(x_dir) + wp.abs(y_dir) == 2:  # case V2
+            elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.)<1e-3:  # case V2
                 local_sum = 0.0
                 for m in range(q):
                     k = c[0, m]
@@ -144,20 +139,14 @@ class SolidsDirichlet(Operator):
                         )
                         * c_3
                     )
-                    if x_dir == -k and y_dir == -l:  ##right now for debugging, remove later!
+                    if wp.abs(x_dir+k)<1e-3 and wp.abs(y_dir+l)<1e-3:  ##right now for debugging, remove later!
                         a_ijkl += -1.0
-                    #print(a_ijkl)
-                    #if (a_ijkl != 0.):
-                    #    printf("a_ijkl: %f          at position i: %d, j: %d\n", a_ijkl, i, j)
                     local_sum += a_ijkl * f_previous[m, i, j, 0]
-                # now add source term
-                #s_ij = 0.25 * (x_dir * (1.0 + zeta) * T_x + y_dir * (1.0 - zeta) * T_y)
-                #local_sum += s_ij
             
             f_current[new_direction, i, j, 0] = local_sum 
-            if (wp.abs(x_dir) + wp.abs(y_dir)) == 1:
+            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir)-1.)<1e-3:
                 f_current[new_direction, i, j, 0] += T_x*x_dir + T_y*y_dir
-            elif (wp.abs(x_dir) + wp.abs(y_dir)) == 2:
+            elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir)-2.)<1e-3:
                 f_current[new_direction, i, j, 0] += 0.25 * (x_dir * (1.0 + zeta) * T_x + y_dir * (1.0 - zeta) * T_y)
             # get derivatives of stress
             m_local = utils.read_local_population(bared_moments, i, j)
@@ -327,7 +316,7 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                             bc_x += stepsize * x_direction
                             bc_y += stepsize * y_direction
                             counter += 1
-                            assert counter <= max_steps
+                            assert counter <= (max_steps+1)
                         q_ij = counter / max_steps
 
                     # if dirichlet bc: set values
@@ -346,16 +335,18 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                         # if on edge of domain: normals cant be calculated with potential
                         if on_boundary:
                             n = [0.,0.]
-                            if i+x_direction < 0 or i+x_direction >= grid.shape[1]:
+                            if i+x_direction < 0 or i+x_direction >= grid.shape[0]:
                                 n[0] = x_direction
                                 n[1] = 0
                             if j+y_direction < 0 or j+y_direction>= grid.shape[1]:
                                 n[0] = 0
                                 n[1] = y_direction
+                            '''if (j+y_direction < 0 or j+y_direction >= grid.shape[1]) and (i+x_direction<0 or i+x_direction >= grid.shape[0]):
+                                n[0] = x_direction
+                                n[1] = y_direction'''
                             n = n / np.linalg.norm(n)
-                        #bc_y = cur_y
-                        #bc_x = cur_x #remove later!!
-                        #print(n)
+                        print(n[0]**2 + n[1]**2)
+                        print(potential(bc_x + n[0], bc_y + n[1]))
                         # find T
                         dx_ux = bc_dirichlet[2](bc_x, bc_y)
                         dy_ux = bc_dirichlet[3](bc_x, bc_y)
@@ -371,9 +362,20 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                         s_xy = 2*mu*e_xy
                         T_x = s_xx*n[0] + s_xy*n[1]
                         T_y = s_xy*n[0] + s_yy*n[1]'''
-                        if (i == 0 and abs(T_y) > 1e-7):
-                            print("i: {}, j: {}, x_dir: {}, y_dir: {}, bc_x: {}, bc_y: {}, T_y: {}".format(i,j,x_direction,y_direction, bc_x, bc_y, T_y))
-                            print("dx_ux: {}, dy_ux: {}, dx_uy: {}, dy_uy: {}".format(dx_ux, dy_ux, dx_uy, dy_uy))
+                        #print("i: {}, j: {}, x_dir: {}, y_dir: {}, bc_x: {}, bc_y: {}, n_x: {}, n_y: {}".format(i,j,x_direction, y_direction, bc_x,bc_y,n[0],n[1]))
+                        '''if (i == 1 and j == 3 and x_direction == -1 and y_direction == 0):
+                            print("TEST")
+                            dx_p = dx_potential(bc_x, bc_y)
+                            dy_p = dy_potential(bc_x, bc_y)
+                            print(dx_p)
+                            print(dy_p)
+                            norm = np.linalg.norm([dx_potential(bc_x, bc_y), dy_potential(bc_x, bc_y)])
+                            print(norm)
+                            print(dx_p/norm)
+                            print(dy_p/norm)
+                            print((dx_p/norm)**2 + (dy_p/norm)**2)'''
+
+
                         # write to array
                         host_boundary_values[direction * values_per_direction, i, j, 0] = n[0]
                         host_boundary_values[direction * values_per_direction + 1, i, j, 0] = n[1]
