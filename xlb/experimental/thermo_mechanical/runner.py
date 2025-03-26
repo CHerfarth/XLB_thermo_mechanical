@@ -33,8 +33,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 150
-    nodes_y = 150
+    nodes_x = 50
+    nodes_y = 50
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     ])
 
     # set boundary potential
-    potential_sympy = x+y-1.3#(0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.15
+    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.2
     potential = sympy.lambdify([x, y], potential_sympy)
     indicator = lambda x, y: 1
     boundary_array, boundary_values = bc.init_bc_from_lambda(
