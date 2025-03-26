@@ -107,16 +107,26 @@ class SolidsStepper(Stepper):
 
         # ----------create field for temp stuff------------
         self.temp_f = grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
+        print("Initialised stepper")
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f_current, f_previous):
+        #print("Starting timestep")
         wp.launch(utils.copy_populations, inputs=[f_previous, self.temp_f, self.velocity_set.q], dim=f_current.shape[1:])
+        #print("Completed copy")
         self.macroscopic(f_current)
+        #print("Completed Macroscopics")
         wp.launch(self.collision.warp_kernel, inputs=[f_current, self.force, self.omega, self.theta], dim=f_current.shape[1:])
+        #print("Did collision")
         wp.launch(utils.copy_populations, inputs=[f_current, self.temp_f, self.velocity_set.q], dim=f_current.shape[1:])
+        #print("Completed copy")
         wp.launch(self.stream.warp_kernel, inputs=[f_current, f_previous], dim=f_current.shape[1:])
+        #print("Launched Streaming")
         if self.boundary_conditions != None:
+            #print("Before bc")
             self.boundaries(f_previous, self.temp_f, self.macroscopic.get_bared_moments_device())
+            #print("After bc")
+        #print("Completed timestep")
 
     def get_macroscopics(self, f):
         # udate bared moments

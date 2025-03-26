@@ -56,7 +56,7 @@ if __name__ == "__main__":
     # get force load
     x, y = sympy.symbols("x y")
     manufactured_u = sympy.cos(2 * sympy.pi * x)  # + 3
-    manufactured_v = 0#3 * sympy.cos(6 * sympy.pi * y)  # + 3
+    manufactured_v = sympy.cos(2 * sympy.pi * y)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -94,14 +94,14 @@ if __name__ == "__main__":
 
     norms_over_time = list()  # to track error over time
     tolerance = 1e-6
-
+    print("STARTING")
     l2, linf = 0, 0
     for i in range(timesteps):
         stepper(f_1, f_3)
         f_1, f_2, f_3 = f_3, f_1, f_2
         macroscopics = stepper.get_macroscopics(f_1)
         l2_disp, l2_inf, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
-        if i % 1 == 0:
+        if i % 10 == 0:
             macroscopics = stepper.get_macroscopics(f_1)
             l2_new, linf_new, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
             print(l2_new, linf_new, l2_stress, linf_stress)

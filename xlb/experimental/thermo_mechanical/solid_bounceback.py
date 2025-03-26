@@ -83,6 +83,7 @@ class SolidsDirichlet(Operator):
             j: Any,
             f_current: Any,
             f_previous: Any,
+            boundary_array: Any,
             boundary_values: Any,
             force: Any,
             bared_moments: Any,
@@ -114,34 +115,36 @@ class SolidsDirichlet(Operator):
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir)- 1.)<1e-3:  # case V1
                 local_sum = 0.0
                 for m in range(q):
-                    k = c[0, m]
-                    l = c[1, m]
-                    a_ijkl = wp.abs(k) * wp.abs(l) * (1.0 + x_dir * n_x + y_dir * n_y) * c_1
-                    a_ijkl += k * l * (x_dir * n_y + y_dir * n_x) * c_2
-                    a_ijkl += (
-                        wp.abs(k) * (1.0 - wp.abs(l)) * (wp.abs(x_dir) + x_dir * n_x) + wp.abs(l) * (1.0 - wp.abs(k)) * (wp.abs(y_dir) + y_dir * n_y)
-                    ) * c_3
-                    if x_dir == -k and y_dir == -l:
-                        a_ijkl += -1.0
-                    local_sum += a_ijkl * f_previous[m, i, j, 0]
+                    if boundary_array[m+10, i, j, 0] != wp.int8(1):
+                        k = c[0, m]
+                        l = c[1, m]
+                        a_ijkl = wp.abs(k) * wp.abs(l) * (1.0 + x_dir * n_x + y_dir * n_y) * c_1
+                        a_ijkl += k * l * (x_dir * n_y + y_dir * n_x) * c_2
+                        a_ijkl += (
+                            wp.abs(k) * (1.0 - wp.abs(l)) * (wp.abs(x_dir) + x_dir * n_x) + wp.abs(l) * (1.0 - wp.abs(k)) * (wp.abs(y_dir) + y_dir * n_y)
+                        ) * c_3
+                        if wp.abs(x_dir+k)<1e-3 and wp.abs(y_dir+l) < 1e-3:
+                            a_ijkl += -1.0
+                        local_sum += a_ijkl * f_previous[m, i, j, 0]
             elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.)<1e-3:  # case V2
                 local_sum = 0.0
                 for m in range(q):
-                    k = c[0, m]
-                    l = c[1, m]
-                    a_ijkl = wp.abs(k) * wp.abs(l) * (0.5 * (1.0 + zeta) * x_dir * n_x + 0.5 * (1.0 - zeta) * y_dir * n_y) * c_1
-                    a_ijkl += k * l * (x_dir * y_dir + 0.5 * (1.0 + zeta) * x_dir * n_y + 0.5 * (1.0 - zeta) * y_dir * n_x) * c_2
-                    a_ijkl += (
-                        0.5
-                        * (
-                            wp.abs(k) * (1.0 - wp.abs(l)) * 0.5 * (1.0 + zeta) * x_dir * n_x
-                            + wp.abs(l) * (1.0 - wp.abs(k)) * 0.5 * (1.0 - zeta) * y_dir * n_y
+                    if boundary_array[m+10, i, j, 0] != wp.int8(1):
+                        k = c[0, m]
+                        l = c[1, m]
+                        a_ijkl = wp.abs(k) * wp.abs(l) * (0.5 * (1.0 + zeta) * x_dir * n_x + 0.5 * (1.0 - zeta) * y_dir * n_y) * c_1
+                        a_ijkl += k * l * (x_dir * y_dir + 0.5 * (1.0 + zeta) * x_dir * n_y + 0.5 * (1.0 - zeta) * y_dir * n_x) * c_2
+                        a_ijkl += (
+                            0.5
+                            * (
+                                wp.abs(k) * (1.0 - wp.abs(l)) * 0.5 * (1.0 + zeta) * x_dir * n_x
+                                + wp.abs(l) * (1.0 - wp.abs(k)) * 0.5 * (1.0 - zeta) * y_dir * n_y
+                            )
+                            * c_3
                         )
-                        * c_3
-                    )
-                    if wp.abs(x_dir+k)<1e-3 and wp.abs(y_dir+l)<1e-3:  ##right now for debugging, remove later!
-                        a_ijkl += -1.0
-                    local_sum += a_ijkl * f_previous[m, i, j, 0]
+                        if wp.abs(x_dir+k)<1e-3 and wp.abs(y_dir+l)<1e-3: 
+                            a_ijkl += -1.0
+                        local_sum += a_ijkl * f_previous[m, i, j, 0]
             
             f_current[new_direction, i, j, 0] = local_sum 
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir)-1.)<1e-3:
@@ -175,6 +178,7 @@ class SolidsDirichlet(Operator):
             K: Any,
             mu: Any,
         ):
+            #printf("In kernel")
             i, j, k = wp.tid()  # for 2d k will equal 1
             tau_t = 0.5  # ToDo: as argument of fuction
             if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
@@ -189,8 +193,8 @@ class SolidsDirichlet(Operator):
             elif boundary_array[0, i, j, 0] == wp.int8(3):  # for boundary nodes: check which directions need to be given VN BC
                 for l in range(q):
                     if boundary_array[l + 1, i, j, 0] == wp.int8(1):
-                        # print("Calling Von Neumann")
-                        vn_functional(l, i, j, f_current, f_previous, boundary_values, force, bared_moments, K, mu, tau_t)
+                        #print("Calling Von Neumann")
+                        vn_functional(l, i, j, f_current, f_previous, boundary_array, boundary_values, force, bared_moments, K, mu, tau_t)
 
         @wp.kernel
         def make_bc_dimensionless_kernel(
@@ -210,6 +214,7 @@ class SolidsDirichlet(Operator):
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f_current, f_previous, bared_moments):
+        #print("Launching kernel")
         # Launch the warp kernel
         wp.launch(
             self.warp_kernel[0],
@@ -250,7 +255,7 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
     potential = sympy.lambdify([x, y], potential_sympy)
 
     values_per_direction = 7
-    host_boundary_info = np.zeros(shape=(10, grid.shape[0], grid.shape[1], 1), dtype=np.int8)
+    host_boundary_info = np.zeros(shape=(19, grid.shape[0], grid.shape[1], 1), dtype=np.int8)
     host_boundary_values = np.zeros(
         shape=(velocity_set.q * values_per_direction, grid.shape[0], grid.shape[1], 1), dtype=np.float32
     )  # todo: change to compute precision
@@ -328,6 +333,8 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                         host_boundary_values[(direction + 1) * values_per_direction - 1, i, j, 0] = q_ij
                     elif boundary_node and indicator(bc_x, bc_y) > 0:  # if VN: find T
                         host_boundary_info[direction + 1, i, j, 0] = 1
+                        opposite_direction = velocity_set.opp_indices[direction]
+                        host_boundary_info[1+9+opposite_direction,i,j,0] = 1
                         host_boundary_info[0, i, j, 0] = 3
                         # find n
                         n = [dx_potential(bc_x, bc_y), dy_potential(bc_x, bc_y)]
@@ -345,8 +352,10 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                                 n[0] = x_direction
                                 n[1] = y_direction'''
                             n = n / np.linalg.norm(n)
-                        print(n[0]**2 + n[1]**2)
-                        print(potential(bc_x + n[0], bc_y + n[1]))
+                        print("Norm: {}, Pot. at boundary: {}, Pot. away from boundary: {}".format(n[0]**2 + n[1]**2, potential(bc_x, bc_y), potential(bc_x + n[0], bc_y + n[1])))
+                        if (potential(bc_x, bc_y) < 0):
+                            print("Error")
+                            print("i: {}, j: {}, bc_x: {}, bc_y: {}".format(i,j,bc_x,bc_y))
                         # find T
                         dx_ux = bc_dirichlet[2](bc_x, bc_y)
                         dy_ux = bc_dirichlet[3](bc_x, bc_y)
