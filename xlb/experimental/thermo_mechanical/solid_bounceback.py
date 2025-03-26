@@ -107,44 +107,46 @@ class SolidsDirichlet(Operator):
             if wp.abs(n_x) > wp.abs(n_y):
                 zeta = -1.0
             # get c's
-            c_1 = (2.0 * (1.0 - theta) * (K - mu)) / (theta * (1.0 - theta - 4.0 * mu))
-            c_2 = (2.0 * mu) / (theta - 2.0 * mu)
-            c_3 = (4.0 * mu) / (1.0 - theta - 4.0 * mu)
+            c_1 = -(2.0 * (1.0 - theta) * (K - mu)) / (theta * (1.0 - theta - 4.0 * mu))
+            c_2 = -(2.0 * mu) / (theta - 2.0 * mu)
+            c_3 = -(4.0 * mu) / (1.0 - theta - 4.0 * mu)
 
             local_sum = 0.0
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir)- 1.)<1e-3:  # case V1
                 local_sum = 0.0
                 for m in range(q):
-                    if boundary_array[m+10, i, j, 0] != wp.int8(1):
-                        k = c[0, m]
-                        l = c[1, m]
-                        a_ijkl = wp.abs(k) * wp.abs(l) * (1.0 + x_dir * n_x + y_dir * n_y) * c_1
-                        a_ijkl += k * l * (x_dir * n_y + y_dir * n_x) * c_2
-                        a_ijkl += (
-                            wp.abs(k) * (1.0 - wp.abs(l)) * (wp.abs(x_dir) + x_dir * n_x) + wp.abs(l) * (1.0 - wp.abs(k)) * (wp.abs(y_dir) + y_dir * n_y)
-                        ) * c_3
-                        if wp.abs(x_dir+k)<1e-3 and wp.abs(y_dir+l) < 1e-3:
-                            a_ijkl += -1.0
-                        local_sum += a_ijkl * f_previous[m, i, j, 0]
+                    #if boundary_array[m+10, i, j, 0] != wp.int8(1):
+                    k = c[0, m]
+                    l = c[1, m]
+                    #printf("Summing up in direction x: %f, y: %f\n", k, l)
+                    a_ijkl = wp.abs(k) * wp.abs(l) * (1.0 + x_dir * n_x + y_dir * n_y) * c_1
+                    a_ijkl += k * l * (x_dir * n_y + y_dir * n_x) * c_2
+                    a_ijkl += (
+                        wp.abs(k) * (1.0 - wp.abs(l)) * (wp.abs(x_dir) + x_dir * n_x) + wp.abs(l) * (1.0 - wp.abs(k)) * (wp.abs(y_dir) + y_dir * n_y)
+                    ) * c_3
+                    if wp.abs(x_dir+k)<1e-3 and wp.abs(y_dir+l) < 1e-3:
+                        a_ijkl += -1.0
+                    local_sum += a_ijkl * f_previous[m, i, j, 0]
             elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.)<1e-3:  # case V2
                 local_sum = 0.0
                 for m in range(q):
-                    if boundary_array[m+10, i, j, 0] != wp.int8(1):
-                        k = c[0, m]
-                        l = c[1, m]
-                        a_ijkl = wp.abs(k) * wp.abs(l) * (0.5 * (1.0 + zeta) * x_dir * n_x + 0.5 * (1.0 - zeta) * y_dir * n_y) * c_1
-                        a_ijkl += k * l * (x_dir * y_dir + 0.5 * (1.0 + zeta) * x_dir * n_y + 0.5 * (1.0 - zeta) * y_dir * n_x) * c_2
-                        a_ijkl += (
-                            0.5
-                            * (
-                                wp.abs(k) * (1.0 - wp.abs(l)) * 0.5 * (1.0 + zeta) * x_dir * n_x
-                                + wp.abs(l) * (1.0 - wp.abs(k)) * 0.5 * (1.0 - zeta) * y_dir * n_y
-                            )
-                            * c_3
+                    #if boundary_array[m+10, i, j, 0] != wp.int8(1):
+                        #printf("Summing up in direction x: %f, y: %f\n", k, l)
+                    k = c[0, m]
+                    l = c[1, m]
+                    a_ijkl = 0.5*wp.abs(k) * wp.abs(l) * (0.5 * (1.0 + zeta) * x_dir * n_x + 0.5 * (1.0 - zeta) * y_dir * n_y) * c_1
+                    a_ijkl += 0.5*k * l * (x_dir * y_dir + 0.5 * (1.0 + zeta) * x_dir * n_y + 0.5 * (1.0 - zeta) * y_dir * n_x) * c_2
+                    a_ijkl += (
+                        0.5
+                        * (
+                            wp.abs(k) * (1.0 - wp.abs(l)) * 0.5 * (1.0 + zeta) * x_dir * n_x
+                            + wp.abs(l) * (1.0 - wp.abs(k)) * 0.5 * (1.0 - zeta) * y_dir * n_y
                         )
-                        if wp.abs(x_dir+k)<1e-3 and wp.abs(y_dir+l)<1e-3: 
-                            a_ijkl += -1.0
-                        local_sum += a_ijkl * f_previous[m, i, j, 0]
+                        * c_3
+                    )
+                    if wp.abs(x_dir+k)<1e-3 and wp.abs(y_dir+l)<1e-3: 
+                        a_ijkl += -1.0
+                    local_sum += a_ijkl * f_previous[m, i, j, 0]
             
             f_current[new_direction, i, j, 0] = local_sum 
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir)-1.)<1e-3:
@@ -352,10 +354,10 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                                 n[0] = x_direction
                                 n[1] = y_direction'''
                             n = n / np.linalg.norm(n)
-                        print("Norm: {}, Pot. at boundary: {}, Pot. away from boundary: {}".format(n[0]**2 + n[1]**2, potential(bc_x, bc_y), potential(bc_x + n[0], bc_y + n[1])))
+                        '''print("Norm: {}, Pot. at boundary: {}, Pot. away from boundary: {}".format(n[0]**2 + n[1]**2, potential(bc_x, bc_y), potential(bc_x + n[0], bc_y + n[1])))
                         if (potential(bc_x, bc_y) < 0):
                             print("Error")
-                            print("i: {}, j: {}, bc_x: {}, bc_y: {}".format(i,j,bc_x,bc_y))
+                            print("i: {}, j: {}, bc_x: {}, bc_y: {}".format(i,j,bc_x,bc_y))'''
                         # find T
                         dx_ux = bc_dirichlet[2](bc_x, bc_y)
                         dy_ux = bc_dirichlet[3](bc_x, bc_y)
