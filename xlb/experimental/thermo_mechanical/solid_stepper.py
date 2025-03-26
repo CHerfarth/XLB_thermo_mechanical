@@ -47,18 +47,20 @@ class SolidsStepper(Stepper):
         self.lamb = lamb * self.T / (self.L * self.L * self.kappa)
         self.K = K * self.T / (self.L * self.L * self.kappa)
         self.theta = theta
-
+        utils.set_theta(self.theta)
+        utils.set_K_scaled(self.K)
+        utils.set_mu_scaled(self.mu)
         # ----------calculate omega------------
         omega_11 = 1.0 / (self.mu / theta + 0.5)
         omega_s = 1.0 / (2 * (1 / (1 + theta)) * self.K + 0.5)
         omega_d = 1.0 / (2 * (1 / (1 - theta)) * self.mu + 0.5)
         tau_12 = 0.5
         tau_21 = 0.5
-        tau_22 = 0.5
+        tau_f = 0.5
         omega_12 = 1 / (tau_12 + 0.5)
         omega_21 = 1 / (tau_21 + 0.5)
-        omega_22 = 1 / (tau_22 + 0.5)
-        self.omega = utils.solid_vec(0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_22, 0.0)
+        omega_f = 1 / (tau_f + 0.5)
+        self.omega = utils.solid_vec(0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_f, 0.0)
 
         # ----------handle force load---------
         b_x_scaled = (
@@ -72,30 +74,62 @@ class SolidsStepper(Stepper):
         host_force = np.array([[host_force_x, host_force_y]])
         host_force = np.transpose(host_force, (1, 2, 3, 0))  # swap dims to make array compatible with what grid_factory would have produced
         self.force = wp.from_numpy(host_force, dtype=self.precision_policy.store_precision.wp_dtype)  # ...and move to device
-
+        print(type(self.force))
         # ---------define operators----------
         self.collision = SolidsCollision(self.omega, self.force, self.theta)
         self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)
-        self.boundaries = SolidsDirichlet(self.K, self.mu)
+        self.boundaries = SolidsDirichlet(
+            boundary_array=self.boundary_conditions,
+            boundary_values=self.boundary_values,
+            force=self.force,
+            K=self.K,
+            mu=self.mu,
+            dimensionless=False,
+            T=self.T,
+            L=self.L,
+            velocity_set=self.velocity_set,
+            precision_policy=self.precision_policy,
+            compute_backend=self.compute_backend,
+        )
         self.macroscopic = SolidMacroscopics(
-            self.grid, self.force, self.omega, self.theta, self.L, self.T, self.boundary_conditions, self.velocity_set, self.precision_policy, self.compute_backend
+            self.grid,
+            self.force,
+            self.omega,
+            self.theta,
+            self.L,
+            self.T,
+            self.boundary_conditions,
+            self.velocity_set,
+            self.precision_policy,
+            self.compute_backend,
         )
         self.equilibrium = None  # needed?
 
-        #----------create field for temp stuff------------
+        # ----------create field for temp stuff------------
         self.temp_f = grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
+        print("Initialised stepper")
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f_current, f_previous):
+        #print("Starting timestep")
         wp.launch(utils.copy_populations, inputs=[f_previous, self.temp_f, self.velocity_set.q], dim=f_current.shape[1:])
+        #print("Completed copy")
         self.macroscopic(f_current)
+        #print("Completed Macroscopics")
         wp.launch(self.collision.warp_kernel, inputs=[f_current, self.force, self.omega, self.theta], dim=f_current.shape[1:])
+        #print("Did collision")
+        wp.launch(utils.copy_populations, inputs=[f_current, self.temp_f, self.velocity_set.q], dim=f_current.shape[1:])
+        #print("Completed copy")
         wp.launch(self.stream.warp_kernel, inputs=[f_current, f_previous], dim=f_current.shape[1:])
+        #print("Launched Streaming")
         if self.boundary_conditions != None:
-            self.boundaries(f_previous, self.temp_f, self.boundary_conditions, self.boundary_values, self.macroscopic.get_bared_moments_device()) 
+            #print("Before bc")
+            self.boundaries(f_previous, self.temp_f, self.macroscopic.get_bared_moments_device())
+            #print("After bc")
+        #print("Completed timestep")
 
     def get_macroscopics(self, f):
-        #udate bared moments
+        # udate bared moments
         self.macroscopic(f)
         # get updated displacement
         return self.macroscopic.get_macroscopics_host()

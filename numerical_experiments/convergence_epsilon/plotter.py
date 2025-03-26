@@ -7,7 +7,10 @@ import numpy as np
 import pandas as pd
 import argparse
 
-def draw_loglog_slope(fig, ax, origin, width_inches, slope, color, inverted=False, polygon_kwargs=None, label=True, labelcolor=None, label_kwargs=None, zorder=None):
+
+def draw_loglog_slope(
+    fig, ax, origin, width_inches, slope, color, inverted=False, polygon_kwargs=None, label=True, labelcolor=None, label_kwargs=None, zorder=None
+):
     """
     This function draws slopes or "convergence triangles" into loglog plots.
 
@@ -16,7 +19,7 @@ def draw_loglog_slope(fig, ax, origin, width_inches, slope, color, inverted=Fals
     @param origin: The 2D origin (usually lower-left corner) coordinate of the triangle
     @param width_inches: The width in inches of the triangle
     @param slope: The slope of the triangle, i.e. order of convergence
-    @param inverted: Whether to mirror the triangle around the origin, i.e. whether 
+    @param inverted: Whether to mirror the triangle around the origin, i.e. whether
         it indicates the slope towards the lower left instead of upper right (defaults to false)
     @param color: The color of the of the triangle edges (defaults to default color)
     @param polygon_kwargs: Additional kwargs to the Polygon draw call that creates the slope
@@ -65,7 +68,7 @@ def draw_loglog_slope(fig, ax, origin, width_inches, slope, color, inverted=Fals
     # The width of the triangle in data coordinates
     width = x2 - x1
     # Compute offset of the slope
-    log_offset = y1 / (x1 ** slope)
+    log_offset = y1 / (x1**slope)
 
     y2 = log_offset * ((x1 + width) ** slope)
     height = y2 - y1
@@ -77,7 +80,7 @@ def draw_loglog_slope(fig, ax, origin, width_inches, slope, color, inverted=Fals
 
     # Draw the slope triangle
     X = np.array([a, b, c])
-    triangle = plt.Polygon(X[:3,:], fill=False, zorder=zorder, **polygon_kwargs)
+    triangle = plt.Polygon(X[:3, :], fill=False, zorder=zorder, **polygon_kwargs)
     ax.add_patch(triangle)
 
     # Convert vertices into display space
@@ -101,14 +104,14 @@ def draw_loglog_slope(fig, ax, origin, width_inches, slope, color, inverted=Fals
     offset_ylabel = [0.33 * label_kwargs["fontsize"], 0.0] if not inverted else [-0.33 * label_kwargs["fontsize"], 0.0]
 
     # Draw the slope labels
-    ax.annotate("$1$", bottom_center, xytext=offset_xlabel, textcoords='offset points', ha="center", va=va_xlabel, zorder=zorder, **label_kwargs)
-    ax.annotate(f"${slope}$", right_center, xytext=offset_ylabel, textcoords='offset points', ha=ha_ylabel, va="center", zorder=zorder, **label_kwargs)
-
-
+    ax.annotate("$1$", bottom_center, xytext=offset_xlabel, textcoords="offset points", ha="center", va=va_xlabel, zorder=zorder, **label_kwargs)
+    ax.annotate(
+        f"${slope}$", right_center, xytext=offset_ylabel, textcoords="offset points", ha=ha_ylabel, va="center", zorder=zorder, **label_kwargs
+    )
 
 
 if __name__ == "__main__":
-    #get command line arguments
+    # get command line arguments
     parser = argparse.ArgumentParser("plot_convergence")
     parser.add_argument("file", type=str)
     args = parser.parse_args()
@@ -121,35 +124,29 @@ if __name__ == "__main__":
     title = "Convergence"
     name = "convergence.png"
 
-    #data = data.to_numpy()
+    # data = data.to_numpy()
     fig, ax = plt.subplots()
 
-    #plot dispersement error
-    ax.plot(data['epsilon'], data['error_L2_disp'], "-ob",label='L2 disp')
-    ax.plot(data['epsilon'], data['error_Linf_disp'], "--ob", label='Linf disp')
+    # plot dispersement error
+    ax.plot(data["epsilon"], data["error_L2_disp"], "-ob", label="L2 disp")
+    ax.plot(data["epsilon"], data["error_Linf_disp"], "--ob", label="Linf disp")
 
-    #plot stress error
-    ax.plot(data['epsilon'], data['error_L2_stress'], "-og",label='L2 stress')
-    ax.plot(data['epsilon'], data['error_Linf_stress'], "--og",label='Linf stress')
+    # plot stress error
+    ax.plot(data["epsilon"], data["error_L2_stress"], "-og", label="L2 stress")
+    ax.plot(data["epsilon"], data["error_Linf_stress"], "--og", label="Linf stress")
 
-    #set scales, grid, title
-    plt.yscale('log')
-    plt.xscale('log')
+    # set scales, grid, title
+    plt.yscale("log")
+    plt.xscale("log")
     ax.grid(True)
     ax.set_title(title)
 
-    #plot convergence triangle
-    draw_loglog_slope(fig, ax, (0.6,0.6), 1, 2, "black", inverted=True)
+    # plot convergence triangle
+    draw_loglog_slope(fig, ax, (0.6, 0.6), 1, 2, "black", inverted=True)
     plt.xlabel(x_label, labelpad=20, fontsize=12)
     plt.ylabel(y_label, labelpad=20, fontsize=12)
 
-    #wrap up
+    # wrap up
     plt.legend()
     plt.tight_layout()
     plt.savefig(name)
-
-
-
-
-
-
