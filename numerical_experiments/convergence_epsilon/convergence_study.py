@@ -39,6 +39,7 @@ if __name__ == "__main__":
     parser.add_argument("timesteps", type=int)
     parser.add_argument("dt", type=float)
     parser.add_argument("include_bc", type=int)
+    parser.add_argument("bc_indicator",type=int)
     args = parser.parse_args()
 
     # initialize grid
@@ -64,8 +65,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = 3 * sympy.cos(6 * sympy.pi * x)  # + 3
-    manufactured_v = 3 * sympy.cos(6 * sympy.pi * y)  # + 3
+    manufactured_u = 3 * sympy.cos(6 * sympy.pi * x)*sympy.sin(4*sympy.pi*y)
+    manufactured_v = 3 * sympy.cos(6 * sympy.pi * y)*sympy.sin(4*sympy.pi*x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -81,8 +82,10 @@ if __name__ == "__main__":
     ])
 
     # set boundary potential
-    potential = lambda x, y: (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
-    boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, (manufactured_u, manufactured_v), x, y)
+    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
+    potential = sympy.lambdify([x,y], potential_sympy)
+    indicator = lambda x, y: 1*args.bc_indicator
+    boundary_array, boundary_values = bc.init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y, K, mu)
     if args.include_bc == 0:
         potential = None
         bc_dirichlet = None

@@ -4,7 +4,7 @@ epsilon=1.0
 nodes_x=20
 nodes_y=20
 timesteps=1000
-dt=0.1
+dt=0.01
 iterations=6
 
 #for bookkeeping
@@ -13,7 +13,7 @@ log_file="log_"$current_date_time".txt"
 results_file="results_"$current_date_time".csv"
 echo "All output logged in $log_file"
 echo "Writing results to $results_file"
-echo "Applying BC: $3"
+echo "Applying BC: $3, Type: $4"
 echo "epsilon,error_L2_disp,error_Linf_disp,error_L2_stress,error_Linf_stress" > $results_file
 
 for ((i=0; i<iterations; i++))
@@ -21,7 +21,7 @@ do
     echo "--------------------"
     echo "Simulating with $nodes_x nodes and timestep of size $dt, # of timesteps: $timesteps     --->  epsilon = $epsilon"
 
-    python3 $1 $nodes_x $nodes_y $timesteps $dt $3 >  tmp_1.txt 
+    python3 $1 $nodes_x $nodes_y $timesteps $dt $3 $4 >  tmp_1.txt 
     cat tmp_1.txt >> $log_file #write to log
 
     #get L2 disp error
