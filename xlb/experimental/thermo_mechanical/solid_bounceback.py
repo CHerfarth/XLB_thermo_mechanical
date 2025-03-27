@@ -9,6 +9,7 @@ from xlb.utils import save_image
 from xlb.compute_backend import ComputeBackend
 from xlb.operator.operator import Operator
 import xlb.experimental.thermo_mechanical.solid_utils as utils
+from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 
 
 class SolidsDirichlet(Operator):
@@ -19,11 +20,6 @@ class SolidsDirichlet(Operator):
         boundary_array,
         boundary_values,
         force,
-        K,
-        mu,
-        dimensionless=True,
-        T=None,
-        L=None,
         velocity_set: VelocitySet = None,
         precision_policy: PrecisionPolicy = None,
         compute_backend: ComputeBackend = None,
@@ -36,12 +32,6 @@ class SolidsDirichlet(Operator):
         self.boundary_array = boundary_array
         self.boundary_values = boundary_values
         self.force = force
-        self.K = K
-        self.mu = mu
-        self.T = T
-        self.L = L
-        if dimensionless == False and boundary_array != None:
-            self.make_dimensionless()
 
     def _construct_warp(self):
         opp_indices = self.velocity_set.opp_indices
@@ -83,7 +73,6 @@ class SolidsDirichlet(Operator):
             j: Any,
             f_current: Any,
             f_previous: Any,
-            boundary_array: Any,
             boundary_values: Any,
             force: Any,
             bared_moments: Any,
@@ -112,30 +101,26 @@ class SolidsDirichlet(Operator):
             c_3 = -(4.0 * mu) / (1.0 - theta - 4.0 * mu)
 
             local_sum = 0.0
-            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir)- 1.)<1e-3:  # case V1
+            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 1.0) < 1e-3:  # case V1
                 local_sum = 0.0
                 for m in range(q):
-                    #if boundary_array[m+10, i, j, 0] != wp.int8(1):
                     k = c[0, m]
                     l = c[1, m]
-                    #printf("Summing up in direction x: %f, y: %f\n", k, l)
                     a_ijkl = wp.abs(k) * wp.abs(l) * (1.0 + x_dir * n_x + y_dir * n_y) * c_1
                     a_ijkl += k * l * (x_dir * n_y + y_dir * n_x) * c_2
                     a_ijkl += (
                         wp.abs(k) * (1.0 - wp.abs(l)) * (wp.abs(x_dir) + x_dir * n_x) + wp.abs(l) * (1.0 - wp.abs(k)) * (wp.abs(y_dir) + y_dir * n_y)
                     ) * c_3
-                    if wp.abs(x_dir+k)<1e-3 and wp.abs(y_dir+l) < 1e-3:
+                    if wp.abs(x_dir + k) < 1e-3 and wp.abs(y_dir + l) < 1e-3:
                         a_ijkl += -1.0
                     local_sum += a_ijkl * f_previous[m, i, j, 0]
-            elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.)<1e-3:  # case V2
+            elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.0) < 1e-3:  # case V2
                 local_sum = 0.0
                 for m in range(q):
-                    #if boundary_array[m+10, i, j, 0] != wp.int8(1):
-                        #printf("Summing up in direction x: %f, y: %f\n", k, l)
                     k = c[0, m]
                     l = c[1, m]
-                    a_ijkl = 0.5*wp.abs(k) * wp.abs(l) * (0.5 * (1.0 + zeta) * x_dir * n_x + 0.5 * (1.0 - zeta) * y_dir * n_y) * c_1
-                    a_ijkl += 0.5*k * l * (x_dir * y_dir + 0.5 * (1.0 + zeta) * x_dir * n_y + 0.5 * (1.0 - zeta) * y_dir * n_x) * c_2
+                    a_ijkl = 0.5 * wp.abs(k) * wp.abs(l) * (0.5 * (1.0 + zeta) * x_dir * n_x + 0.5 * (1.0 - zeta) * y_dir * n_y) * c_1
+                    a_ijkl += 0.5 * k * l * (x_dir * y_dir + 0.5 * (1.0 + zeta) * x_dir * n_y + 0.5 * (1.0 - zeta) * y_dir * n_x) * c_2
                     a_ijkl += (
                         0.5
                         * (
@@ -144,14 +129,14 @@ class SolidsDirichlet(Operator):
                         )
                         * c_3
                     )
-                    if wp.abs(x_dir+k)<1e-3 and wp.abs(y_dir+l)<1e-3: 
+                    if wp.abs(x_dir + k) < 1e-3 and wp.abs(y_dir + l) < 1e-3:
                         a_ijkl += -1.0
                     local_sum += a_ijkl * f_previous[m, i, j, 0]
-            
-            f_current[new_direction, i, j, 0] = local_sum 
-            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir)-1.)<1e-3:
-                f_current[new_direction, i, j, 0] += T_x*x_dir + T_y*y_dir
-            elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir)-2.)<1e-3:
+
+            f_current[new_direction, i, j, 0] = local_sum
+            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 1.0) < 1e-3:
+                f_current[new_direction, i, j, 0] += T_x * x_dir + T_y * y_dir
+            elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.0) < 1e-3:
                 f_current[new_direction, i, j, 0] += 0.25 * (x_dir * (1.0 + zeta) * T_x + y_dir * (1.0 - zeta) * T_y)
             # get derivatives of stress
             m_local = utils.read_local_population(bared_moments, i, j)
@@ -171,8 +156,9 @@ class SolidsDirichlet(Operator):
 
         @wp.kernel
         def bc_kernel(
-            f_current: Any,
-            f_previous: Any,
+            f_destination: Any,
+            f_post_collision: Any,
+            f_previous_post_collision: Any,
             boundary_array: Any,
             boundary_values: Any,
             force: Any,
@@ -180,56 +166,51 @@ class SolidsDirichlet(Operator):
             K: Any,
             mu: Any,
         ):
-            #printf("In kernel")
             i, j, k = wp.tid()  # for 2d k will equal 1
             tau_t = 0.5  # ToDo: as argument of fuction
             if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(q):
-                    f_current[l, i, j, 0] = wp.nan
+                    f_destination[l, i, j, 0] = wp.nan
             elif boundary_array[0, i, j, 0] == wp.int8(2):  # for boundary nodes: check which directions need to be given by dirichlet BC
                 for l in range(q):
                     if boundary_array[l + 1, i, j, 0] == wp.int8(
                         1
                     ):  # this means the interior node is connected to a ghost node in direction l; the bounce back bc needs to be applied
-                        dirichlet_functional(l, i, j, f_current, f_previous, boundary_values, bared_moments, K, mu)
+                        dirichlet_functional(l, i, j, f_destination, f_previous_post_collision, boundary_values, bared_moments, K, mu)
             elif boundary_array[0, i, j, 0] == wp.int8(3):  # for boundary nodes: check which directions need to be given VN BC
                 for l in range(q):
                     if boundary_array[l + 1, i, j, 0] == wp.int8(1):
-                        #print("Calling Von Neumann")
-                        vn_functional(l, i, j, f_current, f_previous, boundary_array, boundary_values, force, bared_moments, K, mu, tau_t)
+                        # print("Calling Von Neumann")
+                        vn_functional(l, i, j, f_destination, f_post_collision, boundary_values, force, bared_moments, K, mu, tau_t)
 
-        @wp.kernel
-        def make_bc_dimensionless_kernel(
-            boundary_array: Any,
-            boundary_values: Any,
-            T: Any,
-            L: Any,
-        ):
-            i, j, k = wp.tid()
-            if boundary_array[0, i, j, 0] == wp.int8(3):  # dimensionless scaling only needed for VN BC
-                for l in range(q):
-                    if boundary_array[l + 1, i, j, 0] == wp.int8(1):
-                        boundary_values[l * 7 + 2, i, j, 0] = boundary_values[l * 7 + 2, i, j, 0] * T / (L)  # ToDo: kappa??
-                        boundary_values[l * 7 + 3, i, j, 0] = boundary_values[l * 7 + 3, i, j, 0] * T / (L)
-
-        return (dirichlet_functional, vn_functional), (bc_kernel, make_bc_dimensionless_kernel)
+        return (dirichlet_functional, vn_functional), bc_kernel
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f_current, f_previous, bared_moments):
-        #print("Launching kernel")
+    def warp_implementation(self, f_destination, f_post_collision, f_previous_post_collision, bared_moments):
         # Launch the warp kernel
-        wp.launch(
-            self.warp_kernel[0],
-            inputs=[f_current, f_previous, self.boundary_array, self.boundary_values, self.force, bared_moments, self.K, self.mu],
-            dim=f_current.shape[1:],
-        )
+        params = SimulationParams()
+        K = params.K
+        mu = params.mu
 
-    def make_dimensionless(self):
-        wp.launch(self.warp_kernel[1], inputs=[self.boundary_array, self.boundary_values, self.T, self.L], dim=self.boundary_array.shape[1:])
+        wp.launch(
+            self.warp_kernel,
+            inputs=[
+                f_destination,
+                f_post_collision,
+                f_previous_post_collision,
+                self.boundary_array,
+                self.boundary_values,
+                self.force,
+                bared_moments,
+                K,
+                mu,
+            ],
+            dim=f_destination.shape[1:],
+        )
 
 
 # --------------utils used to construct bc arrays----------------
-def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_displacement, indicator, x, y, K, mu):
+def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_displacement, indicator, x, y):
     # Mapping:
     # 0: ghost node
     # 1: interior node
@@ -241,7 +222,7 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
     # 1: u_y
     # 2:
     # 3:
-    #previoui 4:
+    # previoui 4:
     # 5:
     # 6: q_ij
 
@@ -255,6 +236,13 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
     # 6: q_ij
 
     potential = sympy.lambdify([x, y], potential_sympy)
+
+    params = SimulationParams()
+    T = params.T
+    L = params.L
+    K = params.K
+    mu = params.mu
+    kappa = params.kappa
 
     values_per_direction = 7
     host_boundary_info = np.zeros(shape=(19, grid.shape[0], grid.shape[1], 1), dtype=np.int8)
@@ -323,7 +311,7 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                             bc_x += stepsize * x_direction
                             bc_y += stepsize * y_direction
                             counter += 1
-                            assert counter <= (max_steps+1)
+                            assert counter <= (max_steps + 1)
                         q_ij = counter / max_steps
 
                     # if dirichlet bc: set values
@@ -336,56 +324,28 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                     elif boundary_node and indicator(bc_x, bc_y) > 0:  # if VN: find T
                         host_boundary_info[direction + 1, i, j, 0] = 1
                         opposite_direction = velocity_set.opp_indices[direction]
-                        host_boundary_info[1+9+opposite_direction,i,j,0] = 1
+                        host_boundary_info[1 + 9 + opposite_direction, i, j, 0] = 1
                         host_boundary_info[0, i, j, 0] = 3
                         # find n
                         n = [dx_potential(bc_x, bc_y), dy_potential(bc_x, bc_y)]
                         n = n / (np.linalg.norm(n))  # normalise
                         # if on edge of domain: normals cant be calculated with potential
                         if on_boundary:
-                            n = [0.,0.]
-                            if i+x_direction < 0 or i+x_direction >= grid.shape[0]:
+                            n = [0.0, 0.0]
+                            if i + x_direction < 0 or i + x_direction >= grid.shape[0]:
                                 n[0] = x_direction
                                 n[1] = 0
-                            if j+y_direction < 0 or j+y_direction>= grid.shape[1]:
+                            if j + y_direction < 0 or j + y_direction >= grid.shape[1]:
                                 n[0] = 0
                                 n[1] = y_direction
-                            '''if (j+y_direction < 0 or j+y_direction >= grid.shape[1]) and (i+x_direction<0 or i+x_direction >= grid.shape[0]):
-                                n[0] = x_direction
-                                n[1] = y_direction'''
-                            n = n / np.linalg.norm(n)
-                        '''print("Norm: {}, Pot. at boundary: {}, Pot. away from boundary: {}".format(n[0]**2 + n[1]**2, potential(bc_x, bc_y), potential(bc_x + n[0], bc_y + n[1])))
-                        if (potential(bc_x, bc_y) < 0):
-                            print("Error")
-                            print("i: {}, j: {}, bc_x: {}, bc_y: {}".format(i,j,bc_x,bc_y))'''
+
                         # find T
                         dx_ux = bc_dirichlet[2](bc_x, bc_y)
                         dy_ux = bc_dirichlet[3](bc_x, bc_y)
                         dx_uy = bc_dirichlet[4](bc_x, bc_y)
                         dy_uy = bc_dirichlet[5](bc_x, bc_y)
-                        T_x = (K - mu) * (dx_ux + dy_uy) * n[0] + mu * (2 * dx_ux * n[0] + (dx_uy + dy_ux) * n[1])
-                        T_y = (K - mu) * (dx_ux + dy_uy) * n[1] + mu * ((dx_uy + dy_ux) * n[0] + 2 * dy_uy * n[1])
-                        '''e_xx = dx_ux
-                        e_yy = dy_uy
-                        e_xy = 0.5*(dy_ux+dx_uy)
-                        s_xx = (K-mu)*(e_xx+e_yy) + 2*mu*e_xx
-                        s_yy = (K-mu)*(e_xx+e_yy) + 2*mu*e_yy
-                        s_xy = 2*mu*e_xy
-                        T_x = s_xx*n[0] + s_xy*n[1]
-                        T_y = s_xy*n[0] + s_yy*n[1]'''
-                        #print("i: {}, j: {}, x_dir: {}, y_dir: {}, bc_x: {}, bc_y: {}, n_x: {}, n_y: {}".format(i,j,x_direction, y_direction, bc_x,bc_y,n[0],n[1]))
-                        '''if (i == 1 and j == 3 and x_direction == -1 and y_direction == 0):
-                            print("TEST")
-                            dx_p = dx_potential(bc_x, bc_y)
-                            dy_p = dy_potential(bc_x, bc_y)
-                            print(dx_p)
-                            print(dy_p)
-                            norm = np.linalg.norm([dx_potential(bc_x, bc_y), dy_potential(bc_x, bc_y)])
-                            print(norm)
-                            print(dx_p/norm)
-                            print(dy_p/norm)
-                            print((dx_p/norm)**2 + (dy_p/norm)**2)'''
-
+                        T_x = ((K - mu) * (dx_ux + dy_uy) * n[0] + mu * (2 * dx_ux * n[0] + (dx_uy + dy_ux) * n[1])) * L * kappa
+                        T_y = ((K - mu) * (dx_ux + dy_uy) * n[1] + mu * ((dx_uy + dy_ux) * n[0] + 2 * dy_uy * n[1])) * L * kappa
 
                         # write to array
                         host_boundary_values[direction * values_per_direction, i, j, 0] = n[0]
@@ -393,13 +353,6 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                         host_boundary_values[direction * values_per_direction + 2, i, j, 0] = T_x
                         host_boundary_values[direction * values_per_direction + 3, i, j, 0] = T_y
                         host_boundary_values[(direction + 1) * values_per_direction - 1, i, j, 0] = q_ij
-
-    save_image(host_boundary_info[0, :, :, 0], 2)
-    save_image(host_boundary_values[7,:,:,0], 3)
-    save_image(host_boundary_values[8,:,:,0], 4)
-    save_image(host_boundary_values[15,:,:,0], 5)
-    save_image(host_boundary_values[16,:,:,0], 6)
-    save_image(host_boundary_values[17,:,:,0], 7)
 
     # move to device
     return wp.from_numpy(host_boundary_info, dtype=wp.int8), wp.from_numpy(host_boundary_values, dtype=wp.float32)

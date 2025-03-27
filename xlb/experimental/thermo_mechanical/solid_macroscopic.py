@@ -8,17 +8,15 @@ from xlb.compute_backend import ComputeBackend
 from xlb.precision_policy import PrecisionPolicy
 from xlb.operator.operator import Operator
 import xlb.experimental.thermo_mechanical.solid_utils as utils
+from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 
 
 class SolidMacroscopics(Operator):
-    def __init__(self, grid, force, omega, theta, L, T, boundaries=None, velocity_set=None, precision_policy=None, compute_backend=None):
+    def __init__(self, grid, force, omega, boundaries=None, velocity_set=None, precision_policy=None, compute_backend=None):
         super().__init__(velocity_set=velocity_set, precision_policy=precision_policy, compute_backend=compute_backend)
         self.force = force
         self.omega = omega
-        self.theta = theta
         self.boundaries = boundaries
-        self.L = L
-        self.T = T
         self.bared_moments = grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
         # Mapping for macroscopics:
         # 0: dis_x
@@ -34,7 +32,7 @@ class SolidMacroscopics(Operator):
         macro_vec = wp.vec(5, dtype=self.compute_dtype)
 
         @wp.kernel
-        def update(f: Any, bared_moments: Any, force: Any, omega: Any, boundaries: Any, theta: Any):
+        def update(f: Any, bared_moments: Any, force: Any, omega: Any, theta: Any):
             i, j, k = wp.tid()  # for 2d, k will equal 1
 
             # calculate moments
@@ -79,24 +77,32 @@ class SolidMacroscopics(Operator):
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f):  # updates all bared moments
+        params = SimulationParams()
+        theta = params.theta
         wp.launch(
             self.warp_kernel[0],
-            inputs=[f, self.bared_moments, self.force, self.omega, self.boundaries, self.theta],
+            inputs=[f, self.bared_moments, self.force, self.omega, theta],
             dim=f.shape[1:],
         )
 
     def get_macroscopics_host(self):
+        params = SimulationParams()
+        T = params.T
+        L = params.L
         wp.launch(
             self.warp_kernel[1],
-            inputs=[self.macroscopics, self.bared_moments, self.L, self.T],
+            inputs=[self.macroscopics, self.bared_moments, L, T],
             dim=self.macroscopics.shape[1:],
         )
         return self.macroscopics.numpy()
 
     def get_macroscopics_device(self):
+        params = SimulationParams()
+        T = params.T
+        L = params.L
         wp.launch(
             self.warp_kernel[1],
-            inputs=[self.macroscopics, self.bared_moments, self.L, self.T],
+            inputs=[self.macroscopics, self.bared_moments, L, T],
             dim=self.macroscopics.shape[1:],
         )
         return self.macroscopics

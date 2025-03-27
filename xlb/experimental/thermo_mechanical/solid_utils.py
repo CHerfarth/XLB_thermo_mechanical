@@ -4,6 +4,7 @@ from typing import Any
 import sympy
 import numpy as np
 from xlb.utils import save_fields_vtk, save_image
+from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 
 np.seterr(all="ignore")
 
@@ -36,7 +37,7 @@ np.seterr(all="ignore")
 solid_vec = wp.vec(
     9, dtype=PrecisionPolicy.FP32FP32.compute_precision.wp_dtype
 )  # this is the default precision policy; it can be changed by calling set_precision_policy()
-K_scaled = 1.
+"""K_scaled = 1.
 mu_scaled = 1.
 theta = 1.
 
@@ -51,7 +52,20 @@ def set_mu_scaled(mu):
 def set_theta(theta_):
     global theta
     theta = theta_
-    print("Theta: {}".format(theta))
+    print("Theta: {}".format(theta))"""
+
+params = SimulationParams()
+K_scaled = params.K
+theta = params.theta
+lamb = params.lamb
+
+
+def get_updated_params():
+    global K_scaled, theta, lamb
+    params = SimulationParams()
+    K_scaled = params.K
+    theta = params.theta
+    lamb = params.lamb
 
 
 def set_precision_policy(precision_policy):
@@ -92,10 +106,10 @@ def calc_moments(f: solid_vec):
     m[6] = f[7] + f[4] - f[8] - f[5]
     m[7] = f[7] + f[4] + f[8] + f[5]
     m[8] = 0.0
-    #m_7 is m_22 right now, we now convert it to m_f
-    tau_s = 2.*K_scaled/(1.+theta)
-    tau_f = 0.5 #todo: make modular, as function argument etc
-    gamma = (theta*tau_f)/((1.+theta)*(tau_s-tau_f))
+    # m_7 is m_22 right now, we now convert it to m_f
+    tau_s = 2.0 * K_scaled / (1.0 + theta)
+    tau_f = 0.5  # todo: make modular, as function argument etc
+    gamma = (theta * tau_f) / ((1.0 + theta) * (tau_s - tau_f))
     m[7] += gamma * m[3]
     return m
 
@@ -110,11 +124,11 @@ def copy_populations(origin: wp.array4d(dtype=Any), dest: wp.array4d(dtype=Any),
 @wp.func
 def calc_populations(m: solid_vec):
     f = solid_vec()
-    #m_7 is m_f right now, we convert it back to m_22
-    tau_s = 2.*K_scaled/(1.+theta)
-    tau_f = 0.5 #todo: make modular, as function argument etc
-    gamma = (theta*tau_f)/((1.+theta)*(tau_s-tau_f))
-    m[7] += -gamma*m[3] 
+    # m_7 is m_f right now, we convert it back to m_22
+    tau_s = 2.0 * K_scaled / (1.0 + theta)
+    tau_f = 0.5  # todo: make modular, as function argument etc
+    gamma = (theta * tau_f) / ((1.0 + theta) * (tau_s - tau_f))
+    m[7] += -gamma * m[3]
     # Todo: find better way to do this!
     f[3] = 2.0 * m[0] + m[3] + m[4] - 2.0 * m[5] - 2.0 * m[7]
     f[1] = 2.0 * m[1] + m[3] - m[4] - 2.0 * m[6] - 2.0 * m[7]
@@ -145,12 +159,21 @@ def calc_equilibrium(m: solid_vec, theta: Any):
     return m_eq
 
 
-def get_force_load(manufactured_displacement, x, y, mu, K):
+def get_force_load(manufactured_displacement, x, y):
+    params = SimulationParams()
+    mu = params.mu
+    K = params.K
+    L = params.L
+    T = params.T
+    dt = params.T
+    kappa = params.kappa
     man_u = manufactured_displacement[0]
     man_v = manufactured_displacement[1]
     b_x = -mu * (sympy.diff(man_u, x, x) + sympy.diff(man_u, y, y)) - K * sympy.diff(sympy.diff(man_u, x) + sympy.diff(man_v, y), x)
     b_y = -mu * (sympy.diff(man_v, x, x) + sympy.diff(man_v, y, y)) - K * sympy.diff(sympy.diff(man_u, x) + sympy.diff(man_v, y), y)
-    return (np.vectorize(sympy.lambdify([x, y], b_x, "numpy")), np.vectorize(sympy.lambdify([x, y], b_y, "numpy")))
+    bx_scaled = b_x * L * L * kappa * (dt / T)
+    by_scaled = b_y * L * L * kappa * (dt / T)
+    return (np.vectorize(sympy.lambdify([x, y], bx_scaled, "numpy")), np.vectorize(sympy.lambdify([x, y], by_scaled, "numpy")))
 
 
 def get_function_on_grid(f, x, y, dx, grid):
@@ -162,12 +185,6 @@ def get_function_on_grid(f, x, y, dx, grid):
 
 def get_error_norms(current_macroscopics, expected_macroscopics, dx, timestep=0):
     error_matrix = np.subtract(current_macroscopics[0:4, :, :, 0], expected_macroscopics[0:4, :, :])
-    """print("----------CURRENT-----------")
-    print(current_macroscopics)
-    print("____________EXPECTED______________")
-    print(expected_macroscopics)
-    print("__________ERROR____________")
-    print(error_matrix)"""
     # step 1: handle displacement
     l2_disp = np.sqrt(np.nansum(np.linalg.norm(error_matrix[0:2, :, :], axis=0) ** 2)) * dx
     linf_disp = np.nanmax(np.nan_to_num(np.max(np.abs(error_matrix[0:2, :, :]), axis=0)))
@@ -181,7 +198,10 @@ def get_error_norms(current_macroscopics, expected_macroscopics, dx, timestep=0)
     return l2_disp, linf_disp, l2_stress, linf_stress
 
 
-def get_expected_stress(manufactured_displacement, x, y, lamb, mu):
+def get_expected_stress(manufactured_displacement, x, y):
+    params = SimulationParams()
+    lamb = params.lamb_unscaled  # unscaled, because we want the expected stress in normal unit
+    mu = params.mu_unscaled
     man_u = manufactured_displacement[0]
     man_v = manufactured_displacement[1]
     e_xx = sympy.diff(man_u, x)

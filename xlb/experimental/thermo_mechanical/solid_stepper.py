@@ -13,6 +13,7 @@ from xlb.experimental.thermo_mechanical.solid_collision import SolidsCollision
 from xlb.experimental.thermo_mechanical.solid_bounceback import SolidsDirichlet
 from xlb.experimental.thermo_mechanical.solid_macroscopic import SolidMacroscopics
 import xlb.experimental.thermo_mechanical.solid_utils as utils
+from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 
 # Mapping:
 #    i  j   |   m_q
@@ -28,32 +29,32 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 
 class SolidsStepper(Stepper):
-    def __init__(self, grid, force_load, E, nu, dx, dt, boundary_conditions=None, boundary_values=None, kappa=1, theta=1 / 3):
+    def __init__(self, grid, force_load, boundary_conditions=None, boundary_values=None):
         super().__init__(grid, boundary_conditions)
         self.grid = grid
         self.boundary_conditions = boundary_conditions
         self.boundary_values = boundary_values
 
-        # ----------get material variables------
-        mu = E / (2 * (1 + nu))
-        lamb = E / (2 * (1 - nu)) - mu
-        K = lamb + mu
+        # get simulation parameters
+        params = SimulationParams()
+        theta = params.theta
+        K = params.K
+        mu = params.mu
+        dx = params.dx
+        T = params.T
+        L = params.L
+        dt = params.dt
 
-        # ---------make dimensionless----------
-        self.kappa = kappa
-        self.L = dx
-        self.T = dt
-        self.mu = mu * self.T / (self.L * self.L * self.kappa)
-        self.lamb = lamb * self.T / (self.L * self.L * self.kappa)
-        self.K = K * self.T / (self.L * self.L * self.kappa)
+        self.K = K
+        self.mu = mu
         self.theta = theta
-        utils.set_theta(self.theta)
-        utils.set_K_scaled(self.K)
-        utils.set_mu_scaled(self.mu)
+        self.T = T
+        self.L = L
+
         # ----------calculate omega------------
-        omega_11 = 1.0 / (self.mu / theta + 0.5)
-        omega_s = 1.0 / (2 * (1 / (1 + theta)) * self.K + 0.5)
-        omega_d = 1.0 / (2 * (1 / (1 - theta)) * self.mu + 0.5)
+        omega_11 = 1.0 / (mu / theta + 0.5)
+        omega_s = 1.0 / (2 * (1 / (1 + theta)) * K + 0.5)
+        omega_d = 1.0 / (2 * (1 / (1 - theta)) * mu + 0.5)
         tau_12 = 0.5
         tau_21 = 0.5
         tau_f = 0.5
@@ -63,10 +64,10 @@ class SolidsStepper(Stepper):
         self.omega = utils.solid_vec(0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_f, 0.0)
 
         # ----------handle force load---------
-        b_x_scaled = (
-            lambda x_node, y_node: force_load[0](x_node * dx + 0.5 * dx, y_node * dx + 0.5 * dx) * self.T / self.kappa
+        b_x_scaled = lambda x_node, y_node: force_load[0](
+            x_node * dx + 0.5 * dx, y_node * dx + 0.5 * dx
         )  # force now dimensionless, and can get called with the indices of the grid nodes
-        b_y_scaled = lambda x_node, y_node: force_load[1](x_node * dx + 0.5 * dx, y_node * dx + 0.5 * dx) * self.T / self.kappa
+        b_y_scaled = lambda x_node, y_node: force_load[1](x_node * dx + 0.5 * dx, y_node * dx + 0.5 * dx)
         host_force_x = np.fromfunction(
             b_x_scaled, shape=(self.grid.shape[0], self.grid.shape[1])
         )  # create array with force evaluated at the grid points
@@ -74,19 +75,14 @@ class SolidsStepper(Stepper):
         host_force = np.array([[host_force_x, host_force_y]])
         host_force = np.transpose(host_force, (1, 2, 3, 0))  # swap dims to make array compatible with what grid_factory would have produced
         self.force = wp.from_numpy(host_force, dtype=self.precision_policy.store_precision.wp_dtype)  # ...and move to device
-        print(type(self.force))
+
         # ---------define operators----------
-        self.collision = SolidsCollision(self.omega, self.force, self.theta)
+        self.collision = SolidsCollision(self.omega)
         self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)
         self.boundaries = SolidsDirichlet(
             boundary_array=self.boundary_conditions,
             boundary_values=self.boundary_values,
             force=self.force,
-            K=self.K,
-            mu=self.mu,
-            dimensionless=False,
-            T=self.T,
-            L=self.L,
             velocity_set=self.velocity_set,
             precision_policy=self.precision_policy,
             compute_backend=self.compute_backend,
@@ -95,9 +91,6 @@ class SolidsStepper(Stepper):
             self.grid,
             self.force,
             self.omega,
-            self.theta,
-            self.L,
-            self.T,
             self.boundary_conditions,
             self.velocity_set,
             self.precision_policy,
@@ -110,23 +103,21 @@ class SolidsStepper(Stepper):
         print("Initialised stepper")
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f_current, f_previous):
-        #print("Starting timestep")
-        wp.launch(utils.copy_populations, inputs=[f_previous, self.temp_f, self.velocity_set.q], dim=f_current.shape[1:])
-        #print("Completed copy")
-        self.macroscopic(f_current)
-        #print("Completed Macroscopics")
-        wp.launch(self.collision.warp_kernel, inputs=[f_current, self.force, self.omega, self.theta], dim=f_current.shape[1:])
-        #print("Did collision")
-        wp.launch(utils.copy_populations, inputs=[f_current, self.temp_f, self.velocity_set.q], dim=f_current.shape[1:])
-        #print("Completed copy")
-        wp.launch(self.stream.warp_kernel, inputs=[f_current, f_previous], dim=f_current.shape[1:])
-        #print("Launched Streaming")
+    def warp_implementation(self, f_1, f_2):  # f_1 carries current population, f_2 carries the previous post_collision population
+        wp.launch(utils.copy_populations, inputs=[f_2, self.temp_f, self.velocity_set.q], dim=f_1.shape[1:])
+        self.macroscopic(f_1)  # update bared moments (needed for BC)
+        # Collision Stage
+        wp.launch(self.collision.warp_kernel, inputs=[f_1, self.force, self.omega, self.theta], dim=f_1.shape[1:])
+        # Streaming Stage
+        wp.launch(self.stream.warp_kernel, inputs=[f_1, f_2], dim=f_1.shape[1:])
+        # Apply BC
         if self.boundary_conditions != None:
-            #print("Before bc")
-            self.boundaries(f_previous, self.temp_f, self.macroscopic.get_bared_moments_device())
-            #print("After bc")
-        #print("Completed timestep")
+            self.boundaries(
+                f_destination=f_2,
+                f_post_collision=f_1,
+                f_previous_post_collision=self.temp_f,
+                bared_moments=self.macroscopic.get_bared_moments_device(),
+            )
 
     def get_macroscopics(self, f):
         # udate bared moments

@@ -11,6 +11,7 @@ from xlb.velocity_set import VelocitySet
 from functools import partial
 
 import xlb.experimental.thermo_mechanical.solid_utils as utils
+from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 
 
 class SolidsCollision(Collision):
@@ -21,8 +22,6 @@ class SolidsCollision(Collision):
     def __init__(
         self,
         omega,
-        force_matrix,
-        theta=1 / 3,
         velocity_set: VelocitySet = None,
         precision_policy=None,
         compute_backend=None,

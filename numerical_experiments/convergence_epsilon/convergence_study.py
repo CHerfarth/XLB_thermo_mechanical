@@ -16,6 +16,7 @@ import math
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 import argparse
 import xlb.experimental.thermo_mechanical.solid_bounceback as bc
+from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 
 
 def write_results(norms_over_time, name):
@@ -39,7 +40,7 @@ if __name__ == "__main__":
     parser.add_argument("timesteps", type=int)
     parser.add_argument("dt", type=float)
     parser.add_argument("include_bc", type=int)
-    parser.add_argument("bc_indicator",type=int)
+    parser.add_argument("bc_indicator", type=int)
     args = parser.parse_args()
 
     # initialize grid
@@ -59,22 +60,22 @@ if __name__ == "__main__":
     # get params
     E = 0.085 * 2.5
     nu = 0.8
-    mu = E / (2 * (1 + nu))
-    lamb = E / (2 * (1 - nu)) - mu
-    K = lamb + mu
+
+    solid_simulation = SimulationParams()
+    solid_simulation.set_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1, theta=1.0 / 3.0)
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = 3 * sympy.cos(6 * sympy.pi * x)*sympy.sin(4*sympy.pi*y)
-    manufactured_v = 3 * sympy.cos(6 * sympy.pi * y)*sympy.sin(4*sympy.pi*x)
+    manufactured_u = 3 * sympy.cos(6 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
+    manufactured_v = 3 * sympy.cos(6 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
     ])
-    force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y, mu, K)
+    force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y)
 
     # get expected stress
-    s_xx, s_yy, s_xy = utils.get_expected_stress((manufactured_u, manufactured_v), x, y, lamb, mu)
+    s_xx, s_yy, s_xy = utils.get_expected_stress((manufactured_u, manufactured_v), x, y)
     expected_stress = np.array([
         utils.get_function_on_grid(s_xx, x, y, dx, grid),
         utils.get_function_on_grid(s_yy, x, y, dx, grid),
@@ -83,9 +84,11 @@ if __name__ == "__main__":
 
     # set boundary potential
     potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
-    potential = sympy.lambdify([x,y], potential_sympy)
-    indicator = lambda x, y: 1*args.bc_indicator
-    boundary_array, boundary_values = bc.init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y, K, mu)
+    potential = sympy.lambdify([x, y], potential_sympy)
+    indicator = lambda x, y: 1 * args.bc_indicator
+    boundary_array, boundary_values = bc.init_bc_from_lambda(
+        potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
+    )
     if args.include_bc == 0:
         potential = None
         bc_dirichlet = None
@@ -96,20 +99,19 @@ if __name__ == "__main__":
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
 
     # initialize stepper
-    stepper = SolidsStepper(grid, force_load, E, nu, dx, dt, boundary_conditions=boundary_array, boundary_values=boundary_values)
+    stepper = SolidsStepper(grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values)
 
     # startup grids
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
 
     norms_over_time = list()  # to track error over time
     tolerance = 1e-8
 
     l2, linf = 0, 0
     for i in range(timesteps):
-        stepper(f_1, f_3)
-        f_1, f_2, f_3 = f_3, f_1, f_2
+        stepper(f_1, f_2)
+        f_1, f_2 = f_2, f_1
 
     macroscopics = stepper.get_macroscopics(f_1)
     utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
