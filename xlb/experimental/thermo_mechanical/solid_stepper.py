@@ -45,11 +45,6 @@ class SolidsStepper(Stepper):
         L = params.L
         dt = params.dt
 
-        self.K = K
-        self.mu = mu
-        self.theta = theta
-        self.T = T
-        self.L = L
 
         # ----------calculate omega------------
         omega_11 = 1.0 / (mu / theta + 0.5)
@@ -104,10 +99,12 @@ class SolidsStepper(Stepper):
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f_1, f_2):  # f_1 carries current population, f_2 carries the previous post_collision population
+        params = SimulationParams()
+        theta = params.theta
         wp.launch(utils.copy_populations, inputs=[f_2, self.temp_f, self.velocity_set.q], dim=f_1.shape[1:])
         self.macroscopic(f_1)  # update bared moments (needed for BC)
         # Collision Stage
-        wp.launch(self.collision.warp_kernel, inputs=[f_1, self.force, self.omega, self.theta], dim=f_1.shape[1:])
+        wp.launch(self.collision.warp_kernel, inputs=[f_1, self.force, self.omega, theta], dim=f_1.shape[1:])
         # Streaming Stage
         wp.launch(self.stream.warp_kernel, inputs=[f_1, f_2], dim=f_1.shape[1:])
         # Apply BC

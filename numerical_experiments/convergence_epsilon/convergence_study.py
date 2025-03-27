@@ -104,14 +104,15 @@ if __name__ == "__main__":
     # startup grids
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
 
     norms_over_time = list()  # to track error over time
     tolerance = 1e-8
 
     l2, linf = 0, 0
     for i in range(timesteps):
-        stepper(f_1, f_2)
-        f_1, f_2 = f_2, f_1
+        stepper(f_1, f_3)
+        f_1, f_2, f_3 = f_3, f_1, f_2
 
     macroscopics = stepper.get_macroscopics(f_1)
     utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)

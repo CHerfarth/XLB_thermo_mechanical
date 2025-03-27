@@ -37,22 +37,6 @@ np.seterr(all="ignore")
 solid_vec = wp.vec(
     9, dtype=PrecisionPolicy.FP32FP32.compute_precision.wp_dtype
 )  # this is the default precision policy; it can be changed by calling set_precision_policy()
-"""K_scaled = 1.
-mu_scaled = 1.
-theta = 1.
-
-def set_K_scaled(K):
-    global K_scaled
-    K_scaled = K
-    print("K: {}".format(K_scaled))
-def set_mu_scaled(mu):
-    global mu_scaled
-    mu_scaled = mu
-    print("Mu: {}".format(mu))
-def set_theta(theta_):
-    global theta
-    theta = theta_
-    print("Theta: {}".format(theta))"""
 
 params = SimulationParams()
 K_scaled = params.K

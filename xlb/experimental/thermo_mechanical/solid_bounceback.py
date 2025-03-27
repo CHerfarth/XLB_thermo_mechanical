@@ -56,14 +56,14 @@ class SolidsDirichlet(Operator):
             m_11 = m_local[2]
             dx_u_x = -0.25 * (m_s / K + m_d / mu)
             dy_u_y = -0.25 * (m_s / K - m_d / mu)
-            cross_dev = -0.25 * (2.0 * m_11 / mu)  # dy_u_x + dx_u_y
+            cross_dev = -m_11 / mu  # dy_u_x + dx_u_y
 
             # bounceback with zero order correction
             f_current[new_direction, i, j, 0] = f_previous[l, i, j, 0] + 6.0 * weight * (x_dir * u_x + y_dir * u_y)
             # add first order correction
-            if wp.abs(x_dir) + wp.abs(y_dir) == 1:
+            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 1.) < 1e-3:
                 f_current[new_direction, i, j, 0] += 6.0 * weight * (q_ij - 0.5) * (wp.abs(x_dir) * dx_u_x + wp.abs(y_dir) * dy_u_y)
-            if wp.abs(x_dir) + wp.abs(y_dir) == 2:
+            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.) < 1e-3:
                 f_current[new_direction, i, j, 0] += 6.0 * weight * (q_ij - 0.5) * (dx_u_x + dy_u_y + x_dir * y_dir * (cross_dev))
 
         @wp.func
