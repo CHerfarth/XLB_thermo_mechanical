@@ -98,13 +98,11 @@ if __name__ == "__main__":
     stepper = SolidsStepper(grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values)
 
     # startup grids
-    K = 10
-    K_fac = 1/K
     f_1 = np.zeros(shape=(9,nodes_x,nodes_y,1))
-    mode = sympy.sin(sympy.pi*k*K_fac*x)*sympy.sin(sympy.pi*k*K_fac*y)
-    mode += sympy.sin(sympy.pi*k*K_fac*x)*sympy.cos(sympy.pi*k*K_fac*y)
-    mode += sympy.cos(sympy.pi*k*K_fac*x)*sympy.sin(sympy.pi*k*K_fac*y)
-    mode += sympy.cos(sympy.pi*k*K_fac*x)*sympy.cos(sympy.pi*k*K_fac*y)
+    mode = sympy.sin(2*sympy.pi*k*x)*sympy.sin(2*sympy.pi*k*y)
+    mode += sympy.sin(2*sympy.pi*k*x)*sympy.cos(2*sympy.pi*k*y)
+    mode += sympy.cos(2*sympy.pi*k*x)*sympy.sin(2*sympy.pi*k*y)
+    mode += sympy.cos(2*sympy.pi*k*x)*sympy.cos(2*sympy.pi*k*y)
     for i in range(9):
         f_1[i,:,:,0] = utils.get_function_on_grid(mode, x, y, dx, grid)
     f_1 = wp.from_numpy(f_1, dtype=wp.float32)
@@ -115,11 +113,15 @@ if __name__ == "__main__":
     residual_over_time = list()  # to track error over time
     w = 2/3
 
+    current = f_1.numpy().copy()
+    gamma = 0.8
+
     l2, linf = 0, 0
     for i in range(timesteps):
         stepper(f_1, f_3)
-        f_1, f_2, f_3 = f_3, f_1, f_2
-        residual = np.linalg.norm((f_1.numpy()).flatten())
+        current = f_3.numpy().copy() * gamma + (1-gamma)*current.copy()
+        f_1 = wp.from_numpy(current, dtype=wp.float32)
+        residual = np.linalg.norm((current).flatten())
         residual_over_time.append((i,residual))
 
     # write out error norms

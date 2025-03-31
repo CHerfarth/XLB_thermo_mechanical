@@ -108,9 +108,11 @@ M_eq[1,1] = 1
 M_eq[5,1] = theta
 M_eq[6,1] = theta
 
+#for relaxation
+gamma = 0.8
 
 
-L_mat = M_inv*D*M_eq*M + M_inv*(I-D)*M
+L_mat = gamma*(M_inv*D*M_eq*M + M_inv*(I-D)*M)
 
 k_x = k*sp.cos(phi)
 k_y = k*sp.sin(phi)
@@ -118,15 +120,17 @@ k_y = k*sp.sin(phi)
 for i in range(velocity_set.q - 1):
     L_mat[i,:] *= sp.exp(-sp.I*(k_x * velocity_set.c[0, i+1] + k_y * velocity_set.c[1,i+1]))
 
+L_mat += (1-gamma)*I
+
 
 for m in range(8):
     dt = 1
     phi_val = ((sp.pi/4))/8 * m
     results = list()
-    iterations = 50
+    iterations = 25
     for i in range(iterations):
         dx = 1
-        k_val = (sp.pi/iterations)*i
+        k_val = i#(sp.pi/iterations)*i
         for j in range(iterations):
             L = dx
             T = dt

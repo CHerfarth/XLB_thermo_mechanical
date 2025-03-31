@@ -1,12 +1,12 @@
 #!/bin/bash
 
 epsilon=1.0
-nodes_x=10
-nodes_y=10
+nodes_x=20
+nodes_y=20
 timesteps=1000
 dt=0.0001
-k=1
-iterations=10
+k=0
+iterations=6
 
 #for bookkeeping
 current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
@@ -39,7 +39,7 @@ rm *results*
 python3 plotter.py $final_file $dt $iterations convergence_different_modes.png
 
 #now do convergence study for one mode, different mesh sizes
-k=2
+k=1
 nodes_x=4
 nodes_y=4
 iterations=5
@@ -48,8 +48,8 @@ do
     echo "--------------------"
     echo "Simulating with $nodes_x nodes and timestep of size $dt, # of timesteps: $timesteps     --->  epsilon = $epsilon" 
     python3 error_mode_study.py $nodes_x $nodes_y $timesteps $dt $k $i"_"$results_file $i > tmp.txt
-    nodes_x=$(($nodes_x*2))
-    nodes_y=$(($nodes_y*2))
+    nodes_x=$(($nodes_x*4))
+    nodes_y=$(($nodes_y*4))
 done
 
 final_file="final.csv"
