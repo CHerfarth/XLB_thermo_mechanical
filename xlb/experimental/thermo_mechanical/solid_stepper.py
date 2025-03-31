@@ -95,7 +95,6 @@ class SolidsStepper(Stepper):
 
         # ----------create field for temp stuff------------
         self.temp_f = grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
-        print("Initialised stepper")
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f_1, f_2):  # f_1 carries current population, f_2 carries the previous post_collision population

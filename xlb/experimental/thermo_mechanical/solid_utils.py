@@ -104,6 +104,12 @@ def copy_populations(origin: wp.array4d(dtype=Any), dest: wp.array4d(dtype=Any),
     for l in range(dim):
         dest[l, i, j, 0] = origin[l, i, j, 0]
 
+@wp.kernel
+def get_residual(f_previous: Any, f_now: Any, residual: Any, dim: wp.int8):
+    i, j, k = wp.tid()
+    for l in range(dim):
+        residual[l, i, j, 0] = f_now[l,i,j,0]-f_previous[l,i,j,0]
+
 
 @wp.func
 def calc_populations(m: solid_vec):

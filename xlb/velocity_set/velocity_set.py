@@ -177,8 +177,6 @@ class VelocitySet(object):
             The indices of the opposite velocities.
         """
         c = self._c.T
-        print("_---------------Opposite indices----------")
-        print(np.array([c.tolist().index((-c[i]).tolist()) for i in range(self.q)]).shape)
         return np.array([c.tolist().index((-c[i]).tolist()) for i in range(self.q)])
 
     def _construct_main_indices(self):
