@@ -98,11 +98,13 @@ if __name__ == "__main__":
     stepper = SolidsStepper(grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values)
 
     # startup grids
+    K = 10
+    K_fac = 1/K
     f_1 = np.zeros(shape=(9,nodes_x,nodes_y,1))
-    mode = sympy.sin(2*sympy.pi*k*x)*sympy.sin(2*sympy.pi*k*y)
-    mode += sympy.sin(2*sympy.pi*k*x)*sympy.cos(2*sympy.pi*k*y)
-    mode += sympy.cos(2*sympy.pi*k*x)*sympy.sin(2*sympy.pi*k*y)
-    mode += sympy.cos(2*sympy.pi*k*x)*sympy.cos(2*sympy.pi*k*y)
+    mode = sympy.sin(sympy.pi*k*K_fac*x)*sympy.sin(sympy.pi*k*K_fac*y)
+    mode += sympy.sin(sympy.pi*k*K_fac*x)*sympy.cos(sympy.pi*k*K_fac*y)
+    mode += sympy.cos(sympy.pi*k*K_fac*x)*sympy.sin(sympy.pi*k*K_fac*y)
+    mode += sympy.cos(sympy.pi*k*K_fac*x)*sympy.cos(sympy.pi*k*K_fac*y)
     for i in range(9):
         f_1[i,:,:,0] = utils.get_function_on_grid(mode, x, y, dx, grid)
     f_1 = wp.from_numpy(f_1, dtype=wp.float32)
