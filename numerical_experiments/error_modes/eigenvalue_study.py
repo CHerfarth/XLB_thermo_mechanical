@@ -3,11 +3,16 @@ import xlb
 from xlb.velocity_set import D2Q9
 from xlb.compute_backend import ComputeBackend
 from xlb.precision_policy import PrecisionPolicy
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
+from matplotlib.ticker import FuncFormatter
+from scipy.interpolate import griddata
 
 #vars:
 theta = 1/3
-E = 0.085*2.5
-nu = 1001.8
+E = 1 
+nu = 0.5
 #K = E / (2 * (1 - nu))
 #mu = E / (2 * (1 + nu))
 K, mu, k, phi = sp.symbols('K mu k ph')
@@ -93,10 +98,6 @@ gamma = (theta * tau_f) / ((1.0 + theta) * (tau_s - tau_f))
 # Add gamma * row 3 to row 7
 M[7, :] += gamma * M[3, :]
 
-'''print(M)
-print(M[:8,1:])
-print(M[:8,1:].det())'''
-
 M_inv = sp.zeros(8,8)
 M_inv = M.inv()
 
@@ -116,46 +117,72 @@ k_y = k*sp.sin(phi)
 
 for i in range(velocity_set.q - 1):
     L_mat[i,:] *= sp.exp(-sp.I*(k_x * velocity_set.c[0, i+1] + k_y * velocity_set.c[1,i+1]))
-'''
-print("---------Starting calculation---------")
-det = L.det(method="det_LU")
-print("-----------Got determinant----------")
-eqn=sp.Eq(det,0);
-print("-----------Got characteristic equation------")
-eigenvalues = sp.solve(eqn)
-print("---------Got eigenvalues---------")
-spectral_radius = max(abs(ev) for ev in eigenvalues)
-
-dx = 1
-dt = 0.001
-for i in range(100):
-    L = dx
-    T = dt
-    K_val = (E / (2*(1-nu)))*(T / (L*L))
-    mu_val = (E / (2*(1+nu))) * (T/(L*L))
-    evaluated_spectral_radius = spectral_radius.subs({mu: mu_val, K: K_val})
-    print(evaluated_spectral_radius)'''
 
 
-#alternative:
-dx = 1
-dt = 0.1
-phi_val = 0
-k_val = 1
-#print(L_mat)
-for i in range(100):
-    L = dx
-    T = dt
-    K_val = (E / (2*(1-nu)))*(T / (L*L))
-    mu_val = (E / (2*(1+nu))) * (T/(L*L))
-    L_evaluated = L_mat.subs({mu: mu_val, K: K_val, phi: phi_val, k: k_val})
-    eigenvalues = L_evaluated.eigenvals()
-    spectral_radius = max(abs(ev) for ev in eigenvalues)
-    print(spectral_radius)
-    dx = dx*0.5
+dt = 1
+phi_val = sp.pi/6
+
+results = list()
+iterations = 20
+for i in range(iterations):
+    dx = 1
+    k_val = (sp.pi/iterations)*i
+    for j in range(iterations):
+        L = dx
+        T = dt
+        E_scaled = E * (T/(L*L))
+        nu_scaled = nu
+        K_val = (E_scaled / (2*(1-nu_scaled)))
+        mu_val = (E_scaled / (2*(1+nu_scaled)))
+        L_evaluated = L_mat.subs({mu: mu_val, K: K_val, phi: phi_val, k: k_val})
+        eigenvalues = np.linalg.eig(np.array(L_evaluated, dtype=np.complex128)).eigenvalues
+        spectral_radius = max(np.abs(ev) for ev in eigenvalues)
+        results.append((dx, float(k_val), float(spectral_radius)))
+        dx *= 0.95
+    print("{} % complete".format((i+1)*100/iterations))
+
+
+x = np.array([float(item[0]) for item in results])
+y = np.array([float(item[1]) for item in results])
+z = np.array([float(item[2]) for item in results])
 
 
 
+# Create a grid of points
+x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100),
+                             np.linspace(y.min(), y.max(), 100))
+
+# Interpolate the scattered data onto the grid
+z_grid = griddata((x, y), z, (x_grid, y_grid), method='cubic')
+
+# Create a 2D contour plot
+fig, ax = plt.subplots(figsize=(8, 6))
+contour = ax.contourf(x_grid, y_grid, z_grid, levels=20, cmap='viridis')
 
 
+# Add color bar to the plot
+plt.colorbar(contour)
 
+# Add a secondary x-axis below the original one
+ax2 = ax.twiny()
+# Set limits and labels for the secondary x-axis
+ax2.set_xlim(ax.get_xlim())  # Make sure the secondary axis matches the primary axis
+custom_scaling = lambda dx: E*dt/(dx*dx) 
+# Apply the custom scaling function to the primary x-axis ticks
+primary_ticks = ax.get_xticks()
+
+# Set the tick positions for the secondary x-axis to match the primary x-axis
+ax2.set_xticks(primary_ticks)
+
+secondary_ticks = custom_scaling(primary_ticks)
+ax2.set_xticklabels([f"${tick:.2f}$" for tick in secondary_ticks])
+
+
+# Set labels
+ax.set_xlabel('dx')
+ax.set_ylabel('k')
+ax2.set_xlabel('E scaled', fontsize=10)
+plt.title('Plot of Spectral Radius')
+
+# Show the plot
+plt.savefig('countour.png')
