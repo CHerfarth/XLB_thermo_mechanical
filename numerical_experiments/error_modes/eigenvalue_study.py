@@ -11,7 +11,7 @@ from scipy.interpolate import griddata
 
 #vars:
 theta = 1/3
-E = 0.1 
+E_scaled = 1
 nu = 0.5
 #K = E / (2 * (1 - nu))
 #mu = E / (2 * (1 + nu))
@@ -114,72 +114,67 @@ gamma = 0.8
 
 L_mat = gamma*(M_inv*D*M_eq*M + M_inv*(I-D)*M)
 
-k_x = k*sp.cos(phi)
-k_y = k*sp.sin(phi)
+phi_x, phi_y = sp.symbols('phi_x phi_y')
 
 for i in range(velocity_set.q - 1):
-    L_mat[i,:] *= sp.exp(-sp.I*(k_x * velocity_set.c[0, i+1] + k_y * velocity_set.c[1,i+1]))
+    L_mat[i,:] *= sp.exp(-sp.I*(phi_x * velocity_set.c[0, i+1] + phi_y * velocity_set.c[1,i+1]))
 
 L_mat += (1-gamma)*I
 
-
-for m in range(8):
-    dt = 1
-    phi_val = ((sp.pi/4))/8 * m
-    results = list()
-    iterations = 25
-    for i in range(iterations):
-        dx = 1
-        k_val = i#(sp.pi/iterations)*i
-        for j in range(iterations):
-            L = dx
-            T = dt
-            E_scaled = E * (T/(L*L))
-            nu_scaled = nu
-            K_val = (E_scaled / (2*(1-nu_scaled)))
-            mu_val = (E_scaled / (2*(1+nu_scaled)))
-            L_evaluated = L_mat.subs({mu: mu_val, K: K_val, phi: phi_val, k: k_val})
-            eigenvalues = np.linalg.eig(np.array(L_evaluated, dtype=np.complex128)).eigenvalues
-            spectral_radius = max(np.abs(ev) for ev in eigenvalues)
-            results.append((dx, float(k_val), float(spectral_radius), E_scaled))
-            dx *= 0.90
-        print("{} % complete".format((i+1)*100/iterations))
+phi_y_val = -sp.pi
+iterations = 20
+results = list()
+for i in range(iterations):
+    dx = 1
+    phi_x_val = -sp.pi
+    for j in range(iterations):
+        nu_scaled = nu
+        K_val = (E_scaled / (2*(1-nu_scaled)))
+        mu_val = (E_scaled / (2*(1+nu_scaled)))
+        L_evaluated = L_mat.subs({mu: mu_val, K: K_val, phi_x: phi_x_val, phi_y: phi_y_val})
+        eigenvalues = np.linalg.eig(np.array(L_evaluated, dtype=np.complex128)).eigenvalues
+        spectral_radius = max(np.abs(ev) for ev in eigenvalues)
+        results.append((phi_x_val, phi_y_val, spectral_radius))
+        phi_x_val += (2*sp.pi)/iterations
+    print("{} % complete".format((i+1)*100/iterations))
+    phi_y_val += (2*sp.pi)/iterations
 
 
-    x = np.array([float(item[0]) for item in results])
-    y = np.array([float(item[1]) for item in results])
-    z = np.array([float(item[2]) for item in results])
-    w = np.array([float(item[3]) for item in results])
+x = np.array([float(item[0]) for item in results])
+y = np.array([float(item[1]) for item in results])
+z = np.array([float(item[2]) for item in results])
+
+amplification_factors = list()
+for item in results:
+    theta_1 = item[0]
+    theta_2 = item[1]
+    if (np.abs(theta_1) >= 0.5*np.pi and np.abs(theta_2) >= 0.5*np.pi):
+        amplification_factors.append(np.abs(item[2]))
+smoothing_factor = np.max(amplification_factors)
+
+
+# Create a grid of points
+x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100),
+                            np.linspace(y.min(), y.max(), 100))
+
+# Interpolate the scattered data onto the grid
+z_grid = griddata((x, y), z, (x_grid, y_grid), method='cubic')
+
+# Create a 2D contour plot
+fig, ax = plt.subplots(figsize=(8, 6))
+contour = ax.contourf(x_grid, y_grid, z_grid, levels=30, cmap='viridis')
 
 
 
-    # Create a grid of points
-    x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100),
-                                np.linspace(y.min(), y.max(), 100))
+# Add color bar to the plot
+plt.colorbar(contour)
 
-    # Interpolate the scattered data onto the grid
-    z_grid = griddata((x, y), z, (x_grid, y_grid), method='cubic')
+# Set labels
+ax.set_xlabel('phi_x')
+ax.set_ylabel('phi_y')
+plt.title('Plot of Spectral Radius')
 
-    # Create a 2D contour plot
-    fig, ax = plt.subplots(figsize=(8, 6))
-    contour = ax.contourf(x_grid, y_grid, z_grid, levels=30, cmap='viridis')
+# Show the plot
+plt.savefig('countour_.png')
 
-    ax.set_xscale('log')
-
-
-    # Add color bar to the plot
-    plt.colorbar(contour)
-
-    dx_to_E = lambda dx: E * dt/(dx*dx)
-    E_to_dx = lambda E_scaled: np.sqrt(E*dt/E_scaled)
-
-    secax = ax.secondary_xaxis('top', functions=(dx_to_E, E_to_dx)) 
-    secax.set_xlabel('E scaled')
-
-    # Set labels
-    ax.set_xlabel('dx')
-    ax.set_ylabel('k')
-    plt.title('Plot of Spectral Radius')
-
-    # Show the plot
-    plt.savefig('countour_'+str(m)+'.png')
+print("Amplification factor: {}".format(smoothing_factor))
