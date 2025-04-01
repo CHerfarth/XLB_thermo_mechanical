@@ -26,7 +26,9 @@ class SimulationParams:
         return cls._instance
 
     def set_parameters(self, E, nu, dx, dt, L, T, kappa, theta):
+        self._E_unscaled = E
         self._E = E
+        self._nu_unscaled = nu
         self._nu = nu
         self._dx = dx
         self._dt = dt
@@ -58,6 +60,14 @@ class SimulationParams:
     @property
     def lamb_unscaled(self):
         return self._lamb_unscaled
+
+    @property
+    def E_unscaled(self):
+        return self._E_unscaled
+    
+    @property
+    def nu_unscaled(self):
+        return self._nu_unscaled
 
     # Getter for E
     @property

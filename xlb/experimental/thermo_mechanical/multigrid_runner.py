@@ -87,7 +87,6 @@ if __name__ == "__main__":
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, 0, dx, norms_over_time)
         # write out error norms
         print(l2_disp, linf_disp, l2_stress, linf_stress)
-        print(i)
         utils.output_image(macroscopics, i, "figure", None, None)
 
     
