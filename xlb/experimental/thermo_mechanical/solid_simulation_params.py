@@ -64,7 +64,7 @@ class SimulationParams:
     @property
     def E_unscaled(self):
         return self._E_unscaled
-    
+
     @property
     def nu_unscaled(self):
         return self._nu_unscaled

@@ -104,23 +104,26 @@ def copy_populations(origin: wp.array4d(dtype=Any), dest: wp.array4d(dtype=Any),
     for l in range(dim):
         dest[l, i, j, 0] = origin[l, i, j, 0]
 
+
 @wp.kernel
 def get_residual(f_previous: Any, f_now: Any, residual: Any, dim: Any):
     i, j, k = wp.tid()
     for l in range(dim):
-        residual[l, i, j, 0] = f_now[l,i,j,0]-f_previous[l,i,j,0]
+        residual[l, i, j, 0] = f_now[l, i, j, 0] - f_previous[l, i, j, 0]
+
 
 @wp.kernel
 def subtract_populations(a: Any, b: Any, c: Any, dim: Any):
     i, j, k = wp.tid()
     for l in range(dim):
-        c[l, i, j, 0] = b[l,i,j,0]-a[l,i,j,0]
+        c[l, i, j, 0] = b[l, i, j, 0] - a[l, i, j, 0]
+
 
 @wp.kernel
 def add_populations(a: Any, b: Any, c: Any, dim: Any):
-    i,j,k = wp.tid()
+    i, j, k = wp.tid()
     for l in range(dim):
-        c[l,i,j,0] = a[l,i,j,0] + b[l,i,j,0]
+        c[l, i, j, 0] = a[l, i, j, 0] + b[l, i, j, 0]
 
 
 @wp.func
@@ -163,19 +166,15 @@ def calc_equilibrium(m: solid_vec, theta: Any):
 
 def get_force_load(manufactured_displacement, x, y):
     params = SimulationParams()
-    mu = params.mu
-    K = params.K
-    L = params.L
-    T = params.T
-    dt = params.T
-    kappa = params.kappa
+    mu = params.mu_unscaled
+    K = params.K_unscaled
     man_u = manufactured_displacement[0]
     man_v = manufactured_displacement[1]
     b_x = -mu * (sympy.diff(man_u, x, x) + sympy.diff(man_u, y, y)) - K * sympy.diff(sympy.diff(man_u, x) + sympy.diff(man_v, y), x)
     b_y = -mu * (sympy.diff(man_v, x, x) + sympy.diff(man_v, y, y)) - K * sympy.diff(sympy.diff(man_u, x) + sympy.diff(man_v, y), y)
-    bx_scaled = b_x * L * L * kappa * (dt / T)
-    by_scaled = b_y * L * L * kappa * (dt / T)
-    return (np.vectorize(sympy.lambdify([x, y], bx_scaled, "numpy")), np.vectorize(sympy.lambdify([x, y], by_scaled, "numpy")))
+    #bx_scaled = b_x * L * L * kappa * (dt / T)
+    #by_scaled = b_y * L * L * kappa * (dt / T)
+    return (np.vectorize(sympy.lambdify([x, y], b_x, "numpy")), np.vectorize(sympy.lambdify([x, y], b_y, "numpy")))
 
 
 def get_function_on_grid(f, x, y, dx, grid):

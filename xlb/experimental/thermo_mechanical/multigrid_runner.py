@@ -22,7 +22,7 @@ from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
 def write_results(norms_over_time, name):
     with open(name, "w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["Timestep", "L2", "Linf"])
+        writer.writerow(["timestep", "l2_disp", "linf_disp", "l2_stress", "linf_stress"])
         writer.writerows(norms_over_time)
 
 
@@ -35,9 +35,14 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 30
-    nodes_y = 30
+    nodes_x = 20
+    nodes_y = 20
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
+    nodes_x_2 = (int)(nodes_x * 0.5)
+    nodes_y_2 = (int)(nodes_y * 0.5)
+    grid_2 = grid_factory((nodes_x_2, nodes_y_2), compute_backend=compute_backend)
+    print(type(grid))
+    print(type(grid_2))
 
     # get discretization
     length_x = 1
@@ -45,7 +50,8 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 10000
+    dx_2 = length_x / float(nodes_x_2)
+    timesteps = 100
     dt = 0.001
 
     # params
@@ -64,6 +70,10 @@ if __name__ == "__main__":
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
     ])
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y)
+    expected_displacement_2 = np.array([
+        utils.get_function_on_grid(manufactured_u, x, y, dx_2, grid_2),
+        utils.get_function_on_grid(manufactured_v, x, y, dx_2, grid_2),
+    ])
 
     # get expected stress
     s_xx, s_yy, s_xy = utils.get_expected_stress((manufactured_u, manufactured_v), x, y)
@@ -72,21 +82,44 @@ if __name__ == "__main__":
         utils.get_function_on_grid(s_yy, x, y, dx, grid),
         utils.get_function_on_grid(s_xy, x, y, dx, grid),
     ])
+    expected_stress_2 = np.array([
+        utils.get_function_on_grid(s_xx, x, y, dx_2, grid_2),
+        utils.get_function_on_grid(s_yy, x, y, dx_2, grid_2),
+        utils.get_function_on_grid(s_xy, x, y, dx_2, grid_2),
+    ])
 
     potential, boundary_array, boundary_values = None, None, None
 
-
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
+    expected_macroscopics_2 = np.concatenate((expected_displacement_2, expected_stress_2), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
+    expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx_2)
+    norms_over_time = list()
 
-    for i in range(1000):
-        multigrid_solver = MultigridSolver(nodes_x=nodes_x, nodes_y=nodes_y, length_x=length_x, length_y=length_y, dt=dt, E=E, nu=nu, force_load=force_load, gamma=0.8, timesteps=i, max_levels=2) 
+    for i in range(timesteps):
+        multigrid_solver = MultigridSolver(
+            nodes_x=nodes_x,
+            nodes_y=nodes_y,
+            length_x=length_x,
+            length_y=length_y,
+            dt=dt,
+            E=E,
+            nu=nu,
+            force_load=force_load,
+            gamma=0.8,
+            timesteps=i,
+            max_levels=2,
+        )
         macroscopics = multigrid_solver.work()
-        norms_over_time = list()
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, 0, dx, norms_over_time)
+        try:
+            l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
+        except:
+            l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics_2, i, dx*2, norms_over_time)
+
         # write out error norms
         print(l2_disp, linf_disp, l2_stress, linf_stress)
         utils.output_image(macroscopics, i, "figure", None, None)
-
     
+    write_results(norms_over_time, "results.csv")
+    print("done")
