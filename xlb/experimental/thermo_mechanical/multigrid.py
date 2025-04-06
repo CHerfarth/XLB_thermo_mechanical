@@ -17,6 +17,7 @@ class Level:
         self.nodes_x = nodes_x
         self.nodes_y = nodes_y
         self.velocity_set = velocity_set
+        c = self.velocity_set.c_float
         # params needed to set up simulation params
         self.gamma = gamma
         self.dx = dx
@@ -27,6 +28,7 @@ class Level:
         self.f_2 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.f_3 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.f_4 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        self.macroscopics = self.grid.create_field(cardinality=5, dtype=precision_policy.store_precision)  # 5 macroscopic variables
         self.residual = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.defect_correction = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         # setup stepper
@@ -42,6 +44,32 @@ class Level:
 
         self.relax = relaxation
 
+        @wp.kernel
+        def set_from_macroscopics(macroscopics: Any, f_fine: Any, theta: Any, K: Any, mu: Any):
+            i, j, k = wp.tid()
+            u_x = macroscopics[0,i,j,0]
+            u_y = macroscopics[1,i,j,0]
+            s_xx = macroscopics[2,i,j,0]
+            s_yy = macroscopics[3,i,j,0]
+            s_xy = macroscopics[4,i,j,0]
+            s_s = s_xx + s_yy   
+            s_d = s_xx - s_yy
+            #set populations
+            for l in range(9):
+                x_dir = c[l, 0]
+                y_dir = c[l, 1]
+                if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 1.0) < 1e-3: #case V1
+                    f_fine[l, i, j, 0] = (1.-theta)*0.5*(x_dir*u_x + y_dir*u_y)
+                    f_fine[l, i, j, 0] += -(1.-theta+4.*K)*s_s/(8.*K)
+                    f_fine[l, i, j, 0] += -x_dir*y_dir*(1.-theta-4.*mu)*s_d/(8.*mu)
+                if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.0) < 1e-3: #case V2
+                    f_fine[l, i, j, 0] = 0.25*theta*(x_dir*u_x + y_dir*u_y)
+                    f_fine[l, i, j, 0] += -theta*s_s/(8.*K)
+                    f_fine[l, i, j, 0] += -x_dir*y_dir*(theta+2.*mu)*s_xy/(8.*mu)
+
+        self.set_from_macroscopics = set_from_macroscopics
+
+
     def startup(self):
         solid_simulation = SimulationParams()
         E = solid_simulation.E_unscaled
@@ -49,6 +77,14 @@ class Level:
         kappa = solid_simulation.kappa
         theta = solid_simulation.theta
         solid_simulation.set_parameters(E=E, nu=nu, dx=self.dx, dt=self.dt, L=self.dx, T=self.dt, kappa=kappa, theta=theta)
+    
+    def init_from_macroscopics(self, macroscopics):
+        self.startup()
+        solid_simulation = SimulationParams()
+        theta = solid_simulation.theta
+        K = solid_simulation.K
+        mu = solid_simulation.mu
+        wp.launch(self.set_from_macroscopics, inputs=[macroscopics, self.f_1, theta, K, mu], dim=self.f_1.shape[1:])
 
     def set_defect_correction(self):
         self.stepper(self.f_4, self.f_3)  # perform one step of operator on restricted finer grid approximation
@@ -122,15 +158,17 @@ class Level:
 @wp.kernel
 def interpolate(coarse: Any, fine: Any, nodes_x_coarse: wp.int32, nodes_y_coarse: wp.int32, dim: Any):
     i, j, k = wp.tid()
+    i_fine = 2*i
+    j_fine = 2*j
 
     nodes_x_fine = nodes_x_coarse * 2
     nodes_y_fine = nodes_y_coarse * 2
 
     for l in range(dim):
-        fine[l, 2 * i, 2 * j, 0] = coarse[l, i, j, 0]
-        fine[l, wp.mod(2 * i + 1, nodes_x_fine), 2 * j, 0] = 0.5 * (coarse[l, i, j, 0] + coarse[l, wp.mod(i + 1, nodes_x_coarse), j, 0])
-        fine[l, i, wp.mod(2 * j + 1, nodes_y_fine), 0] = 0.5 * (coarse[l, i, j, 0] + coarse[l, i, wp.mod(j + 1, nodes_y_coarse), 0])
-        fine[l, wp.mod(2 * i + 1, nodes_x_fine), wp.mod(2 * j + 1, nodes_y_fine), 0] = 0.25 * (
+        fine[l, i_fine, j_fine, 0] = coarse[l, i, j, 0]
+        fine[l, wp.mod(i_fine+1, nodes_x_fine), 2 * j, 0] = 0.5 * (coarse[l, i, j, 0] + coarse[l, wp.mod(i + 1, nodes_x_coarse), j, 0])
+        fine[l, i_fine, wp.mod(j_fine + 1, nodes_y_fine), 0] = 0.5 * (coarse[l, i, j, 0] + coarse[l, i, wp.mod(j + 1, nodes_y_coarse), 0])
+        fine[l, wp.mod(i_fine, nodes_x_fine), wp.mod(j_fine, nodes_y_fine), 0] = 0.25 * (
             coarse[l, i, j, 0]
             + coarse[l, wp.mod(i + 1, nodes_x_coarse), j, 0]
             + coarse[l, i, wp.mod(j + 1, nodes_y_coarse), 0]
@@ -138,11 +176,15 @@ def interpolate(coarse: Any, fine: Any, nodes_x_coarse: wp.int32, nodes_y_coarse
         )
 
 
-@wp.kernel
+@wp.func
 def restrict(coarse: Any, fine: Any, dim: Any):
     i, j, k = wp.tid()
     for l in range(dim):
         coarse[l, i, j, 0] = fine[l, 2 * i, 2 * j, 0]
+
+
+
+
 
 
 class MultigridSolver:
@@ -204,12 +246,13 @@ class MultigridSolver:
             self.levels[1].perform_smoothing()
             macroscopics = self.levels[1].get_macroscopics()
         # now switch to fine mesh
-        wp.launch(interpolate, inputs=[self.levels[1].f_1, self.levels[0].f_1, self.levels[1].nodes_x, self.levels[1].nodes_y, 9], dim=self.levels[1].f_1.shape[1:])
+        '''macroscopics_device = self.levels[1].stepper.get_macroscopics_device(self.levels[1].f_1)
+        wp.launch(interpolate, inputs=[macroscopics_device, self.levels[0].macroscopics, self.levels[1].nodes_x, self.levels[1].nodes_y, 5], dim=self.levels[1].f_1.shape[1:])
+        self.levels[0].init_from_macroscopics(self.levels[0].macroscopics)
         self.levels[0].startup()
-        #macroscopics = self.levels[0].get_macroscopics()
         for i in range(max(self.timesteps-50, 0)):
             self.levels[0].perform_smoothing()
-            macroscopics = self.levels[0].get_macroscopics()
+            macroscopics = self.levels[0].get_macroscopics()'''
         """self.levels[0].startup()
         macroscopics = self.levels[0].get_macroscopics()
         for i in range(self.timesteps):
@@ -232,4 +275,8 @@ class MultigridSolver:
             #add error to current approximation
             wp.launch(utils.add_populations, inputs=[self.levels[0].f_1, self.levels[0].f_4, self.levels[0].f_1, 9], dim=self.levels[0].f_1.shape[1:])
             macroscopics = self.levels[0].get_macroscopics()"""
-        return macroscopics
+
+        macroscopics_device = self.levels[1].stepper.get_macroscopics_device(self.levels[1].f_1)
+        wp.launch(interpolate, inputs=[macroscopics_device, self.levels[0].macroscopics, self.levels[1].nodes_x, self.levels[1].nodes_y, 5], dim=self.levels[1].f_1.shape[1:])
+        macroscopics_2 = self.levels[0].get_macroscopics()
+        return macroscopics, macroscopics_2

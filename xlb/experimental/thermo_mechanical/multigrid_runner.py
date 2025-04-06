@@ -51,7 +51,7 @@ if __name__ == "__main__":
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     dx_2 = length_x / float(nodes_x_2)
-    timesteps = 100
+    timesteps = 50
     dt = 0.001
 
     # params
@@ -111,7 +111,7 @@ if __name__ == "__main__":
             timesteps=i,
             max_levels=2,
         )
-        macroscopics = multigrid_solver.work()
+        macroscopics, macroscopics_2 = multigrid_solver.work()
         try:
             l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
         except:
@@ -119,7 +119,8 @@ if __name__ == "__main__":
 
         # write out error norms
         print(l2_disp, linf_disp, l2_stress, linf_stress)
-        utils.output_image(macroscopics, i, "figure", None, None)
+        utils.output_image(macroscopics, i, "figure1", None, None)
+        utils.output_image(macroscopics_2, i, "figure2", None, None)
     
     write_results(norms_over_time, "results.csv")
     print("done")

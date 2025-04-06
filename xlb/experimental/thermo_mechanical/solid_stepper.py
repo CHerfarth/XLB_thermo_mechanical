@@ -120,3 +120,9 @@ class SolidsStepper(Stepper):
         self.macroscopic(f)
         # get updated displacement
         return self.macroscopic.get_macroscopics_host()
+
+    def get_macroscopics_device(self, f):
+        # udate bared moments
+        self.macroscopic(f)
+        # get updated displacement
+        return self.macroscopic.get_macroscopics_device()
