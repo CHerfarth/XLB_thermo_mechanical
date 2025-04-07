@@ -166,9 +166,9 @@ def interpolate(coarse: Any, fine: Any, nodes_x_coarse: wp.int32, nodes_y_coarse
 
     for l in range(dim):
         fine[l, i_fine, j_fine, 0] = coarse[l, i, j, 0]
-        fine[l, wp.mod(i_fine+1, nodes_x_fine), 2 * j, 0] = 0.5 * (coarse[l, i, j, 0] + coarse[l, wp.mod(i + 1, nodes_x_coarse), j, 0])
+        fine[l, wp.mod(i_fine+1, nodes_x_fine), j_fine, 0] = 0.5 * (coarse[l, i, j, 0] + coarse[l, wp.mod(i + 1, nodes_x_coarse), j, 0])
         fine[l, i_fine, wp.mod(j_fine + 1, nodes_y_fine), 0] = 0.5 * (coarse[l, i, j, 0] + coarse[l, i, wp.mod(j + 1, nodes_y_coarse), 0])
-        fine[l, wp.mod(i_fine, nodes_x_fine), wp.mod(j_fine, nodes_y_fine), 0] = 0.25 * (
+        fine[l, wp.mod(i_fine+1, nodes_x_fine), wp.mod(j_fine+1, nodes_y_fine), 0] = 0.25 * (
             coarse[l, i, j, 0]
             + coarse[l, wp.mod(i + 1, nodes_x_coarse), j, 0]
             + coarse[l, i, wp.mod(j + 1, nodes_y_coarse), 0]
@@ -278,5 +278,5 @@ class MultigridSolver:
 
         macroscopics_device = self.levels[1].stepper.get_macroscopics_device(self.levels[1].f_1)
         wp.launch(interpolate, inputs=[macroscopics_device, self.levels[0].macroscopics, self.levels[1].nodes_x, self.levels[1].nodes_y, 5], dim=self.levels[1].f_1.shape[1:])
-        macroscopics_2 = self.levels[0].get_macroscopics()
+        macroscopics_2 = self.levels[0].macroscopics.numpy()
         return macroscopics, macroscopics_2
