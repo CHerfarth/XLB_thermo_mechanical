@@ -39,7 +39,7 @@ class Level:
             i, j, k = wp.tid()
             for l in range(velocity_set.q):
                 f_destination[l, i, j, 0] = (
-                    gamma * (f_after_stream[l, i, j, 0] + defect_correction[l, i, j, 0]) + (1.0 - gamma) * f_previous[l, i, j, 0]
+                    gamma * (f_after_stream[l, i, j, 0] - defect_correction[l, i, j, 0]) + (1.0 - gamma) * (f_previous[l, i, j, 0])
                 )
 
         self.relax = relaxation
@@ -80,7 +80,7 @@ class Level:
         theta = solid_simulation.theta
         solid_simulation.set_parameters(E=E, nu=nu, dx=self.dx, dt=self.dt, L=self.dx, T=self.dt, kappa=kappa, theta=theta)
     
-    def init_from_macroscopics(self, macroscopics):
+    def init_from_macroscopics(self, macroscopics, destination):
         self.startup()
         solid_simulation = SimulationParams()
         theta = solid_simulation.theta
@@ -88,7 +88,7 @@ class Level:
         mu = solid_simulation.mu
         L = solid_simulation.L
         T = solid_simulation.T
-        wp.launch(self.set_from_macroscopics, inputs=[macroscopics, self.f_1, theta, K, mu, L, T], dim=self.f_1.shape[1:])
+        wp.launch(self.set_from_macroscopics, inputs=[macroscopics, destination, theta, K, mu, L, T], dim=self.f_1.shape[1:])
 
     def set_defect_correction(self):
         self.stepper(self.f_4, self.f_3)  # perform one step of operator on restricted finer grid approximation
@@ -96,19 +96,20 @@ class Level:
         wp.launch(utils.add_populations, inputs=[self.f_4, self.residual, self.defect_correction, 9], dim=self.f_4.shape[1:])
 
     def get_error_approx(self):
-        wp.launch(utils.subtract_populations, inputs=[self.f_1, self.f_4, self.f_3, 9], dim=self.f_1.shape[1:])
+        wp.launch(utils.subtract_populations, inputs=[self.f_4, self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
         return self.f_3
 
     def perform_smoothing(self, get_residual=False):
         self.startup()
         wp.launch(utils.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_1, self.f_2)
-        self.f_1, self.f_2 = self.f_2, self.f_1
-        # wp.launch(utils.add_populations, inputs=[self.f_2, self.defect_correction, self.f_2, 9], dim=self.f_1.shape[1:])
-        # wp.launch(self.relax, inputs=[self.f_2, self.f_3, self.defect_correction, self.f_1, self.gamma], dim=self.f_1.shape[1:])
+        #self.f_1, self.f_2 = self.f_2, self.f_1
+        #wp.launch(utils.add_populations, inputs=[self.f_2, self.defect_correction, self.f_2, 9], dim=self.f_1.shape[1:])
+        wp.launch(self.relax, inputs=[self.f_2, self.f_3, self.defect_correction, self.f_1, self.gamma], dim=self.f_1.shape[1:])
 
         if get_residual:
-            wp.launch(utils.get_residual, inputs=[self.f_3, self.f_1, self.residual, self.velocity_set.q], dim=self.f_1.shape[1:])
+            self.stepper(self.f_1, self.f_3)
+            return self.f_3
 
     def get_macroscopics(self):
         return self.stepper.get_macroscopics(self.f_1)
@@ -180,7 +181,7 @@ def interpolate(coarse: Any, fine: Any, nodes_x_coarse: wp.int32, nodes_y_coarse
         )
 
 
-@wp.func
+@wp.kernel
 def restrict(coarse: Any, fine: Any, dim: Any):
     i, j, k = wp.tid()
     for l in range(dim):
@@ -244,7 +245,7 @@ class MultigridSolver:
 
 
     def work(self):
-        self.levels[1].startup()
+        '''self.levels[1].startup()
         macroscopics = self.levels[1].get_macroscopics()
         for i in range(min(self.timesteps, 50)):
             self.levels[1].perform_smoothing()
@@ -256,31 +257,38 @@ class MultigridSolver:
         self.levels[0].init_from_macroscopics(self.levels[0].macroscopics)
         for i in range(max(self.timesteps-50, 0)):
             self.levels[0].perform_smoothing()
-            macroscopics = self.levels[0].get_macroscopics()
-        """self.levels[0].startup()
+            macroscopics = self.levels[0].get_macroscopics()'''
+        self.levels[0].startup()
         macroscopics = self.levels[0].get_macroscopics()
-        for i in range(self.timesteps):
-            #smoothing on fine grid
-            for i in range(2):
-                self.levels[0].perform_smoothing()
-            self.levels[0].perform_smoothing(get_residual=True)
-            #transfer to coarse grid
-            wp.launch(restrict, inputs=[self.levels[1].residual, self.levels[0].residual,9], dim=self.levels[1].f_1.shape[1:])
-            wp.launch(restrict, inputs=[self.levels[1].f_4, self.levels[0].f_1,9], dim=self.levels[1].f_1.shape[1:])
-            self.levels[1].set_defect_correction()
-            #solve on coarse grid
-            self.levels[1].startup()
-            for i in range(1):
-                self.levels[1].perform_smoothing()
-            #get approximation of error on coarse grid
-            error_approx = self.levels[1].get_error_approx()
-            #interpolate error to fine grid
-            wp.launch(interpolate, inputs=[error_approx, self.levels[0].f_4, self.levels[1].nodes_x, self.levels[1].nodes_y, 9], dim=error_approx.shape[1:])
-            #add error to current approximation
-            wp.launch(utils.add_populations, inputs=[self.levels[0].f_1, self.levels[0].f_4, self.levels[0].f_1, 9], dim=self.levels[0].f_1.shape[1:])
-            macroscopics = self.levels[0].get_macroscopics()"""
+        #smoothing on fine grid
+        for i in range(4):
+            self.levels[0].perform_smoothing()
+        residual = self.levels[0].perform_smoothing(get_residual=True)
+        #transfer to coarse grid
+        macroscopics_device = self.levels[0].stepper.get_macroscopics_device(residual)
+        wp.launch(restrict, inputs=[macroscopics_device, self.levels[1].macroscopics, 5], dim = self.levels[1].f_1.shape[1:])
+        self.levels[1].startup()
+        self.levels[1].init_from_macroscopics(self.levels[1].macroscopics, self.levels[1].residual)
+        self.levels[1].set_defect_correction()
+        self.levels[1].init_from_macroscopics(self.levels[1].macroscopics, self.levels[1].f_4)
+        #solve on coarse grid
+        self.levels[1].startup()
+        for i in range(100):
+            self.levels[1].perform_smoothing()
+        error_approx = self.levels[1].get_error_approx()
+        macroscopics_device = self.levels[1].stepper.get_macroscopics_device(error_approx)
+        #interpolate error to fine grid
+        wp.launch(interpolate, inputs=[macroscopics_device, self.levels[0].macroscopics, self.levels[1].nodes_x, self.levels[1].nodes_y, 5], dim=macroscopics_device.shape[1:])
+        self.levels[0].startup()
+        self.levels[0].init_from_macroscopics(self.levels[0].macroscopics, self.levels[0].f_4)
+        #add error to current approximation
+        wp.launch(utils.add_populations, inputs=[self.levels[0].f_1, self.levels[0].f_4, self.levels[0].f_1, 9], dim=self.levels[0].f_1.shape[1:])
+        for i in range(4):
+            self.levels[0].perform_smoothing()
+        macroscopics = self.levels[0].get_macroscopics()
 
         '''macroscopics_device = self.levels[1].stepper.get_macroscopics_device(self.levels[1].f_1)
         wp.launch(interpolate, inputs=[macroscopics_device, self.levels[0].macroscopics, self.levels[1].nodes_x, self.levels[1].nodes_y, 5], dim=self.levels[1].f_1.shape[1:])
         macroscopics_2 = self.levels[0].macroscopics.numpy()'''
+        macroscopics = self.levels[0].get_macroscopics()
         return macroscopics

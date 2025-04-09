@@ -96,9 +96,7 @@ if __name__ == "__main__":
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx_2)
     norms_over_time = list()
-
-    for i in range(timesteps):
-        multigrid_solver = MultigridSolver(
+    multigrid_solver = MultigridSolver(
             nodes_x=nodes_x,
             nodes_y=nodes_y,
             length_x=length_x,
@@ -108,9 +106,11 @@ if __name__ == "__main__":
             nu=nu,
             force_load=force_load,
             gamma=0.8,
-            timesteps=i,
+            timesteps=5,
             max_levels=2,
         )
+    for i in range(timesteps):
+        
         macroscopics = multigrid_solver.work()
         try:
             l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)

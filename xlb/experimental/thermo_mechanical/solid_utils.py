@@ -116,7 +116,7 @@ def get_residual(f_previous: Any, f_now: Any, residual: Any, dim: Any):
 def subtract_populations(a: Any, b: Any, c: Any, dim: Any):
     i, j, k = wp.tid()
     for l in range(dim):
-        c[l, i, j, 0] = b[l, i, j, 0] - a[l, i, j, 0]
+        c[l, i, j, 0] = a[l, i, j, 0] - b[l, i, j, 0]
 
 
 @wp.kernel
