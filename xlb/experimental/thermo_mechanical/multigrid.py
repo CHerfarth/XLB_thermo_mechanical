@@ -180,7 +180,7 @@ def interpolate(coarse: Any, fine: Any, nodes_x_coarse: wp.int32, nodes_y_coarse
         )
 
 
-@wp.func
+@wp.kernel
 def restrict(coarse: Any, fine: Any, dim: Any):
     i, j, k = wp.tid()
     for l in range(dim):
@@ -244,43 +244,17 @@ class MultigridSolver:
 
 
     def work(self):
-        self.levels[1].startup()
-        macroscopics = self.levels[1].get_macroscopics()
-        for i in range(min(self.timesteps, 50)):
-            self.levels[1].perform_smoothing()
-            macroscopics = self.levels[1].get_macroscopics()
-        # now switch to fine mesh
-        macroscopics_device = self.levels[1].stepper.get_macroscopics_device(self.levels[1].f_1)
-        wp.launch(interpolate, inputs=[macroscopics_device, self.levels[0].macroscopics, self.levels[1].nodes_x, self.levels[1].nodes_y, 5], dim=self.levels[1].f_1.shape[1:])
         self.levels[0].startup()
-        self.levels[0].init_from_macroscopics(self.levels[0].macroscopics)
-        for i in range(max(self.timesteps-50, 0)):
+        macroscopics = self.levels[0].get_macroscopics()
+        for i in range(min(self.timesteps, 50)):
             self.levels[0].perform_smoothing()
             macroscopics = self.levels[0].get_macroscopics()
-        """self.levels[0].startup()
-        macroscopics = self.levels[0].get_macroscopics()
-        for i in range(self.timesteps):
-            #smoothing on fine grid
-            for i in range(2):
-                self.levels[0].perform_smoothing()
-            self.levels[0].perform_smoothing(get_residual=True)
-            #transfer to coarse grid
-            wp.launch(restrict, inputs=[self.levels[1].residual, self.levels[0].residual,9], dim=self.levels[1].f_1.shape[1:])
-            wp.launch(restrict, inputs=[self.levels[1].f_4, self.levels[0].f_1,9], dim=self.levels[1].f_1.shape[1:])
-            self.levels[1].set_defect_correction()
-            #solve on coarse grid
-            self.levels[1].startup()
-            for i in range(1):
-                self.levels[1].perform_smoothing()
-            #get approximation of error on coarse grid
-            error_approx = self.levels[1].get_error_approx()
-            #interpolate error to fine grid
-            wp.launch(interpolate, inputs=[error_approx, self.levels[0].f_4, self.levels[1].nodes_x, self.levels[1].nodes_y, 9], dim=error_approx.shape[1:])
-            #add error to current approximation
-            wp.launch(utils.add_populations, inputs=[self.levels[0].f_1, self.levels[0].f_4, self.levels[0].f_1, 9], dim=self.levels[0].f_1.shape[1:])
-            macroscopics = self.levels[0].get_macroscopics()"""
-
-        '''macroscopics_device = self.levels[1].stepper.get_macroscopics_device(self.levels[1].f_1)
-        wp.launch(interpolate, inputs=[macroscopics_device, self.levels[0].macroscopics, self.levels[1].nodes_x, self.levels[1].nodes_y, 5], dim=self.levels[1].f_1.shape[1:])
-        macroscopics_2 = self.levels[0].macroscopics.numpy()'''
+        # now switch to fine mesh
+        macroscopics_device = self.levels[0].stepper.get_macroscopics_device(self.levels[0].f_1)
+        wp.launch(restrict, inputs=[self.levels[1].macroscopics, macroscopics_device, 5], dim=self.levels[1].f_1.shape[1:])
+        self.levels[1].startup()
+        self.levels[1].init_from_macroscopics(self.levels[1].macroscopics)
+        for i in range(max(self.timesteps-50, 0)):
+            self.levels[1].perform_smoothing()
+            macroscopics = self.levels[1].get_macroscopics()
         return macroscopics
