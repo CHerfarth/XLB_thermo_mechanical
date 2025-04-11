@@ -92,8 +92,8 @@ class Level:
 
     def set_defect_correction(self):
         self.stepper(self.f_4, self.f_3)  # perform one step of operator on restricted finer grid approximation
-        self.f_4, self.f_3 = self.f_3, self.f_4
-        wp.launch(utils.add_populations, inputs=[self.f_4, self.residual, self.defect_correction, 9], dim=self.f_4.shape[1:])
+        wp.launch(utils.subtract_populations, inputs=[self.f_4, self.f_3, self.f_4, 9], dim=self.f_4.shape[1:])
+        wp.launch(utils.subtract_populations, inputs=[self.f_4, self.residual, self.defect_correction, 9], dim=self.f_4.shape[1:])
 
     def get_error_approx(self):
         wp.launch(utils.subtract_populations, inputs=[self.f_4, self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
@@ -109,6 +109,7 @@ class Level:
 
         if get_residual:
             self.stepper(self.f_1, self.f_3)
+            wp.launch(utils.subtract_populations, inputs=[self.f_1, self.f_3, self.f_3, 9], dim=self.f_1.shape[1:])
             return self.f_3
 
     def get_macroscopics(self):
@@ -261,7 +262,7 @@ class MultigridSolver:
         self.levels[0].startup()
         macroscopics = self.levels[0].get_macroscopics()
         #smoothing on fine grid
-        for i in range(4):
+        for i in range(2):
             self.levels[0].perform_smoothing()
         residual = self.levels[0].perform_smoothing(get_residual=True)
         #transfer to coarse grid
@@ -269,8 +270,10 @@ class MultigridSolver:
         wp.launch(restrict, inputs=[macroscopics_device, self.levels[1].macroscopics, 5], dim = self.levels[1].f_1.shape[1:])
         self.levels[1].startup()
         self.levels[1].init_from_macroscopics(self.levels[1].macroscopics, self.levels[1].residual)
-        self.levels[1].set_defect_correction()
+        macroscopics_device = self.levels[0].stepper.get_macroscopics_device(self.levels[0].f_1)
+        wp.launch(restrict, inputs=[macroscopics_device, self.levels[1].macroscopics, 5], dim = self.levels[1].f_1.shape[1:])
         self.levels[1].init_from_macroscopics(self.levels[1].macroscopics, self.levels[1].f_4)
+        self.levels[1].set_defect_correction()
         #solve on coarse grid
         self.levels[1].startup()
         for i in range(100):
@@ -283,7 +286,7 @@ class MultigridSolver:
         self.levels[0].init_from_macroscopics(self.levels[0].macroscopics, self.levels[0].f_4)
         #add error to current approximation
         wp.launch(utils.add_populations, inputs=[self.levels[0].f_1, self.levels[0].f_4, self.levels[0].f_1, 9], dim=self.levels[0].f_1.shape[1:])
-        for i in range(4):
+        for i in range(2):
             self.levels[0].perform_smoothing()
         macroscopics = self.levels[0].get_macroscopics()
 
