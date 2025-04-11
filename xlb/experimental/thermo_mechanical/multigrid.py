@@ -239,14 +239,7 @@ class MultigridSolver:
         #transfer result back to fine grid
         wp.synchronize()
         error_approx = coarse.get_error_approx()
-        print("Error approx coarse norm: {}".format(np.max(error_approx.numpy())))
-        wp.synchronize()
-        error_macros_coarse = coarse.stepper.get_macroscopics_device(error_approx)
-        print("Error macroscopics coarse norm: {}".format(np.max(error_macros_coarse.numpy())))
-        wp.launch(interpolate, inputs=[error_macros_coarse, fine.macroscopics, coarse.nodes_x, coarse.nodes_y, 5], dim=error_macros_coarse.shape[1:])
-        print("Error macroscopics fine norm: {}".format(np.max(fine.macroscopics.numpy())))
-        fine.init_from_macroscopics(fine.macroscopics, fine.f_4)
-        print("Error approx fine norm: {}".format(np.max(fine.f_4.numpy())))
+        wp.launch(interpolate, inputs=[error_approx, fine.f_4, coarse.nodes_x, coarse.nodes_y, 9], dim=error_approx.shape[1:])
         wp.launch(utils.add_populations, inputs=[fine.f_1, fine.f_4, fine.f_1, 9], dim=fine.f_1.shape[1:])
         fine.startup()
         for i in range(4):
