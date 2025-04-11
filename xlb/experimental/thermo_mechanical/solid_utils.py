@@ -163,6 +163,12 @@ def calc_equilibrium(m: solid_vec, theta: Any):
     m_eq[8] = 0.0
     return m_eq
 
+@wp.kernel
+def multiply_populations(f: wp.array4d(dtype=Any), factor: Any, dim: Any):
+    i, j, k = wp.tid()
+    for l in range(dim):
+        f[l, i, j, 0] *= factor
+
 
 def get_force_load(manufactured_displacement, x, y):
     params = SimulationParams()

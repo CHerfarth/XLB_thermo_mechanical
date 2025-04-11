@@ -17,6 +17,7 @@ class Level:
         self.nodes_x = nodes_x
         self.nodes_y = nodes_y
         self.velocity_set = velocity_set
+        self.precision_policy = precision_policy
         c = self.velocity_set.c_float
         # params needed to set up simulation params
         self.gamma = gamma
@@ -44,6 +45,8 @@ class Level:
 
         self.relax = relaxation
 
+
+
         @wp.kernel
         def set_from_macroscopics(macroscopics: Any, f_fine: Any, theta: Any, K: Any, mu: Any, L: Any, T: Any):
             i, j, k = wp.tid()
@@ -64,13 +67,24 @@ class Level:
                     f_fine[l, i, j, 0] = (1.-theta)*0.5*(x_dir*u_x + y_dir*u_y)
                     #f_fine[l, i, j, 0] += -(1.-theta+4.*K)*s_s/(8.*K)
                     #f_fine[l, i, j, 0] += -x_dir*y_dir*(1.-theta-4.*mu)*s_d/(8.*mu)
-                if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.0) < 1e-3: #case V2
+                elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.0) < 1e-3: #case V2
                     f_fine[l, i, j, 0] = 0.25*theta*(x_dir*u_x + y_dir*u_y)
                     #f_fine[l, i, j, 0] += -theta*s_s/(8.*K)
                     #f_fine[l, i, j, 0] += -x_dir*y_dir*(theta+2.*mu)*s_xy/(8.*mu)
+                else:
+                    f_fine[l, i, j, 0] = 0.0
+                #printf("I: %d, J: %d, u_x: %f, u_y: %f, l: %d, x_dir: %f, y_dir: %f, f_fine: %f\n", i, j, u_x, u_y, l, x_dir, y_dir, f_fine[l,i,j,0])
 
         self.set_from_macroscopics = set_from_macroscopics
 
+    def set_to_zero(self):
+        self.f_1 = self.grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
+        self.f_2 = self.grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
+        self.f_3 = self.grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
+        self.f_4 = self.grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
+        self.macroscopics = self.grid.create_field(cardinality=5, dtype=self.precision_policy.store_precision)  # 5 macroscopic variables
+        self.residual = self.grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
+        self.defect_correction = self.grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
 
     def startup(self):
         solid_simulation = SimulationParams()
@@ -88,12 +102,13 @@ class Level:
         mu = solid_simulation.mu
         L = solid_simulation.L
         T = solid_simulation.T
-        wp.launch(self.set_from_macroscopics, inputs=[macroscopics, destination, theta, K, mu, L, T], dim=self.f_1.shape[1:])
+        wp.launch(self.set_from_macroscopics, inputs=[macroscopics, destination, theta, K, mu, L, T], dim=destination.shape[1:])
 
     def set_defect_correction(self):
         wp.launch(utils.copy_populations, inputs=[self.f_4, self.f_2, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_4, self.f_3)  # perform one step of operator on restricted finer grid approximation
-        wp.launch(utils.subtract_populations, inputs=[self.f_4, self.f_3, self.f_4, 9], dim=self.f_4.shape[1:])
+        wp.launch(utils.subtract_populations, inputs=[self.f_3, self.f_2, self.f_4, 9], dim=self.f_4.shape[1:])
+        wp.launch(utils.multiply_populations, inputs=[self.residual, 2., 9], dim=self.f_4.shape[1:])
         wp.launch(utils.subtract_populations, inputs=[self.f_4, self.residual, self.defect_correction, 9], dim=self.f_4.shape[1:])
         wp.launch(utils.copy_populations, inputs=[self.f_2, self.f_4, 9], dim=self.f_1.shape[1:])
 
@@ -110,58 +125,12 @@ class Level:
         wp.launch(self.relax, inputs=[self.f_2, self.f_3, self.defect_correction, self.f_1, self.gamma], dim=self.f_1.shape[1:])
 
         if get_residual:
-            self.stepper(self.f_1, self.f_3)
-            wp.launch(utils.subtract_populations, inputs=[self.f_1, self.f_3, self.f_3, 9], dim=self.f_1.shape[1:])
+            wp.launch(utils.subtract_populations, inputs=[self.f_2, self.f_3, self.f_3, 9], dim=self.f_1.shape[1:])
             return self.f_3
 
     def get_macroscopics(self):
         return self.stepper.get_macroscopics(self.f_1)
     
-    def info(self):
-        """
-        Print detailed information about this Level.
-        """
-        print("\n===== Level Information =====")
-        print(f"Grid Size: {self.nodes_x} x {self.nodes_y} nodes")
-        print(f"Physical Parameters:")
-        print(f"  - dx: {self.dx}")
-        print(f"  - dt: {self.dt}")
-        print(f"  - gamma (relaxation parameter): {self.gamma}")
-        
-        # Get velocity set information
-        print(f"Velocity Set: {self.velocity_set.__class__.__name__}")
-        print(f"  - q (number of velocities): {self.velocity_set.q}")
-        
-        # Field information
-        print("\nFields:")
-        print(f"  - f_1 shape: {self.f_1.shape}")
-        print(f"  - f_2 shape: {self.f_2.shape}")
-        print(f"  - f_3 shape: {self.f_3.shape}")
-        print(f"  - f_4 shape: {self.f_4.shape}")
-        print(f"  - residual shape: {self.residual.shape}")
-        print(f"  - defect_correction shape: {self.defect_correction.shape}")
-        
-        # Stepper information
-        print("\nStepper Information:")
-        print(f"  - Type: {self.stepper.__class__.__name__}")
-    
-        # Try to get parameters from the SimulationParams
-        try:
-            solid_simulation = SimulationParams()
-            E = solid_simulation.E_unscaled
-            nu = solid_simulation.nu_unscaled
-            kappa = solid_simulation.kappa
-            theta = solid_simulation.theta
-            print("\nSimulation Parameters:")
-            print(f"  - E (Young's modulus): {E}")
-            print(f"  - nu (Poisson ratio): {nu}")
-            print(f"  - kappa: {kappa}")
-            print(f"  - theta: {theta}")
-        except Exception as e:
-            print(f"\nCould not retrieve simulation parameters: {e}")
-        
-        print("============================\n")
-
 
 @wp.kernel
 def interpolate(coarse: Any, fine: Any, nodes_x_coarse: wp.int32, nodes_y_coarse: wp.int32, dim: Any):
@@ -251,9 +220,10 @@ class MultigridSolver:
         fine = self.levels[0]
         coarse = self.levels[1]
         fine.startup()
-        for i in range(2):
+        for i in range(4):
             fine.perform_smoothing()
         residual = fine.perform_smoothing(get_residual=True)
+        coarse.set_to_zero()
         #transfer residual to coarse grid
         residual_macros_fine = fine.stepper.get_macroscopics_device(residual)
         wp.launch(restrict, inputs=[residual_macros_fine, coarse.macroscopics, 5], dim=coarse.macroscopics.shape[1:])
@@ -267,13 +237,19 @@ class MultigridSolver:
         for i in range(100):
             coarse.perform_smoothing()
         #transfer result back to fine grid
+        wp.synchronize()
         error_approx = coarse.get_error_approx()
+        print("Error approx coarse norm: {}".format(np.max(error_approx.numpy())))
+        wp.synchronize()
         error_macros_coarse = coarse.stepper.get_macroscopics_device(error_approx)
+        print("Error macroscopics coarse norm: {}".format(np.max(error_macros_coarse.numpy())))
         wp.launch(interpolate, inputs=[error_macros_coarse, fine.macroscopics, coarse.nodes_x, coarse.nodes_y, 5], dim=error_macros_coarse.shape[1:])
+        print("Error macroscopics fine norm: {}".format(np.max(fine.macroscopics.numpy())))
         fine.init_from_macroscopics(fine.macroscopics, fine.f_4)
+        print("Error approx fine norm: {}".format(np.max(fine.f_4.numpy())))
         wp.launch(utils.add_populations, inputs=[fine.f_1, fine.f_4, fine.f_1, 9], dim=fine.f_1.shape[1:])
         fine.startup()
-        for i in range(2):
+        for i in range(4):
             fine.perform_smoothing()
         macroscopics = fine.get_macroscopics()
         return macroscopics
