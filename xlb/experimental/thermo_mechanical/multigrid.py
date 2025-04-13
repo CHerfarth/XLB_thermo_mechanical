@@ -104,34 +104,34 @@ class Level:
         L = solid_simulation.L
         T = solid_simulation.T
         wp.launch(self.set_from_macroscopics, inputs=[macroscopics, destination, theta, K, mu, L, T], dim=destination.shape[1:])
-        print("After transfer f_4: {}".format(np.max(self.f_4.numpy())))
 
     def set_defect_correction(self):
-        wp.launch(utils.copy_populations, inputs=[self.f_4, self.f_2, 9], dim=self.f_1.shape[1:])
-        self.stepper(self.f_4, self.f_3)  # perform one step of operator on restricted finer grid approximation
-        wp.launch(utils.subtract_populations, inputs=[self.f_3, self.f_2, self.f_4, 9], dim=self.f_4.shape[1:])
-        wp.launch(utils.multiply_populations, inputs=[self.residual, 2., 9], dim=self.f_4.shape[1:])
-        wp.launch(utils.subtract_populations, inputs=[self.f_4, self.residual, self.defect_correction, 9], dim=self.f_4.shape[1:])
-        wp.launch(utils.copy_populations, inputs=[self.f_2, self.f_4, 9], dim=self.f_1.shape[1:])
+        #wp.launch(utils.copy_populations, inputs=[self.f_4, self.f_2, 9], dim=self.f_1.shape[1:])
+        #self.stepper(self.f_4, self.f_3)  # perform one step of operator on restricted finer grid approximation
+        #wp.launch(utils.subtract_populations, inputs=[self.f_2, self.f_3, self.f_4, 9], dim=self.f_4.shape[1:])
+        #wp.launch(utils.multiply_populations, inputs=[self.residual, 2., 9], dim=self.f_4.shape[1:])
+        #wp.launch(utils.subtract_populations, inputs=[self.f_4, self.residual, self.defect_correction, 9], dim=self.f_4.shape[1:])
+        #wp.launch(utils.copy_populations, inputs=[self.f_2, self.f_4, 9], dim=self.f_1.shape[1:])
+        wp.launch(utils.copy_populations, inputs=[self.residual, self.defect_correction, 9], dim=self.residual.shape[1:])
+        #self.stepper.set_defect_correction(self.macroscopics)
 
     def get_error_approx(self):
         print("Exact max: {}".format(np.max(self.f_1.numpy())))
         print("Defect Correction max: {}".format(np.max(self.defect_correction.numpy())))
         print("Estimate max: {}".format(np.max(self.f_4.numpy())))
-        wp.launch(utils.subtract_populations, inputs=[self.f_1, self.f_4, self.f_3, 9], dim=self.f_1.shape[1:])
-        return self.f_3
+        #wp.launch(utils.subtract_populations, inputs=[self.f_1, self.f_4, self.f_3, 9], dim=self.f_1.shape[1:])
+        return self.f_1
 
     def perform_smoothing(self, get_residual=False):
         self.startup()
         wp.launch(utils.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_1, self.f_2)
-        self.f_1, self.f_2 = self.f_2, self.f_1
-        #wp.launch(utils.add_populations, inputs=[self.f_2, self.defect_correction, self.f_2, 9], dim=self.f_1.shape[1:])
-        #wp.launch(self.relax, inputs=[self.f_2, self.f_3, self.defect_correction, self.f_1, self.gamma], dim=self.f_1.shape[1:])
-        #print("Exact max: {}".format(np.max(self.f_1.numpy())))
+        wp.launch(self.relax, inputs=[self.f_2, self.f_3, self.defect_correction, self.f_1, self.gamma], dim=self.f_1.shape[1:])
 
         if get_residual:
-            wp.launch(utils.subtract_populations, inputs=[self.f_2, self.f_3, self.f_3, 9], dim=self.f_1.shape[1:])
+            #calculation of residual: current - previous
+            wp.launch(utils.subtract_populations, inputs=[self.f_1, self.f_3, self.f_3, 9], dim=self.f_1.shape[1:])
+            wp.launch(utils.multiply_populations, inputs=[self.f_3, -1., 9], dim=self.f_3.shape[1:])
             return self.f_3
 
     def get_macroscopics(self):
@@ -222,34 +222,41 @@ class MultigridSolver:
         assert self.max_levels == 2
 
 
-    def work(self):
+    def work(self, timestep):
         fine = self.levels[0]
         coarse = self.levels[1]
         fine.startup()
-        for i in range(4):
+        for i in range(2):
             fine.perform_smoothing()
         residual = fine.perform_smoothing(get_residual=True)
+        #print("Norm residual fine: {}".format(np.linalg.norm(residual.numpy())))
         #transfer residual to coarse grid
-        #residual_macros_fine = fine.stepper.get_macroscopics_device(residual)
-        #wp.launch(restrict, inputs=[residual_macros_fine, coarse.macroscopics, 5], dim=coarse.macroscopics.shape[1:])
-        #coarse.init_from_macroscopics(coarse.macroscopics, coarse.residual)
-        wp.launch(restrict, inputs=[residual, coarse.residual, 9], dim=coarse.residual.shape[1:])
-        #transfer current populations to coarse grid
-        print("Before transfer: {}".format(np.max(fine.f_1.numpy())))
-        pop_macros_fine = fine.stepper.get_macroscopics_device(fine.f_1)
-        wp.launch(restrict, inputs=[coarse.macroscopics, pop_macros_fine, 5], dim=coarse.macroscopics.shape[1:])
-        coarse.init_from_macroscopics(coarse.macroscopics, coarse.f_4)
-        #coarse.set_defect_correction()
+        residual_macros_fine = fine.stepper.get_macroscopics_device(residual)
+        #print("Norm residual macros: {}".format(np.linalg.norm(residual_macros_fine.numpy())))
+        wp.launch(restrict, inputs=[coarse.macroscopics, residual_macros_fine, 5], dim=coarse.macroscopics.shape[1:])
         coarse.startup()
-        for i in range(100):
+        #print("Norm residual macros coarse: {}".format(np.linalg.norm(coarse.macroscopics.numpy())))
+        coarse.init_from_macroscopics(coarse.macroscopics, coarse.residual)
+        print("Norm residual coarse: {}".format(np.linalg.norm(coarse.residual.numpy())))
+        #wp.launch(restrict, inputs=[residual, coarse.residual, 9], dim=coarse.residual.shape[1:])
+        #transfer current populations to coarse grid
+        #pop_macros_fine = fine.stepper.get_macroscopics_device(fine.f_1)
+        #wp.launch(restrict, inputs=[coarse.macroscopics, pop_macros_fine, 5], dim=coarse.macroscopics.shape[1:])
+        #coarse.init_from_macroscopics(coarse.macroscopics, coarse.f_4)
+        coarse.set_defect_correction()
+        for i in range(40):
             coarse.perform_smoothing()
         #transfer result back to fine grid
-        error_approx = coarse.get_error_approx()
-        print("Error norm: {}".format(np.linalg.norm(error_approx.numpy())))
-        wp.launch(interpolate, inputs=[error_approx, fine.f_4, coarse.nodes_x, coarse.nodes_y, 9], dim=error_approx.shape[1:])
-        #wp.launch(utils.add_populations, inputs=[fine.f_1, fine.f_4, fine.f_1, 9], dim=fine.f_1.shape[1:])
+        error_approx = coarse.perform_smoothing(get_residual=True) 
+        error_macros = coarse.stepper.get_macroscopics_device(error_approx)
+        wp.launch(interpolate, inputs=[error_macros, fine.macroscopics, coarse.nodes_x, coarse.nodes_y, 5], dim=error_macros.shape[1:])
         fine.startup()
-        for i in range(4):
+        fine.init_from_macroscopics(fine.macroscopics, fine.f_4)
+        error_macros = fine.stepper.get_macroscopics_device(fine.f_4).numpy()
+        print("Norm error correction: {}".format(np.linalg.norm(fine.f_4.numpy())))
+        wp.launch(utils.add_populations, inputs=[fine.f_1, fine.f_4, fine.f_1, 9], dim=fine.f_1.shape[1:])
+        fine.startup()
+        for i in range(2):
             fine.perform_smoothing()
         macroscopics = fine.get_macroscopics()
-        return macroscopics
+        return macroscopics, None

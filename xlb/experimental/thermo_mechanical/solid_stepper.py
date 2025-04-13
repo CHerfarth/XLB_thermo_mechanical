@@ -70,6 +70,7 @@ class SolidsStepper(Stepper):
         host_force = np.array([[host_force_x, host_force_y]])
         host_force = np.transpose(host_force, (1, 2, 3, 0))  # swap dims to make array compatible with what grid_factory would have produced
         self.force = wp.from_numpy(host_force, dtype=self.precision_policy.store_precision.wp_dtype)  # ...and move to device
+        self.base_force = wp.from_numpy(host_force, dtype=self.precision_policy.store_precision.wp_dtype)
 
         # ---------define operators----------
         self.collision = SolidsCollision(self.omega)
@@ -114,6 +115,9 @@ class SolidsStepper(Stepper):
                 f_previous_post_collision=self.temp_f,
                 bared_moments=self.macroscopic.get_bared_moments_device(),
             )
+    
+    def set_defect_correction(self, defect_correction):
+        wp.launch(utils.subtract_populations, inputs=[self.base_force, defect_correction, self.force, 2], dim=self.force.shape[1:])
 
     def get_macroscopics(self, f):
         # udate bared moments

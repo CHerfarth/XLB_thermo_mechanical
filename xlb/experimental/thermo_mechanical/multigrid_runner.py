@@ -35,8 +35,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 20
-    nodes_y = 20
+    nodes_x = 10
+    nodes_y = 10
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
     nodes_x_2 = (int)(nodes_x * 0.5)
     nodes_y_2 = (int)(nodes_y * 0.5)
@@ -51,8 +51,8 @@ if __name__ == "__main__":
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     dx_2 = length_x / float(nodes_x_2)
-    timesteps = 100
-    dt = 0.001
+    timesteps = 20
+    dt = 0.005
 
     # params
     E = 0.085 * 2.5
@@ -63,8 +63,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x)  # + 3
-    manufactured_v = sympy.cos(2 * sympy.pi * y)  # + 3
+    manufactured_u = sympy.cos(2 * sympy.pi * x)#*sympy.sin(4*sympy.pi*y)
+    manufactured_v = sympy.cos(2 * sympy.pi * y)#*sympy.sin(4*sympy.pi*x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -109,15 +109,19 @@ if __name__ == "__main__":
             timesteps=5,
             max_levels=2,
         )
+    i = 0
+    macroscopics = multigrid_solver.levels[0].get_macroscopics() 
+    l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
     for i in range(timesteps):
         
-        macroscopics = multigrid_solver.work()
+        macroscopics, error = multigrid_solver.work(i)
         try:
             l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
             utils.output_image(macroscopics, i, "figure1", None, None)
         except:
             l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics_2, i, dx*2, norms_over_time)
             utils.output_image(macroscopics, i, "figure2", None, None)
+        
 
 
         # write out error norms
