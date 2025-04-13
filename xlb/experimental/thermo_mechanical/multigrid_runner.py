@@ -97,7 +97,7 @@ if __name__ == "__main__":
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx_2)
     norms_over_time = list()
 
-    for i in range(timesteps):
+    '''for i in range(timesteps):
         multigrid_solver = MultigridSolver(
             nodes_x=nodes_x,
             nodes_y=nodes_y,
@@ -121,7 +121,26 @@ if __name__ == "__main__":
 
 
         # write out error norms
-        print(l2_disp, linf_disp, l2_stress, linf_stress)
+        print(l2_disp, linf_disp, l2_stress, linf_stress)'''
     
+    multigrid_solver = MultigridSolver(
+            nodes_x=nodes_x,
+            nodes_y=nodes_y,
+            length_x=length_x,
+            length_y=length_y,
+            dt=dt,
+            E=E,
+            nu=nu,
+            force_load=force_load,
+            gamma=0.8,
+            timesteps=200,
+            max_levels=2,
+        )
+    macroscopics, macroscopics_fine = multigrid_solver.work()    
+    i = 200
+    l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics_fine, expected_macroscopics, i, dx, norms_over_time)
+    utils.output_image(macroscopics_fine, i, "figure1", None, None)
+    l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics_2, i, dx*2, norms_over_time)
+    utils.output_image(macroscopics, i, "figure2", None, None)
     write_results(norms_over_time, "results.csv")
     print("done")
