@@ -180,7 +180,7 @@ def interpolate(coarse: Any, fine: Any, nodes_x_coarse: wp.int32, nodes_y_coarse
         )
 
 
-@wp.kernel
+@wp.func
 def restrict(coarse: Any, fine: Any, dim: Any):
     i, j, k = wp.tid()
     for l in range(dim):
@@ -244,12 +244,19 @@ class MultigridSolver:
 
 
     def work(self):
+        self.levels[1].startup()
+        macroscopics = self.levels[1].get_macroscopics()
+        for i in range(min(self.timesteps, 50)):
+            self.levels[1].perform_smoothing()
+            macroscopics = self.levels[1].get_macroscopics()
+        # now switch to fine mesh
+        macroscopics_device = self.levels[1].stepper.get_macroscopics_device(self.levels[1].f_1)
+        wp.launch(interpolate, inputs=[macroscopics_device, self.levels[0].macroscopics, self.levels[1].nodes_x, self.levels[1].nodes_y, 5], dim=self.levels[1].f_1.shape[1:])
         self.levels[0].startup()
-        macroscopics = self.levels[0].get_macroscopics()
-        for i in range(min(self.timesteps, 100)):
+        self.levels[0].init_from_macroscopics(self.levels[0].macroscopics)
+        for i in range(max(self.timesteps-50, 0)):
             self.levels[0].perform_smoothing()
             macroscopics = self.levels[0].get_macroscopics()
-        macroscopics_fine = macroscopics
         # now switch to fine mesh
         macroscopics_device = self.levels[0].stepper.get_macroscopics_device(self.levels[0].f_1)
         wp.launch(restrict, inputs=[self.levels[1].macroscopics, macroscopics_device, 5], dim=self.levels[1].f_1.shape[1:])
@@ -258,8 +265,4 @@ class MultigridSolver:
         for i in range(max(self.timesteps-50, 0)):
             self.levels[1].perform_smoothing()
             macroscopics = self.levels[1].get_macroscopics()
-        wp.launch(interpolate, inputs=[self.levels[1].stepper.get_macroscopics_device(self.levels[1].f_1), self.levels[0].macroscopics, self.levels[1].nodes_x, self.levels[1].nodes_y, 5], dim = self.levels[1].macroscopics.shape[1:])
-        macroscopics_coarse = self.levels[0].macroscopics.numpy()
-        print(np.linalg.norm(macroscopics_coarse-macroscopics_fine))
-        print(macroscopics_coarse-macroscopics_fine)
-        return macroscopics, macroscopics_fine
+        return macroscopics
