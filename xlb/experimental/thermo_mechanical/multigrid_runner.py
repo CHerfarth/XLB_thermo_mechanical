@@ -34,9 +34,9 @@ if __name__ == "__main__":
 
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
-    # initialize grid
-    nodes_x = 80
-    nodes_y = 80
+    # initiali1e grid
+    nodes_x = 30
+    nodes_y = 30
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
     nodes_x_2 = (int)(nodes_x * 0.5)
     nodes_y_2 = (int)(nodes_y * 0.5)
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics_2 = np.concatenate((expected_displacement_2, expected_stress_2), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
-    expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx_2)
+    expected_macroscopics_2 = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx_2)
     norms_over_time = list()
 
     for i in range(timesteps):

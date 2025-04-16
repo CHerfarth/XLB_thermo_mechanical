@@ -245,7 +245,7 @@ class MultigridSolver:
     def work(self):
         self.levels[1].startup()
         macroscopics = self.levels[1].get_macroscopics()
-        for i in range(min(self.timesteps, 25)):
+        for i in range(min(self.timesteps, 50)):
             self.levels[1].perform_smoothing()
             macroscopics = self.levels[1].get_macroscopics()
         # now switch to fine mesh
@@ -254,7 +254,7 @@ class MultigridSolver:
         self.levels[0].startup()
         self.levels[0].init_from_macroscopics(self.levels[0].macroscopics)
         macroscopics = self.levels[0].get_macroscopics()
-        for i in range(max(self.timesteps-25, 0)):
+        for i in range(max(self.timesteps-50, 0)):
             self.levels[0].perform_smoothing()
             macroscopics = self.levels[0].get_macroscopics()
 
