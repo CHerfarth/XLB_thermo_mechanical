@@ -172,8 +172,8 @@ def get_force_load(manufactured_displacement, x, y):
     man_v = manufactured_displacement[1]
     b_x = -mu * (sympy.diff(man_u, x, x) + sympy.diff(man_u, y, y)) - K * sympy.diff(sympy.diff(man_u, x) + sympy.diff(man_v, y), x)
     b_y = -mu * (sympy.diff(man_v, x, x) + sympy.diff(man_v, y, y)) - K * sympy.diff(sympy.diff(man_u, x) + sympy.diff(man_v, y), y)
-    #bx_scaled = b_x * L * L * kappa * (dt / T)
-    #by_scaled = b_y * L * L * kappa * (dt / T)
+    # bx_scaled = b_x * L * L * kappa * (dt / T)
+    # by_scaled = b_y * L * L * kappa * (dt / T)
     return (np.vectorize(sympy.lambdify([x, y], b_x, "numpy")), np.vectorize(sympy.lambdify([x, y], b_y, "numpy")))
 
 

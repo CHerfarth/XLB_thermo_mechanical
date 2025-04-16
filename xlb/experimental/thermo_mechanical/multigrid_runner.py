@@ -35,8 +35,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 128
-    nodes_y = 128
+    nodes_x = 256
+    nodes_y = 256
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
     nodes_x_2 = (int)(nodes_x * 0.5)
     nodes_y_2 = (int)(nodes_y * 0.5)
@@ -63,17 +63,13 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x)*sympy.sin(2*sympy.pi*y)  # + 3
-    manufactured_v = sympy.cos(2 * sympy.pi * y)*sympy.sin(2*sympy.pi*x)  # + 3
+    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)  # + 3
+    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
     ])
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y)
-    expected_displacement_2 = np.array([
-        utils.get_function_on_grid(manufactured_u, x, y, dx_2, grid_2),
-        utils.get_function_on_grid(manufactured_v, x, y, dx_2, grid_2),
-    ])
 
     # get expected stress
     s_xx, s_yy, s_xy = utils.get_expected_stress((manufactured_u, manufactured_v), x, y)
@@ -81,11 +77,6 @@ if __name__ == "__main__":
         utils.get_function_on_grid(s_xx, x, y, dx, grid),
         utils.get_function_on_grid(s_yy, x, y, dx, grid),
         utils.get_function_on_grid(s_xy, x, y, dx, grid),
-    ])
-    expected_stress_2 = np.array([
-        utils.get_function_on_grid(s_xx, x, y, dx_2, grid_2),
-        utils.get_function_on_grid(s_yy, x, y, dx_2, grid_2),
-        utils.get_function_on_grid(s_xy, x, y, dx_2, grid_2),
     ])
 
     potential, boundary_array, boundary_values = None, None, None
@@ -95,10 +86,33 @@ if __name__ == "__main__":
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
     norms_over_time = list()
 
-    multigrid_solver = MultigridSolver(nodes_x=nodes_x, nodes_y=nodes_y, dx=dx, dt=dt, E=E, nu=nu, force_load=force_load, gamma=0.8, timesteps=timesteps, max_levels=5) 
-    
+    multigrid_solver = MultigridSolver(
+        nodes_x=nodes_x,
+        nodes_y=nodes_y,
+        length_x=length_x,
+        length_y=length_y,
+        dt=dt,
+        E=E,
+        nu=nu,
+        force_load=force_load,
+        gamma=0.8,
+        timesteps=timesteps,
+        max_levels=7,
+    )
+
     for i in range(timesteps):
         macroscopics = multigrid_solver.work(i, return_macroscopics=True)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
 
-    
+    write_results(norms_over_time, "multigrid_results.csv")
+
+    #perform simulation on only one grid
+    norms_over_time = list()
+    multigrid_solver.levels[0].set_to_zero()
+    for i in range(timesteps):
+        multigrid_solver.levels[0].perform_smoothing()
+        macroscopics = multigrid_solver.levels[0].stepper.get_macroscopics(multigrid_solver.levels[0].f_1)
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
+
+
+    write_results(norms_over_time, "results.csv")
