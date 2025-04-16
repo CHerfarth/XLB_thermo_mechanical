@@ -35,8 +35,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 20
-    nodes_y = 20
+    nodes_x = 80
+    nodes_y = 80
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
     nodes_x_2 = (int)(nodes_x * 0.5)
     nodes_y_2 = (int)(nodes_y * 0.5)
@@ -63,8 +63,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x)  # + 3
-    manufactured_v = sympy.cos(2 * sympy.pi * y)  # + 3
+    manufactured_u = sympy.cos(2 * sympy.pi * x)*sympy.sin(2*sympy.pi*y)  # + 3
+    manufactured_v = sympy.cos(2 * sympy.pi * y)*sympy.sin(2*sympy.pi*x)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx_2)
     norms_over_time = list()
 
-    '''for i in range(timesteps):
+    for i in range(timesteps):
         multigrid_solver = MultigridSolver(
             nodes_x=nodes_x,
             nodes_y=nodes_y,
@@ -121,26 +121,7 @@ if __name__ == "__main__":
 
 
         # write out error norms
-        print(l2_disp, linf_disp, l2_stress, linf_stress)'''
-    
-    multigrid_solver = MultigridSolver(
-            nodes_x=nodes_x,
-            nodes_y=nodes_y,
-            length_x=length_x,
-            length_y=length_y,
-            dt=dt,
-            E=E,
-            nu=nu,
-            force_load=force_load,
-            gamma=0.8,
-            timesteps=200,
-            max_levels=2,
-        )
-    macroscopics, macroscopics_fine = multigrid_solver.work()    
-    i = 200
-    l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics_fine, expected_macroscopics, i, dx, norms_over_time)
-    utils.output_image(macroscopics_fine, i, "figure1", None, None)
-    l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics_2, i, dx*2, norms_over_time)
-    utils.output_image(macroscopics, i, "figure2", None, None)
+        print(l2_disp, linf_disp, l2_stress, linf_stress)
+
     write_results(norms_over_time, "results.csv")
-    print("done")
+    

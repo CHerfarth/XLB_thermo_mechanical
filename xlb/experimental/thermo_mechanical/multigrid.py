@@ -45,7 +45,7 @@ class Level:
         self.relax = relaxation
 
         @wp.kernel
-        def set_from_macroscopics(macroscopics: Any, f_fine: Any, theta: Any, K: Any, mu: Any, L: Any, T: Any):
+        def set_from_macroscopics(macroscopics: Any, f: Any, force: Any, theta: Any, K: Any, mu: Any, L: Any, T: Any):
             i, j, k = wp.tid()
             u_x = macroscopics[0,i,j,0] 
             u_y = macroscopics[1,i,j,0] 
@@ -59,15 +59,14 @@ class Level:
             for l in range(9):
                 x_dir = c[0, l]
                 y_dir = c[1, l]
-                #printf("l: %d, x_dir: %f, y_dir: %f\n", l, x_dir, y_dir)
                 if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 1.0) < 1e-3: #case V1
-                    f_fine[l, i, j, 0] = (1.-theta)*0.5*(x_dir*u_x + y_dir*u_y)
-                    #f_fine[l, i, j, 0] += -(1.-theta+4.*K)*s_s/(8.*K)
-                    #f_fine[l, i, j, 0] += -x_dir*y_dir*(1.-theta-4.*mu)*s_d/(8.*mu)
+                    f[l, i, j, 0] = (1.-theta)*0.5*(x_dir*(u_x-0.5*force[0,i,j,0]) + y_dir*(u_y-0.5*force[1,i,j,0]))
+                    f[l, i, j, 0] += -(1.-theta+4.*K)*s_s/(8.*K)
+                    f[l, i, j, 0] += -x_dir*y_dir*(1.-theta-4.*mu)*s_d/(8.*mu)
                 if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.0) < 1e-3: #case V2
-                    f_fine[l, i, j, 0] = 0.25*theta*(x_dir*u_x + y_dir*u_y)
-                    #f_fine[l, i, j, 0] += -theta*s_s/(8.*K)
-                    #f_fine[l, i, j, 0] += -x_dir*y_dir*(theta+2.*mu)*s_xy/(8.*mu)
+                    f[l, i, j, 0] = 0.25*theta*(x_dir*(u_x) + y_dir*(u_y))
+                    f[l, i, j, 0] += theta*s_s/(8.*K) #careful! changed sign compared to paper
+                    f[l, i, j, 0] += -x_dir*y_dir*(theta+2.*mu)*s_xy/(8.*mu)
 
         self.set_from_macroscopics = set_from_macroscopics
 
@@ -88,7 +87,7 @@ class Level:
         mu = solid_simulation.mu
         L = solid_simulation.L
         T = solid_simulation.T
-        wp.launch(self.set_from_macroscopics, inputs=[macroscopics, self.f_1, theta, K, mu, L, T], dim=self.f_1.shape[1:])
+        wp.launch(self.set_from_macroscopics, inputs=[macroscopics, self.f_1, self.stepper.force, theta, K, mu, L, T], dim=self.f_1.shape[1:])
 
     def set_defect_correction(self):
         self.stepper(self.f_4, self.f_3)  # perform one step of operator on restricted finer grid approximation
@@ -180,7 +179,7 @@ def interpolate(coarse: Any, fine: Any, nodes_x_coarse: wp.int32, nodes_y_coarse
         )
 
 
-@wp.func
+@wp.kernel
 def restrict(coarse: Any, fine: Any, dim: Any):
     i, j, k = wp.tid()
     for l in range(dim):
@@ -246,7 +245,7 @@ class MultigridSolver:
     def work(self):
         self.levels[1].startup()
         macroscopics = self.levels[1].get_macroscopics()
-        for i in range(min(self.timesteps, 50)):
+        for i in range(min(self.timesteps, 25)):
             self.levels[1].perform_smoothing()
             macroscopics = self.levels[1].get_macroscopics()
         # now switch to fine mesh
@@ -254,7 +253,15 @@ class MultigridSolver:
         wp.launch(interpolate, inputs=[macroscopics_device, self.levels[0].macroscopics, self.levels[1].nodes_x, self.levels[1].nodes_y, 5], dim=self.levels[1].f_1.shape[1:])
         self.levels[0].startup()
         self.levels[0].init_from_macroscopics(self.levels[0].macroscopics)
-        for i in range(max(self.timesteps-50, 0)):
+        macroscopics = self.levels[0].get_macroscopics()
+        for i in range(max(self.timesteps-25, 0)):
+            self.levels[0].perform_smoothing()
+            macroscopics = self.levels[0].get_macroscopics()
+
+
+        '''self.levels[0].startup()
+        macroscopics = self.levels[0].get_macroscopics()
+        for i in range(min(self.timesteps, 50)):
             self.levels[0].perform_smoothing()
             macroscopics = self.levels[0].get_macroscopics()
         # now switch to fine mesh
@@ -264,5 +271,5 @@ class MultigridSolver:
         self.levels[1].init_from_macroscopics(self.levels[1].macroscopics)
         for i in range(max(self.timesteps-50, 0)):
             self.levels[1].perform_smoothing()
-            macroscopics = self.levels[1].get_macroscopics()
+            macroscopics = self.levels[1].get_macroscopics()'''
         return macroscopics
