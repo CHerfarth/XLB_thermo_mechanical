@@ -35,8 +35,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 80
-    nodes_y = 80
+    nodes_x = 128
+    nodes_y = 128
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
     nodes_x_2 = (int)(nodes_x * 0.5)
     nodes_y_2 = (int)(nodes_y * 0.5)
@@ -51,8 +51,8 @@ if __name__ == "__main__":
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     dx_2 = length_x / float(nodes_x_2)
-    timesteps = 100
-    dt = 0.001
+    timesteps = 1000
+    dt = 0.0001
 
     # params
     E = 0.085 * 2.5
@@ -92,36 +92,13 @@ if __name__ == "__main__":
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
-    expected_macroscopics_2 = np.concatenate((expected_displacement_2, expected_stress_2), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
-    expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx_2)
     norms_over_time = list()
 
+    multigrid_solver = MultigridSolver(nodes_x=nodes_x, nodes_y=nodes_y, dx=dx, dt=dt, E=E, nu=nu, force_load=force_load, gamma=0.8, timesteps=timesteps, max_levels=5) 
+    
     for i in range(timesteps):
-        multigrid_solver = MultigridSolver(
-            nodes_x=nodes_x,
-            nodes_y=nodes_y,
-            length_x=length_x,
-            length_y=length_y,
-            dt=dt,
-            E=E,
-            nu=nu,
-            force_load=force_load,
-            gamma=0.8,
-            timesteps=i,
-            max_levels=2,
-        )
-        macroscopics = multigrid_solver.work()
-        try:
-            l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
-            utils.output_image(macroscopics, i, "figure1", None, None)
-        except:
-            l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics_2, i, dx*2, norms_over_time)
-            utils.output_image(macroscopics, i, "figure2", None, None)
+        macroscopics = multigrid_solver.work(i, return_macroscopics=True)
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
 
-
-        # write out error norms
-        print(l2_disp, linf_disp, l2_stress, linf_stress)
-
-    write_results(norms_over_time, "results.csv")
     

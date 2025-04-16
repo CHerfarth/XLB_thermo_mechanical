@@ -79,7 +79,7 @@ class Level:
         theta = solid_simulation.theta
         solid_simulation.set_parameters(E=E, nu=nu, dx=self.dx, dt=self.dt, L=self.dx, T=self.dt, kappa=kappa, theta=theta)
     
-    def init_from_macroscopics(self, macroscopics):
+    def init_from_macroscopics(self, macroscopics, destination):
         self.startup()
         solid_simulation = SimulationParams()
         theta = solid_simulation.theta
@@ -87,7 +87,7 @@ class Level:
         mu = solid_simulation.mu
         L = solid_simulation.L
         T = solid_simulation.T
-        wp.launch(self.set_from_macroscopics, inputs=[macroscopics, self.f_1, self.stepper.force, theta, K, mu, L, T], dim=self.f_1.shape[1:])
+        wp.launch(self.set_from_macroscopics, inputs=[macroscopics, destination, self.stepper.force, theta, K, mu, L, T], dim=self.f_1.shape[1:])
 
     def set_defect_correction(self):
         self.stepper(self.f_4, self.f_3)  # perform one step of operator on restricted finer grid approximation
@@ -238,38 +238,33 @@ class MultigridSolver:
                 precision_policy=precision_policy,
             )
             self.levels.append(level)
-
-        assert self.max_levels == 2
-
-
-    def work(self):
-        self.levels[1].startup()
-        macroscopics = self.levels[1].get_macroscopics()
-        for i in range(min(self.timesteps, 25)):
-            self.levels[1].perform_smoothing()
-            macroscopics = self.levels[1].get_macroscopics()
-        # now switch to fine mesh
-        macroscopics_device = self.levels[1].stepper.get_macroscopics_device(self.levels[1].f_1)
-        wp.launch(interpolate, inputs=[macroscopics_device, self.levels[0].macroscopics, self.levels[1].nodes_x, self.levels[1].nodes_y, 5], dim=self.levels[1].f_1.shape[1:])
-        self.levels[0].startup()
-        self.levels[0].init_from_macroscopics(self.levels[0].macroscopics)
-        macroscopics = self.levels[0].get_macroscopics()
-        for i in range(max(self.timesteps-25, 0)):
-            self.levels[0].perform_smoothing()
-            macroscopics = self.levels[0].get_macroscopics()
-
-
-        '''self.levels[0].startup()
-        macroscopics = self.levels[0].get_macroscopics()
-        for i in range(min(self.timesteps, 50)):
-            self.levels[0].perform_smoothing()
-            macroscopics = self.levels[0].get_macroscopics()
-        # now switch to fine mesh
-        macroscopics_device = self.levels[0].stepper.get_macroscopics_device(self.levels[0].f_1)
-        wp.launch(restrict, inputs=[self.levels[1].macroscopics, macroscopics_device, 5], dim=self.levels[1].f_1.shape[1:])
-        self.levels[1].startup()
-        self.levels[1].init_from_macroscopics(self.levels[1].macroscopics)
-        for i in range(max(self.timesteps-50, 0)):
-            self.levels[1].perform_smoothing()
-            macroscopics = self.levels[1].get_macroscopics()'''
+        self.current_level_num = self.max_levels - 1
+        self.iterations_per_level = 100
+    
+    def get_macroscopics_on_finest_grid(self):
+        level_num = self.current_level_num
+        while (level_num > 0):
+            coarse_level = self.levels[level_num]
+            fine_level = self.levels[level_num - 1]
+            coarse_macroscopics = coarse_level.stepper.get_macroscopics(coarse_level.f_1)
+            # Interpolate the macroscopics from the coarse level to the fine level
+            wp.launch(interpolate, inputs=[coarse_macroscopics, fine_level.macroscopics, coarse_level.nodes_x, coarse_level.nodes_y, 5], dim=fine_level.f_1.shape[1:])
+            fine_level.init_from_macroscopics(fine_level.macroscopics, fine_level.f_1)
+            level_num -= 1
+        # Now we are on the finest level
+        macroscopics = self.levels[0].stepper.get_macroscopics(self.levels[0].f_1)
         return macroscopics
+
+    def work(self, timestep, return_macroscopics=False):
+        if timestep != 0 and (timestep % self.iterations_per_level) == 0 and self.current_level_num != 0: #transfer to lower grid
+            previous_level = self.levels[self.current_level_num]
+            self.current_level_num = max(0, self.current_level_num - 1)
+            current_level = self.levels[self.current_level_num]
+            previous_macroscopics = previous_level.stepper.get_macroscopics(previous_level.f_1)
+            # Interpolate the macroscopics from the previous level to the current level
+            wp.launch(interpolate, inputs=[previous_macroscopics, current_level.macroscopics, previous_level.nodes_x, previous_level.nodes_y, 5], dim=current_level.f_1.shape[1:])
+            current_level.init_from_macroscopics(current_level.macroscopics, current_level.f_1)
+        level = self.levels[self.current_level_num]
+        level.perform_smoothing()
+        if (return_macroscopics):
+            return self.get_macroscopics_on_finest_grid()
