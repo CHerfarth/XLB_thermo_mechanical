@@ -253,7 +253,7 @@ class MultigridSolver:
         wp.launch(interpolate, inputs=[macroscopics_device, self.levels[0].macroscopics, self.levels[1].nodes_x, self.levels[1].nodes_y, 5], dim=self.levels[1].f_1.shape[1:])
         self.levels[0].startup()
         self.levels[0].init_from_macroscopics(self.levels[0].macroscopics)
-        macroscopics = self.levels[0].get_macroscopics()
+        #macroscopics = self.levels[0].get_macroscopics()
         for i in range(max(self.timesteps-50, 0)):
             self.levels[0].perform_smoothing()
             macroscopics = self.levels[0].get_macroscopics()

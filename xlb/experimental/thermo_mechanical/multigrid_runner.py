@@ -94,7 +94,7 @@ if __name__ == "__main__":
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics_2 = np.concatenate((expected_displacement_2, expected_stress_2), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
-    expected_macroscopics_2 = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx_2)
+    expected_macroscopics_2 = utils.restrict_solution_to_domain(expected_macroscopics_2, potential, dx_2)
     norms_over_time = list()
 
     for i in range(timesteps):
@@ -112,12 +112,13 @@ if __name__ == "__main__":
             max_levels=2,
         )
         macroscopics = multigrid_solver.work()
+        l2_disp, linf_disp, l2_stress, linf_stress = 0,0,0,0
         try:
             l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
-            utils.output_image(macroscopics, i, "figure1", None, None)
+            #utils.output_image(macroscopics, i, "figure1", None, None)
         except:
             l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics_2, i, dx*2, norms_over_time)
-            utils.output_image(macroscopics, i, "figure2", None, None)
+            #utils.output_image(macroscopics, i, "figure2", None, None)
 
 
         # write out error norms
