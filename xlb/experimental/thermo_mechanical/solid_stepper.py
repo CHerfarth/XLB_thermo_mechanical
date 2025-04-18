@@ -115,7 +115,7 @@ class SolidsStepper(Stepper):
                 bared_moments=bared_moments,
             )
 
-    def get_macroscopics(self, f):
+    def get_macroscopics_host(self, f):
         # get updated displacement
         return self.macroscopic.get_macroscopics_host(f)
 
