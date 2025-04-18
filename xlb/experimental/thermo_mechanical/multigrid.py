@@ -40,7 +40,7 @@ class Level:
             i, j, k = wp.tid()
             for l in range(velocity_set.q):
                 f_destination[l, i, j, 0] = (
-                    gamma * (f_after_stream[l, i, j, 0] + defect_correction[l, i, j, 0]) + (1.0 - gamma) * f_previous[l, i, j, 0]
+                    gamma * (f_after_stream[l, i, j, 0] + 0.*defect_correction[l, i, j, 0]) + (1.0 - gamma) * f_previous[l, i, j, 0]
                 )
 
         self.relax = relaxation
@@ -62,12 +62,12 @@ class Level:
                 y_dir = c[1, l]
                 if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 1.0) < 1e-3:  # case V1
                     f[l, i, j, 0] = (1.0 - theta) * 0.5 * (x_dir * (u_x - 0.5 * force[0, i, j, 0]) + y_dir * (u_y - 0.5 * force[1, i, j, 0]))
-                    f[l, i, j, 0] += -(1.0 - theta + 4.0 * K) * s_s / (8.0 * K)
-                    f[l, i, j, 0] += -x_dir * y_dir * (1.0 - theta - 4.0 * mu) * s_d / (8.0 * mu)
+                    #f[l, i, j, 0] += -(1.0 - theta + 4.0 * K) * s_s / (8.0 * K)
+                    #f[l, i, j, 0] += -x_dir * y_dir * (1.0 - theta - 4.0 * mu) * s_d / (8.0 * mu)
                 if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.0) < 1e-3:  # case V2
                     f[l, i, j, 0] = 0.25 * theta * (x_dir * (u_x) + y_dir * (u_y))
-                    f[l, i, j, 0] += theta * s_s / (8.0 * K)  # careful! changed sign compared to paper
-                    f[l, i, j, 0] += -x_dir * y_dir * (theta + 2.0 * mu) * s_xy / (8.0 * mu)
+                    #f[l, i, j, 0] += theta * s_s / (8.0 * K)  # careful! changed sign compared to paper
+                    #f[l, i, j, 0] += -x_dir * y_dir * (theta + 2.0 * mu) * s_xy / (8.0 * mu)
 
         self.set_from_macroscopics = set_from_macroscopics
 
@@ -112,15 +112,20 @@ class Level:
         self.startup()
         wp.launch(utils.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_1, self.f_2)
-        self.f_1, self.f_2 = self.f_2, self.f_1
+        #self.f_1, self.f_2 = self.f_2, self.f_1
         # wp.launch(utils.add_populations, inputs=[self.f_2, self.defect_correction, self.f_2, 9], dim=self.f_1.shape[1:])
-        # wp.launch(self.relax, inputs=[self.f_2, self.f_3, self.defect_correction, self.f_1, self.gamma], dim=self.f_1.shape[1:])
+        wp.launch(self.relax, inputs=[self.f_2, self.f_3, self.defect_correction, self.f_1, self.gamma], dim=self.f_1.shape[1:])
 
         if get_residual:
             wp.launch(utils.get_residual, inputs=[self.f_3, self.f_1, self.residual, self.velocity_set.q], dim=self.f_1.shape[1:])
 
     def get_macroscopics(self):
+        self.startup()
         return self.stepper.get_macroscopics(self.f_1)
+    
+    def get_macroscopics_device(self):
+        self.startup()
+        return self.stepper.get_macroscopics_device(self.f_1)
 
     def info(self):
         """
@@ -225,12 +230,14 @@ class MultigridSolver:
 
         # setup levels
         self.levels = list()
+        self.iterations_on_level = list()
         for i in range(self.max_levels):
-            nx_level = (nodes_x - 1) // (2**i) + 1  # IMPORTANT: only works with nodes as power of two at the moment
-            ny_level = (nodes_y - 1) // (2**i) + 1
+            nx_level = int((nodes_x) / (2**i))  # IMPORTANT: only works with nodes as power of two at the moment
+            ny_level = int((nodes_y) / (2**i))
             dx = length_x / float(nx_level)
             dy = length_y / float(ny_level)
-            dt_level = dt * (4**i)
+            dt_level = dt * (2**i) #!!!
+            print("Level: {}, dx: {}, dt: {}".format(i, dx, dt_level))
             assert math.isclose(dx, dy)
             level = Level(
                 nodes_x=nx_level,
@@ -244,15 +251,16 @@ class MultigridSolver:
                 precision_policy=precision_policy,
             )
             self.levels.append(level)
+            self.iterations_on_level.append(2**(self.max_levels - i + 1))
         self.current_level_num = self.max_levels - 1
-        self.iterations_per_level = 100
+        self.current_iterations = 0
 
     def get_macroscopics_on_finest_grid(self):
         level_num = self.current_level_num
         while level_num > 0:
             coarse_level = self.levels[level_num]
             fine_level = self.levels[level_num - 1]
-            coarse_macroscopics = coarse_level.stepper.get_macroscopics_device(coarse_level.f_1)
+            coarse_macroscopics = coarse_level.get_macroscopics_device()
             # Interpolate the macroscopics from the coarse level to the fine level
             wp.launch(
                 interpolate,
@@ -266,11 +274,11 @@ class MultigridSolver:
         return macroscopics
 
     def work(self, timestep, return_macroscopics=False):
-        if timestep != 0 and (timestep % self.iterations_per_level) == 0 and self.current_level_num != 0:  # transfer to lower grid
+        if timestep != 0 and (self.current_iterations - self.iterations_on_level[self.current_level_num]) == 0 and self.current_level_num != 0:  # transfer to lower grid
             previous_level = self.levels[self.current_level_num]
-            self.current_level_num = max(0, self.current_level_num - 1)
+            self.current_level_num += -1
             current_level = self.levels[self.current_level_num]
-            previous_macroscopics = previous_level.stepper.get_macroscopics_device(previous_level.f_1)
+            previous_macroscopics = previous_level.get_macroscopics_device()
             # Interpolate the macroscopics from the previous level to the current level
             wp.launch(
                 interpolate,
@@ -278,7 +286,10 @@ class MultigridSolver:
                 dim=previous_level.macroscopics.shape[1:],
             )
             current_level.init_from_macroscopics(current_level.macroscopics, current_level.f_1)
+            self.current_iterations = 0
+            print("Timestep: {}, Changing to Level: {}".format(timestep, self.current_level_num))
         level = self.levels[self.current_level_num]
         level.perform_smoothing()
+        self.current_iterations += 1
         if return_macroscopics:
             return self.get_macroscopics_on_finest_grid()

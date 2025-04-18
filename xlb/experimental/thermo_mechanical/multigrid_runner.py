@@ -17,6 +17,7 @@ import xlb.experimental.thermo_mechanical.solid_bounceback as bc
 from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
+import timeit
 
 
 def write_results(norms_over_time, name):
@@ -35,14 +36,9 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x = 256
-    nodes_y = 256
+    nodes_x = 512
+    nodes_y = 512
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
-    nodes_x_2 = (int)(nodes_x * 0.5)
-    nodes_y_2 = (int)(nodes_y * 0.5)
-    grid_2 = grid_factory((nodes_x_2, nodes_y_2), compute_backend=compute_backend)
-    print(type(grid))
-    print(type(grid_2))
 
     # get discretization
     length_x = 1
@@ -50,7 +46,6 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    dx_2 = length_x / float(nodes_x_2)
     timesteps = 1000
     dt = 0.0001
 
@@ -84,8 +79,8 @@ if __name__ == "__main__":
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
-    norms_over_time = list()
 
+    norms_over_time = list()
     multigrid_solver = MultigridSolver(
         nodes_x=nodes_x,
         nodes_y=nodes_y,
@@ -100,19 +95,24 @@ if __name__ == "__main__":
         max_levels=7,
     )
 
+    start = timeit.default_timer()
     for i in range(timesteps):
         macroscopics = multigrid_solver.work(i, return_macroscopics=True)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
 
+    stop = timeit.default_timer()
+    print("Time taken Multigrid: ", stop - start)
     write_results(norms_over_time, "multigrid_results.csv")
 
     #perform simulation on only one grid
     norms_over_time = list()
     multigrid_solver.levels[0].set_to_zero()
+    start = timeit.default_timer()
     for i in range(timesteps):
         multigrid_solver.levels[0].perform_smoothing()
         macroscopics = multigrid_solver.levels[0].stepper.get_macroscopics(multigrid_solver.levels[0].f_1)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
-
+    stop = timeit.default_timer()
+    print("Time taken Single Grid: ", stop - start)
 
     write_results(norms_over_time, "results.csv")
