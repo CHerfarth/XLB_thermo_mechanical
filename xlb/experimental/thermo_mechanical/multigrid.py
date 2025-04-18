@@ -250,7 +250,7 @@ class MultigridSolver:
             ny_level = int((nodes_y) / (2**i))
             dx = length_x / float(nx_level)
             dy = length_y / float(ny_level)
-            dt_level = dt * (2**i) #!!!
+            dt_level = dt*(2**i) #!!!
             print("Level: {}, dx: {}, dt: {}".format(i, dx, dt_level))
             assert math.isclose(dx, dy)
             level = Level(
@@ -278,7 +278,7 @@ class MultigridSolver:
             # Interpolate the macroscopics from the coarse level to the fine level
             wp.launch(
                 interpolate,
-                inputs=[coarse_macroscopics, fine_level.macroscopics, coarse_level.nodes_x, coarse_level.nodes_y, 5],
+                inputs=[coarse_macroscopics, fine_level.macroscopics, coarse_level.nodes_x, coarse_level.nodes_y, 9],
                 dim=coarse_level.macroscopics.shape[1:],
             )
             fine_level.init_from_macroscopics(fine_level.macroscopics, fine_level.f_1)
@@ -296,7 +296,7 @@ class MultigridSolver:
             # Interpolate the macroscopics from the previous level to the current level
             wp.launch(
                 interpolate,
-                inputs=[previous_macroscopics, current_level.macroscopics, previous_level.nodes_x, previous_level.nodes_y, 5],
+                inputs=[previous_macroscopics, current_level.macroscopics, previous_level.nodes_x, previous_level.nodes_y, 9],
                 dim=previous_level.macroscopics.shape[1:],
             )
             current_level.init_from_macroscopics(current_level.macroscopics, current_level.f_1)
