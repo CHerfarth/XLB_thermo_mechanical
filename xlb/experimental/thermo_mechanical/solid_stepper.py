@@ -101,7 +101,7 @@ class SolidsStepper(Stepper):
         params = SimulationParams()
         theta = params.theta
         wp.launch(utils.copy_populations, inputs=[f_2, self.temp_f, self.velocity_set.q], dim=f_1.shape[1:])
-        self.macroscopic(f_1)  # update bared moments (needed for BC)
+        bared_moments = self.macroscopic.get_bared_moments_device(f_1)
         # Collision Stage
         wp.launch(self.collision.warp_kernel, inputs=[f_1, self.force, self.omega, theta], dim=f_1.shape[1:])
         # Streaming Stage
@@ -112,17 +112,13 @@ class SolidsStepper(Stepper):
                 f_destination=f_2,
                 f_post_collision=f_1,
                 f_previous_post_collision=self.temp_f,
-                bared_moments=self.macroscopic.get_bared_moments_device(),
+                bared_moments=bared_moments,
             )
 
     def get_macroscopics(self, f):
-        # udate bared moments
-        self.macroscopic(f)
         # get updated displacement
-        return self.macroscopic.get_macroscopics_host()
+        return self.macroscopic.get_macroscopics_host(f)
 
     def get_macroscopics_device(self, f):
-        # udate bared moments
-        self.macroscopic(f)
         # get updated displacement
-        return self.macroscopic.get_macroscopics_device()
+        return self.macroscopic.get_macroscopics_device(f)
