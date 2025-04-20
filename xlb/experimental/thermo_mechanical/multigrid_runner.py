@@ -45,13 +45,13 @@ if __name__ == "__main__":
     print(type(grid_2))
 
     # get discretization
-    length_x = 1
-    length_y = 1
+    length_x = 1.
+    length_y = 1.
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     dx_2 = length_x / float(nodes_x_2)
-    timesteps = 300
+    timesteps = 50
     dt = 0.001
 
     # params
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     nu = 0.8
 
     solid_simulation = SimulationParams()
-    solid_simulation.set_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1, theta=1.0 / 3.0)
+    solid_simulation.set_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
 
     # get force load
     x, y = sympy.symbols("x y")
@@ -106,12 +106,14 @@ if __name__ == "__main__":
             nu=nu,
             force_load=force_load,
             gamma=0.8,
-            timesteps=timesteps,
-            max_levels=2,
+            v1=2,
+            v2=2,
+            max_levels=3,
         )
+    finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps):
-        macroscopics = multigrid_solver.work() 
-        l2_disp, linf_disp, l2_stress, linf_stress = 0,0,0,0
+        finest_level.start_v_cycle()
+        macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
 
         # write out error norms

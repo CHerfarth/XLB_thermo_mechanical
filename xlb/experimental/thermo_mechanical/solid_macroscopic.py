@@ -142,7 +142,7 @@ class SolidMacroscopics(Operator):
         T = params.T
         L = params.L
         theta = params.theta
-        kappa = params.kappa
+        kappa = float(params.kappa)
         self.update_bared_moments(f)
         wp.launch(
             self.calc_macroscopics_kernel,

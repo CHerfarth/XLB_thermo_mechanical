@@ -12,7 +12,7 @@ from typing import Any
 
 
 class Level:
-    def __init__(self, nodes_x, nodes_y, dx, dt, force_load, gamma, compute_backend, velocity_set, precision_policy):
+    def __init__(self, nodes_x, nodes_y, dx, dt, force_load, gamma, v1, v2, level_num, multigrid, compute_backend, velocity_set, precision_policy):
         wp.config.mode = "debug"
         self.grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
         self.nodes_x = nodes_x
@@ -24,6 +24,7 @@ class Level:
         self.dx = dx
         self.dt = dt
         self.startup()
+        self.multigrid = multigrid
         # setup grids
         self.f_1 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.f_2 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
@@ -34,13 +35,16 @@ class Level:
         self.defect_correction = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         # setup stepper
         self.stepper = SolidsStepper(self.grid, force_load)
+        self.v1 = v1
+        self.v2 = v2
+        self.level_num = level_num
 
         @wp.kernel
         def relaxation(f_after_stream: Any, f_previous: Any, defect_correction: Any, f_destination: Any, gamma: wp.float32):
             i, j, k = wp.tid()
             for l in range(velocity_set.q):
                 f_destination[l, i, j, 0] = (
-                    gamma * (f_after_stream[l, i, j, 0] + 0.*defect_correction[l, i, j, 0]) + (1.0 - gamma) * f_previous[l, i, j, 0]
+                    gamma * (f_after_stream[l, i, j, 0] + defect_correction[l, i, j, 0]) + (1.0 - gamma) * f_previous[l, i, j, 0]
                 )
                 #f_destination[l, i, j, 0] = f_after_stream[l, i, j, 0] + defect_correction[l, i, j, 0]
 
@@ -85,6 +89,39 @@ class Level:
         self.startup()
         return self.stepper.get_macroscopics_host(self.f_1)
     
+
+    def start_v_cycle(self):
+        coarse = self.multigrid.get_next_level(self.level_num)
+
+        for i in range(self.v1 - 1):
+            self.perform_smoothing(get_residual=False)
+        residual = self.perform_smoothing(get_residual=True)
+
+        if (coarse != None):
+            wp.launch(restrict, inputs=[coarse.f_1, self.f_1, 9], dim=coarse.f_1.shape[1:])
+            wp.launch(restrict, inputs=[coarse.residual, residual, 9], dim=coarse.defect_correction.shape[1:])
+            wp.launch(restrict, inputs=[coarse.f_4, self.f_1, 9], dim=coarse.f_4.shape[1:])
+            coarse.set_defect_correction()
+            #add own defect correction to defect correction of next level
+            wp.launch(restrict, inputs=[coarse.f_3, self.defect_correction, 9], dim=coarse.f_3.shape[1:])
+            #wp.launch(utils.multiply_populations, inputs=[coarse.f_3, 4., 9], dim=coarse.f_3.shape[1:])
+            wp.launch(utils.add_populations, inputs=[coarse.f_3, coarse.defect_correction, coarse.defect_correction, 9], dim=coarse.f_3.shape[1:])
+
+            coarse.start_v_cycle()
+            
+            error_approx = coarse.get_error_approx()
+            wp.launch(interpolate, inputs=[error_approx, self.f_4, coarse.nodes_x, coarse.nodes_y, 9], dim=coarse.f_4.shape[1:])
+            wp.launch(utils.multiply_populations, inputs=[self.f_4, 0.25, 9], dim=self.f_4.shape[1:])
+            wp.launch(utils.add_populations, inputs=[self.f_1, self.f_4, self.f_1, 9], dim=self.f_1.shape[1:])
+        
+        for i in range(self.v2):
+            self.perform_smoothing(get_residual=False)
+
+
+
+
+
+
    
 @wp.kernel
 def interpolate(coarse: Any, fine: Any, nodes_x_coarse: wp.int32, nodes_y_coarse: wp.int32, dim: Any):
@@ -123,7 +160,7 @@ class MultigridSolver:
     A class implementing a multigrid iterative solver for elliptic PDEs.
     """
 
-    def __init__(self, nodes_x, nodes_y, length_x, length_y, dt, E, nu, force_load, gamma, timesteps, max_levels=None):
+    def __init__(self, nodes_x, nodes_y, length_x, length_y, dt, E, nu, force_load, gamma, v1, v2, max_levels=None):
         compute_backend = ComputeBackend.WARP
         precision_policy = PrecisionPolicy.FP32FP32
         velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
@@ -133,7 +170,6 @@ class MultigridSolver:
         solid_simulation.set_parameters(
             E=E, nu=nu, dx=1, dt=1, L=1, T=1, kappa=1, theta=1.0 / 3.0
         )  # just placeholder, so E and nu get past to all levels
-        self.timesteps = timesteps
 
         # TODO: boundary conditions
 
@@ -161,16 +197,27 @@ class MultigridSolver:
                 dt=dt_level,
                 force_load=force_load,
                 gamma=gamma,
+                v1=v1,
+                v2=v2,
+                level_num=i,
+                multigrid=self,
                 compute_backend=compute_backend,
                 velocity_set=velocity_set,
                 precision_policy=precision_policy,
             )
             self.levels.append(level)
 
-        assert self.max_levels == 2
 
+    def get_next_level(self, level_num):
+        if level_num + 1 < self.max_levels:
+            return self.levels[level_num + 1]
+        else:
+            return None
 
-    def work(self):
+    def get_finest_level(self):
+        return self.levels[0]
+
+    '''def work(self):
         fine = self.levels[0] 
         coarse = self.levels[1]
 
@@ -200,7 +247,7 @@ class MultigridSolver:
         for i in range(2):
             fine.perform_smoothing(get_residual=False)
 
-        return fine.get_macroscopics()
+        return fine.get_macroscopics()'''
 
         
 
