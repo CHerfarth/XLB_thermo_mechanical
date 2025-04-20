@@ -38,11 +38,6 @@ if __name__ == "__main__":
     nodes_x = 32
     nodes_y = 32
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
-    nodes_x_2 = (int)(nodes_x * 0.5)
-    nodes_y_2 = (int)(nodes_y * 0.5)
-    grid_2 = grid_factory((nodes_x_2, nodes_y_2), compute_backend=compute_backend)
-    print(type(grid))
-    print(type(grid_2))
 
     # get discretization
     length_x = 1.
@@ -50,8 +45,7 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    dx_2 = length_x / float(nodes_x_2)
-    timesteps = 50
+    timesteps = 70
     dt = 0.001
 
     # params
@@ -70,10 +64,6 @@ if __name__ == "__main__":
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
     ])
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y)
-    expected_displacement_2 = np.array([
-        utils.get_function_on_grid(manufactured_u, x, y, dx_2, grid_2),
-        utils.get_function_on_grid(manufactured_v, x, y, dx_2, grid_2),
-    ])
 
     # get expected stress
     s_xx, s_yy, s_xy = utils.get_expected_stress((manufactured_u, manufactured_v), x, y)
@@ -82,19 +72,12 @@ if __name__ == "__main__":
         utils.get_function_on_grid(s_yy, x, y, dx, grid),
         utils.get_function_on_grid(s_xy, x, y, dx, grid),
     ])
-    expected_stress_2 = np.array([
-        utils.get_function_on_grid(s_xx, x, y, dx_2, grid_2),
-        utils.get_function_on_grid(s_yy, x, y, dx_2, grid_2),
-        utils.get_function_on_grid(s_xy, x, y, dx_2, grid_2),
-    ])
 
     potential, boundary_array, boundary_values = None, None, None
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
-    expected_macroscopics_2 = np.concatenate((expected_displacement_2, expected_stress_2), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
-    expected_macroscopics_2 = utils.restrict_solution_to_domain(expected_macroscopics_2, potential, dx_2)
     norms_over_time = list()
     multigrid_solver = MultigridSolver(
             nodes_x=nodes_x,

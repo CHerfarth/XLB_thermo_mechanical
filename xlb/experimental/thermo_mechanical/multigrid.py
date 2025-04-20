@@ -44,7 +44,7 @@ class Level:
             i, j, k = wp.tid()
             for l in range(velocity_set.q):
                 f_destination[l, i, j, 0] = (
-                    gamma * (f_after_stream[l, i, j, 0] + defect_correction[l, i, j, 0]) + (1.0 - gamma) * f_previous[l, i, j, 0]
+                    gamma * (f_after_stream[l, i, j, 0] - defect_correction[l, i, j, 0]) + (1.0 - gamma) * f_previous[l, i, j, 0]
                 )
                 #f_destination[l, i, j, 0] = f_after_stream[l, i, j, 0] + defect_correction[l, i, j, 0]
 
@@ -54,9 +54,10 @@ class Level:
         self.startup()
         wp.launch(utils.copy_populations, inputs=[self.f_4, self.f_2, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_4, self.f_3)  # perform one step of operator on restricted finer grid approximation  
-        wp.launch(utils.subtract_populations, inputs=[self.f_2, self.f_3, self.f_4, 9], dim=self.f_4.shape[1:])
+        #rules for operator: A(f) = current - previous
+        wp.launch(utils.subtract_populations, inputs=[self.f_3, self.f_2, self.f_4, 9], dim=self.f_4.shape[1:])
         wp.launch(utils.multiply_populations, inputs=[self.residual, 4., 9], dim=self.f_4.shape[1:])
-        wp.launch(utils.subtract_populations, inputs=[self.f_4, self.residual, self.defect_correction, 9], dim=self.f_4.shape[1:])
+        wp.launch(utils.add_populations, inputs=[self.f_4, self.residual, self.defect_correction, 9], dim=self.f_4.shape[1:])
         wp.launch(utils.copy_populations, inputs=[self.f_2, self.f_4, 9], dim=self.f_1.shape[1:])
 
     def startup(self):
@@ -77,11 +78,14 @@ class Level:
         wp.launch(self.relax, inputs=[self.f_2, self.f_3, self.defect_correction, self.f_1, self.gamma], dim=self.f_1.shape[1:])
 
         if get_residual:
-            wp.launch(utils.subtract_populations, inputs=[self.f_3, self.f_1, self.residual, self.velocity_set.q], dim=self.f_1.shape[1:])
+            #rules for operator: A(f) = current - previous
+            # --> residual = defect_correction - current + previous 
+            wp.launch(utils.add_populations, inputs=[self.defect_correction, self.f_3, self.residual, 9], dim=self.defect_correction.shape[1:])
+            wp.launch(utils.subtract_populations, inputs=[self.residual, self.f_2, self.residual, 9], dim=self.residual.shape[1:])
             return self.residual
     
     def get_error_approx(self):
-        wp.launch(utils.subtract_populations, inputs=[self.f_4, self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
+        wp.launch(utils.subtract_populations, inputs=[self.f_1, self.f_4, self.f_3, 9], dim=self.f_1.shape[1:])
         return self.f_3
 
 
@@ -102,10 +106,6 @@ class Level:
             wp.launch(restrict, inputs=[coarse.residual, residual, 9], dim=coarse.defect_correction.shape[1:])
             wp.launch(restrict, inputs=[coarse.f_4, self.f_1, 9], dim=coarse.f_4.shape[1:])
             coarse.set_defect_correction()
-            #add own defect correction to defect correction of next level
-            wp.launch(restrict, inputs=[coarse.f_3, self.defect_correction, 9], dim=coarse.f_3.shape[1:])
-            #wp.launch(utils.multiply_populations, inputs=[coarse.f_3, 4., 9], dim=coarse.f_3.shape[1:])
-            wp.launch(utils.add_populations, inputs=[coarse.f_3, coarse.defect_correction, coarse.defect_correction, 9], dim=coarse.f_3.shape[1:])
 
             coarse.start_v_cycle()
             
