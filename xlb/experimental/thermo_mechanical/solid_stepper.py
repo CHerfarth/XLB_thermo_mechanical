@@ -61,8 +61,8 @@ class SolidsStepper(Stepper):
         # ----------handle force load---------
         b_x_scaled = lambda x_node, y_node: force_load[0](
             x_node * dx + 0.5 * dx, y_node * dx + 0.5 * dx
-        )*dt  # force now dimensionless, and can get called with the indices of the grid nodes
-        b_y_scaled = lambda x_node, y_node: force_load[1](x_node * dx + 0.5 * dx, y_node * dx + 0.5 * dx)*dt
+        )*dt/kappa  # force now dimensionless, and can get called with the indices of the grid nodes
+        b_y_scaled = lambda x_node, y_node: force_load[1](x_node * dx + 0.5 * dx, y_node * dx + 0.5 * dx)*dt/kappa
         host_force_x = np.fromfunction(
             b_x_scaled, shape=(self.grid.shape[0], self.grid.shape[1])
         )  # create array with force evaluated at the grid points

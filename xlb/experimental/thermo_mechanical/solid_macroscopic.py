@@ -56,7 +56,7 @@ class SolidMacroscopics(Operator):
             utils.write_population_to_global(bared_moments, m, i, j)
 
         @wp.kernel
-        def calc_macroscopics(macroscopics: Any, f: Any, bared_moments: Any, force: Any, L: Any, T: Any, theta: Any):
+        def calc_macroscopics(macroscopics: Any, f: Any, bared_moments: Any, force: Any, L: Any, T: Any, theta: Any, kappa: Any):
             i, j, k = wp.tid()
             f_local = utils.read_local_population(f, i, j) 
             m_local = utils.calc_moments(f_local)
@@ -88,13 +88,13 @@ class SolidMacroscopics(Operator):
             macro = macro_vec()
             macro[0] = dis_x
             macro[1] = dis_y
-            macro[2] = s_xx * L / T
-            macro[3] = s_yy * L / T  # ToDo: Add kappa to rescaling!
-            macro[4] = s_xy * L / T
-            macro[5] = dx_sxx/T
-            macro[6] = dy_syy/T
-            macro[7] = dy_sxy/T
-            macro[8] = dx_sxy/T
+            macro[2] = s_xx * (L*kappa) / T
+            macro[3] = s_yy *(L*kappa) / T  # ToDo: Add kappa to rescaling!
+            macro[4] = s_xy * (L*kappa) / T
+            macro[5] = dx_sxx*kappa/T
+            macro[6] = dy_syy*kappa/T
+            macro[7] = dy_sxy*kappa/T
+            macro[8] = dx_sxy*kappa/T
 
             utils.write_vec_to_global(macroscopics, macro, i, j, 9)
 
@@ -142,10 +142,11 @@ class SolidMacroscopics(Operator):
         T = params.T
         L = params.L
         theta = params.theta
+        kappa = params.kappa
         self.update_bared_moments(f)
         wp.launch(
             self.calc_macroscopics_kernel,
-            inputs=[self.macroscopics, f, self.bared_moments, self.force, L, T, theta],
+            inputs=[self.macroscopics, f, self.bared_moments, self.force, L, T, theta, kappa],
             dim=self.macroscopics.shape[1:],
         )
         return self.macroscopics

@@ -6,8 +6,6 @@ import numpy as np
 from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 
-np.seterr(all="ignore")
-
 
 # Mapping:
 #    i  j   |   f_q
@@ -54,7 +52,7 @@ def get_updated_params():
 
 def set_precision_policy(precision_policy):
     global solid_vec
-    solid_vec = wp.vec(9, dtype=precision_policy.FP32FP32.compute_precision.wp_dtype)
+    solid_vec = wp.vec(9, dtype=precision_policy.compute_precision.wp_dtype)
 
 
 @wp.func
@@ -177,8 +175,6 @@ def get_force_load(manufactured_displacement, x, y):
     man_v = manufactured_displacement[1]
     b_x = -mu * (sympy.diff(man_u, x, x) + sympy.diff(man_u, y, y)) - K * sympy.diff(sympy.diff(man_u, x) + sympy.diff(man_v, y), x)
     b_y = -mu * (sympy.diff(man_v, x, x) + sympy.diff(man_v, y, y)) - K * sympy.diff(sympy.diff(man_u, x) + sympy.diff(man_v, y), y)
-    #bx_scaled = b_x * L * L * kappa * (dt / T)
-    #by_scaled = b_y * L * L * kappa * (dt / T)
     return (np.vectorize(sympy.lambdify([x, y], b_x, "numpy")), np.vectorize(sympy.lambdify([x, y], b_y, "numpy")))
 
 

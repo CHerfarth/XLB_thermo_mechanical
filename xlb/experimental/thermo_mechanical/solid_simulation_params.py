@@ -36,6 +36,7 @@ class SimulationParams:
         self._L = L
         self._kappa = kappa
         self._theta = theta
+        #self._precision_policy = precision_policy
 
         # Calculate derived parameters
         self._K_unscaled = E / (2 * (1 - nu))
@@ -123,3 +124,7 @@ class SimulationParams:
     @property
     def lamb(self):
         return self._lamb
+
+    '''@property
+    def precision_policy(self):
+        return self._precision_policy'''
