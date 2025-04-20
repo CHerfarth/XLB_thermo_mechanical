@@ -344,8 +344,8 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                         dy_ux = bc_dirichlet[3](bc_x, bc_y)
                         dx_uy = bc_dirichlet[4](bc_x, bc_y)
                         dy_uy = bc_dirichlet[5](bc_x, bc_y)
-                        T_x = ((K - mu) * (dx_ux + dy_uy) * n[0] + mu * (2 * dx_ux * n[0] + (dx_uy + dy_ux) * n[1])) * L * kappa
-                        T_y = ((K - mu) * (dx_ux + dy_uy) * n[1] + mu * ((dx_uy + dy_ux) * n[0] + 2 * dy_uy * n[1])) * L * kappa
+                        T_x = ((K - mu) * (dx_ux + dy_uy) * n[0] + mu * (2 * dx_ux * n[0] + (dx_uy + dy_ux) * n[1])) * L / kappa
+                        T_y = ((K - mu) * (dx_ux + dy_uy) * n[1] + mu * ((dx_uy + dy_ux) * n[0] + 2 * dy_uy * n[1])) * L / kappa
 
                         # write to array
                         host_boundary_values[direction * values_per_direction, i, j, 0] = n[0]
