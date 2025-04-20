@@ -156,7 +156,7 @@ class SolidsDirichlet(Operator):
 
         @wp.kernel
         def bc_kernel(
-            f_destination: Any,
+            f_post_stream: Any,
             f_post_collision: Any,
             f_previous_post_collision: Any,
             boundary_array: Any,
@@ -170,18 +170,18 @@ class SolidsDirichlet(Operator):
             tau_t = 0.5  # ToDo: as argument of fuction
             if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(q):
-                    f_destination[l, i, j, 0] = wp.nan
+                    f_post_stream[l, i, j, 0] = wp.nan
             elif boundary_array[0, i, j, 0] == wp.int8(2):  # for boundary nodes: check which directions need to be given by dirichlet BC
                 for l in range(q):
                     if boundary_array[l + 1, i, j, 0] == wp.int8(
                         1
                     ):  # this means the interior node is connected to a ghost node in direction l; the bounce back bc needs to be applied
-                        dirichlet_functional(l, i, j, f_destination, f_previous_post_collision, boundary_values, bared_moments, K, mu)
+                        dirichlet_functional(l, i, j, f_post_stream, f_previous_post_collision, boundary_values, bared_moments, K, mu)
             elif boundary_array[0, i, j, 0] == wp.int8(3):  # for boundary nodes: check which directions need to be given VN BC
                 for l in range(q):
                     if boundary_array[l + 1, i, j, 0] == wp.int8(1):
                         # print("Calling Von Neumann")
-                        vn_functional(l, i, j, f_destination, f_post_collision, boundary_values, force, bared_moments, K, mu, tau_t)
+                        vn_functional(l, i, j, f_post_stream, f_post_collision, boundary_values, force, bared_moments, K, mu, tau_t)
 
         return (dirichlet_functional, vn_functional), bc_kernel
 
