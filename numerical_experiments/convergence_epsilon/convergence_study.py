@@ -114,7 +114,7 @@ if __name__ == "__main__":
         stepper(f_1, f_3)
         f_1, f_2, f_3 = f_3, f_1, f_2
 
-    macroscopics = stepper.get_macroscopics(f_1)
+    macroscopics = stepper.get_macroscopics_host(f_1)
     utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
     # write out error norms
     last_norms = norms_over_time[len(norms_over_time) - 1]
