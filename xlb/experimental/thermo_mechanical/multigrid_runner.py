@@ -35,8 +35,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initiali1e grid
-    nodes_x = 30
-    nodes_y = 30
+    nodes_x = 300
+    nodes_y = 300
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
     nodes_x_2 = (int)(nodes_x * 0.5)
     nodes_y_2 = (int)(nodes_y * 0.5)
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     assert math.isclose(dx, dy)
     dx_2 = length_x / float(nodes_x_2)
     timesteps = 100
-    dt = 0.001
+    dt = 0.000001
 
     # params
     E = 0.085 * 2.5

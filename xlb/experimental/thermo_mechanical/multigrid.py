@@ -173,16 +173,16 @@ class MultigridSolver:
         fine = self.levels[0] 
         coarse = self.levels[1]
 
-        for i in range(1):
+        for i in range(10):
             fine.perform_smoothing(get_residual=False)
         residual = fine.perform_smoothing(get_residual=True)
 
-        wp.launch(utils.set_population_to_zero, inputs=[coarse.stepper.force, 2], dim=coarse.stepper.force.shape[1:])
+        #wp.launch(utils.set_population_to_zero, inputs=[coarse.stepper.force, 2], dim=coarse.stepper.force.shape[1:])
         wp.launch(restrict, inputs=[coarse.residual, residual, 9], dim=coarse.defect_correction.shape[1:])
         wp.launch(restrict, inputs=[coarse.f_4, fine.f_1, 9], dim=coarse.f_4.shape[1:])
         coarse.set_defect_correction()
 
-        for i in range(100):
+        for i in range(300):
             coarse.perform_smoothing(get_residual=False)
         
         error_approx = coarse.get_error_approx()
