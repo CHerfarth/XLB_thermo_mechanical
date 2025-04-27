@@ -17,26 +17,38 @@ import xlb.experimental.thermo_mechanical.solid_bounceback as bc
 from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
+from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
+import argparse
 
 
-def write_results(norms_over_time, name):
+def write_results(data_over_wu, name):
     with open(name, "w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["timestep", "l2_disp", "linf_disp", "l2_stress", "linf_stress"])
-        writer.writerows(norms_over_time)
+        writer.writerow(["wu", "iteration", "residual_norm", "l2_disp", "linf_disp", "l2_stress", "linf_stress"])
+        writer.writerows(data_over_wu)
+
+
 
 
 if __name__ == "__main__":
     wp.config.mode = "debug"
     compute_backend = ComputeBackend.WARP
-    precision_policy = PrecisionPolicy.FP64FP64
+    precision_policy = PrecisionPolicy.FP32FP32
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
 
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
+    
+
+    parser = argparse.ArgumentParser("convergence_study")
+    parser.add_argument("nodes_x", type=int)
+    parser.add_argument("nodes_y", type=int)
+    parser.add_argument("timesteps", type=int)
+    parser.add_argument("dt", type=float)
+    args = parser.parse_args()
 
     # initiali1e grid
-    nodes_x = 256
-    nodes_y = 256
+    nodes_x = args.nodes_x
+    nodes_y = args.nodes_y
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -45,8 +57,8 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 1000
-    dt = 0.00007
+    timesteps = args.timesteps
+    dt = args.dt
 
     # params
     E = 0.085 * 2.5
@@ -78,8 +90,12 @@ if __name__ == "__main__":
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
-    norms_over_time = list()
-    residual_over_time= list()
+
+
+    #-------------------------------------- collect data for multigrid----------------------------
+    data_over_wu = list()
+    benchmark_data = BenchmarkData()
+    benchmark_data.wu = 0.
     multigrid_solver = MultigridSolver(
             nodes_x=nodes_x,
             nodes_y=nodes_y,
@@ -97,13 +113,45 @@ if __name__ == "__main__":
     finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle()
-        residual_over_time.append(residual_norm)
         macroscopics = finest_level.get_macroscopics()
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
-
-        # write out error norms
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
+        data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)
-    write_results(norms_over_time, "results.csv")
+    write_results(data_over_wu, "multigrid_results.csv")
+
+
+    #------------------------------------- collect data for normal LB ----------------------------------
+    
+    # initialize stepper
+    stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
+
+    # startup grids
+    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+
+    data_over_wu = list()  # to track error over time
+    benchmark_data = BenchmarkData()
+    benchmark_data.wu = 0.
+
+    l2, linf = 0, 0
+    for i in range(timesteps):
+        benchmark_data.wu += 1
+        wp.launch(utils.copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
+        stepper(f_1, f_3)
+        f_1, f_2, f_3 = f_3, f_1, f_2
+        wp.launch(utils.subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_3.shape[1:])
+        residual_norm = np.linalg.norm(residual.numpy())
+
+        macroscopics = stepper.get_macroscopics_host(f_1)
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
+        data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
+
+    print(l2_disp, linf_disp, l2_stress, linf_stress)
+    print(residual_norm)
+    write_results(data_over_wu, "normal_results.csv")
+
     

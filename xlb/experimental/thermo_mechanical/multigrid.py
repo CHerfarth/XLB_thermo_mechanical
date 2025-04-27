@@ -7,6 +7,7 @@ from xlb.precision_policy import PrecisionPolicy
 from xlb.grid import grid_factory
 from xlb.experimental.thermo_mechanical.solid_stepper import SolidsStepper
 import xlb.experimental.thermo_mechanical.solid_utils as utils
+from  xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 import math
 from typing import Any
 
@@ -40,7 +41,7 @@ class Level:
         self.level_num = level_num
 
         @wp.kernel
-        def relaxation(f_after_stream: Any, f_previous: Any, defect_correction: Any, f_destination: Any, gamma: wp.float32):
+        def relaxation(f_after_stream: Any, f_previous: Any, defect_correction: Any, f_destination: Any, gamma: Any):
             i, j, k = wp.tid()
             for l in range(velocity_set.q):
                 f_destination[l, i, j, 0] = (
@@ -78,6 +79,9 @@ class Level:
     
   
     def perform_smoothing(self, get_residual=False):
+        #for statistics
+        benchmark_data = BenchmarkData()
+        benchmark_data.wu += (0.25**self.level_num)
         self.startup()
         wp.launch(utils.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_1, self.f_2)
@@ -106,9 +110,6 @@ class Level:
             self.perform_smoothing(get_residual=False)
         residual = self.perform_smoothing(get_residual=True)
 
-        if (self.level_num == self.multigrid.max_levels - 1):
-            if (np.linalg.norm(residual.numpy()) < 1e-5):
-                return
 
         if (coarse != None):
             wp.launch(restrict, inputs=[coarse.f_1, self.f_1, 9], dim=coarse.f_1.shape[1:])
@@ -120,14 +121,22 @@ class Level:
             coarse.start_v_cycle()
             
             error_approx = coarse.get_error_approx()
-            print("Error on level {}      {}".format(coarse.level_num, np.max(error_approx.numpy())))  
+            #print("Error on level {}      {}".format(coarse.level_num, np.max(error_approx.numpy())))  
             wp.launch(interpolate, inputs=[error_approx, self.f_3, coarse.nodes_x, coarse.nodes_y, 9], dim=error_approx.shape[1:])
             wp.launch(utils.multiply_populations, inputs=[self.f_3, 0.25, 9], dim=self.f_3.shape[1:])
-            #wp.launch(utils.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
+            wp.launch(utils.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
         
-        for i in range(self.v2):
+        for i in range(self.v2-1):
             self.perform_smoothing(get_residual=False)
+        
+        '''if (coarse == None):
+            for i in range(20):
+                self.perform_smoothing(get_residual=False)'''
+            #if (np.linalg.norm(residual.numpy()) > 1e-6):
+            #    print(np.linalg.norm(residual.numpy()))
+            #    self.start_v_cycle()'''
 
+        return np.linalg.norm(self.perform_smoothing(get_residual=True).numpy())
 
 
 

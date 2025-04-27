@@ -11,7 +11,7 @@ from scipy.interpolate import griddata
 
 #vars:
 theta = 1/3
-E_scaled = 0.5
+E = 0.5*0.01
 nu = 0.7
 #K = E / (2 * (1 - nu))
 #mu = E / (2 * (1 + nu))
@@ -127,9 +127,8 @@ for i in range(iterations):
     dx = 1
     phi_x_val = -sp.pi
     for j in range(iterations):
-        nu_scaled = nu
-        K_val = (E_scaled / (2*(1-nu_scaled)))
-        mu_val = (E_scaled / (2*(1+nu_scaled)))
+        K_val = (E / (2*(1-nu)))
+        mu_val = (E / (2*(1+nu)))
         L_evaluated = L_mat.subs({mu: mu_val, K: K_val, phi_x: phi_x_val, phi_y: phi_y_val})
         eigenvalues = np.linalg.eig(np.array(L_evaluated, dtype=np.complex128)).eigenvalues
         spectral_radius = max(np.abs(ev) for ev in eigenvalues)
