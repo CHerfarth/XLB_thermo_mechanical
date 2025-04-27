@@ -91,7 +91,7 @@ if __name__ == "__main__":
             gamma=0.8,
             v1=2,
             v2=2,
-            max_levels=3,
+            max_levels=2,
         )
     finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps):
