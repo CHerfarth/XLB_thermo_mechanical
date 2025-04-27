@@ -63,9 +63,8 @@ class Level:
         #rules for operator: A(f) = current - previous
         wp.launch(utils.subtract_populations, inputs=[self.f_3, self.f_2, self.f_4, 9], dim=self.f_4.shape[1:])
 
-        #wp.launch(utils.add_populations, inputs=[self.defect_correction, self.residual, self.defect_correction, 9], dim=self.defect_correction.shape[1:])
-        #wp.launch(utils.subtract_populations, inputs=[self.defect_correction, self.f_4, self.defect_correction, 9], dim=self.f_4.shape[1:])
-        wp.launch(utils.add_populations, inputs=[self.f_4, self.residual, self.defect_correction, 9], dim=self.f_4.shape[1:]) 
+        wp.launch(utils.add_populations, inputs=[self.defect_correction, self.f_4, self.defect_correction, 9], dim=self.f_4.shape[1:]) 
+        wp.launch(utils.subtract_populations, inputs=[self.defect_correction, self.residual, self.defect_correction, 9], dim=self.f_4.shape[1:]) 
 
         wp.launch(utils.copy_populations, inputs=[self.f_2, self.f_4, 9], dim=self.f_1.shape[1:]) #copy fine approximation back to f_4
 
@@ -87,9 +86,7 @@ class Level:
 
         if get_residual:
             #rules for operator: A(f) = current - previous
-            # --> residual = defect_correction - current + previous 
-            wp.launch(utils.add_populations, inputs=[self.defect_correction, self.f_3, self.residual, 9], dim=self.defect_correction.shape[1:])
-            wp.launch(utils.subtract_populations, inputs=[self.residual, self.f_2, self.residual, 9], dim=self.residual.shape[1:])
+            wp.launch(utils.subtract_populations, inputs=[self.f_2, self.f_3, self.residual, 9], dim=self.residual.shape[1:])
             return self.residual
     
     def get_error_approx(self):
@@ -109,6 +106,10 @@ class Level:
             self.perform_smoothing(get_residual=False)
         residual = self.perform_smoothing(get_residual=True)
 
+        if (self.level_num == self.multigrid.max_levels - 1):
+            if (np.linalg.norm(residual.numpy()) < 1e-5):
+                return
+
         if (coarse != None):
             wp.launch(restrict, inputs=[coarse.f_1, self.f_1, 9], dim=coarse.f_1.shape[1:])
             wp.launch(restrict, inputs=[coarse.residual, residual, 9], dim=coarse.defect_correction.shape[1:])
@@ -119,9 +120,10 @@ class Level:
             coarse.start_v_cycle()
             
             error_approx = coarse.get_error_approx()
-            wp.launch(interpolate, inputs=[error_approx, self.f_4, coarse.nodes_x, coarse.nodes_y, 9], dim=coarse.f_4.shape[1:])
-            wp.launch(utils.multiply_populations, inputs=[self.f_4, 0.25, 9], dim=self.f_4.shape[1:])
-            wp.launch(utils.add_populations, inputs=[self.f_1, self.f_4, self.f_1, 9], dim=self.f_1.shape[1:])
+            print("Error on level {}      {}".format(coarse.level_num, np.max(error_approx.numpy())))  
+            wp.launch(interpolate, inputs=[error_approx, self.f_3, coarse.nodes_x, coarse.nodes_y, 9], dim=error_approx.shape[1:])
+            wp.launch(utils.multiply_populations, inputs=[self.f_3, 0.25, 9], dim=self.f_3.shape[1:])
+            #wp.launch(utils.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
         
         for i in range(self.v2):
             self.perform_smoothing(get_residual=False)
