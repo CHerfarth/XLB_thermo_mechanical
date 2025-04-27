@@ -50,14 +50,24 @@ class Level:
         self.relax = relaxation
 
     def set_defect_correction(self):
+        #assumes: defect_correction set to defect_correction of finer level, but not scaled yet
+        #... and residual set to residual of finer grid, but not scaled yet
+        #... and approximation of finer grid set to f_4
         self.startup()
+
+        wp.launch(utils.multiply_populations, inputs=[self.defect_correction, 4., 9], dim=self.f_4.shape[1:]) #scale defect_correction
+        wp.launch(utils.multiply_populations, inputs=[self.residual, 4., 9], dim=self.f_4.shape[1:])
+
         wp.launch(utils.copy_populations, inputs=[self.f_4, self.f_2, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_4, self.f_3)  # perform one step of operator on restricted finer grid approximation  
         #rules for operator: A(f) = current - previous
         wp.launch(utils.subtract_populations, inputs=[self.f_3, self.f_2, self.f_4, 9], dim=self.f_4.shape[1:])
-        wp.launch(utils.multiply_populations, inputs=[self.residual, 4., 9], dim=self.f_4.shape[1:])
-        wp.launch(utils.subtract_populations, inputs=[self.residual, self.f_4, self.defect_correction, 9], dim=self.f_4.shape[1:])
-        wp.launch(utils.copy_populations, inputs=[self.f_2, self.f_4, 9], dim=self.f_1.shape[1:])
+
+        #wp.launch(utils.add_populations, inputs=[self.defect_correction, self.residual, self.defect_correction, 9], dim=self.defect_correction.shape[1:])
+        #wp.launch(utils.subtract_populations, inputs=[self.defect_correction, self.f_4, self.defect_correction, 9], dim=self.f_4.shape[1:])
+        wp.launch(utils.add_populations, inputs=[self.f_4, self.residual, self.defect_correction, 9], dim=self.f_4.shape[1:]) 
+
+        wp.launch(utils.copy_populations, inputs=[self.f_2, self.f_4, 9], dim=self.f_1.shape[1:]) #copy fine approximation back to f_4
 
     def startup(self):
         solid_simulation = SimulationParams()
@@ -103,6 +113,7 @@ class Level:
             wp.launch(restrict, inputs=[coarse.f_1, self.f_1, 9], dim=coarse.f_1.shape[1:])
             wp.launch(restrict, inputs=[coarse.residual, residual, 9], dim=coarse.defect_correction.shape[1:])
             wp.launch(restrict, inputs=[coarse.f_4, self.f_1, 9], dim=coarse.f_4.shape[1:])
+            wp.launch(restrict, inputs=[coarse.defect_correction, self.defect_correction, 9], dim=coarse.defect_correction.shape[1:])
             coarse.set_defect_correction()
 
             coarse.start_v_cycle()
