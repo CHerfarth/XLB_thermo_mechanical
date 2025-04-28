@@ -11,8 +11,8 @@ from scipy.interpolate import griddata
 
 #vars:
 theta = 1/3
-E = 0.5*0.01
-nu = 0.7
+E = 0.8
+nu = 0.49
 #K = E / (2 * (1 - nu))
 #mu = E / (2 * (1 + nu))
 K, mu, k, phi = sp.symbols('K mu k ph')

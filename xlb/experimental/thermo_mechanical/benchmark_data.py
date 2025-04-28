@@ -1,6 +1,6 @@
 class BenchmarkData:
     _instance = None
-    _wu = None
+    _wu = 0.
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:

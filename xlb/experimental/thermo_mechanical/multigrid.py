@@ -31,7 +31,7 @@ class Level:
         self.f_2 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.f_3 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.f_4 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-        self.macroscopics = self.grid.create_field(cardinality=9, dtype=precision_policy.store_precision)  # 5 macroscopic variables
+        self.macroscopics = self.grid.create_field(cardinality=9, dtype=precision_policy.store_precision) 
         self.residual = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.defect_correction = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         # setup stepper
@@ -56,8 +56,8 @@ class Level:
         #... and approximation of finer grid set to f_4
         self.startup()
 
-        wp.launch(utils.multiply_populations, inputs=[self.defect_correction, 4., 9], dim=self.f_4.shape[1:]) #scale defect_correction
-        wp.launch(utils.multiply_populations, inputs=[self.residual, 4., 9], dim=self.f_4.shape[1:])
+        #wp.launch(utils.multiply_populations, inputs=[self.defect_correction, 4., 9], dim=self.f_4.shape[1:]) #scale defect_correction
+        #wp.launch(utils.multiply_populations, inputs=[self.residual, 4., 9], dim=self.f_4.shape[1:])
 
         wp.launch(utils.copy_populations, inputs=[self.f_4, self.f_2, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_4, self.f_3)  # perform one step of operator on restricted finer grid approximation  
@@ -85,7 +85,6 @@ class Level:
         self.startup()
         wp.launch(utils.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_1, self.f_2)
-        #self.f_1, self.f_2 = self.f_2, self.f_1
         wp.launch(self.relax, inputs=[self.f_2, self.f_3, self.defect_correction, self.f_1, self.gamma], dim=self.f_1.shape[1:])
 
         if get_residual:
@@ -117,13 +116,14 @@ class Level:
             wp.launch(restrict, inputs=[coarse.f_4, self.f_1, 9], dim=coarse.f_4.shape[1:])
             wp.launch(restrict, inputs=[coarse.defect_correction, self.defect_correction, 9], dim=coarse.defect_correction.shape[1:])
             coarse.set_defect_correction()
+            #wp.launch(utils.set_population_to_zero, inputs=[coarse.stepper.force, 2], dim=coarse.stepper.force.shape[1:])
 
             coarse.start_v_cycle()
             
             error_approx = coarse.get_error_approx()
             #print("Error on level {}      {}".format(coarse.level_num, np.max(error_approx.numpy())))  
             wp.launch(interpolate, inputs=[error_approx, self.f_3, coarse.nodes_x, coarse.nodes_y, 9], dim=error_approx.shape[1:])
-            wp.launch(utils.multiply_populations, inputs=[self.f_3, 0.25, 9], dim=self.f_3.shape[1:])
+            #wp.launch(utils.multiply_populations, inputs=[self.f_3, 0.25, 9], dim=self.f_3.shape[1:])
             wp.launch(utils.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
         
         for i in range(self.v2-1):
@@ -208,7 +208,7 @@ class MultigridSolver:
             ny_level = (nodes_y - 1) // (2**i) + 1
             dx = length_x / float(nx_level)
             dy = length_y / float(ny_level)
-            dt_level = dt 
+            dt_level = dt*4
             assert math.isclose(dx, dy)
             level = Level(
                 nodes_x=nx_level,

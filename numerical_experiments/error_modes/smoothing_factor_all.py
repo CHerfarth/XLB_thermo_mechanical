@@ -119,39 +119,45 @@ for i in range(velocity_set.q - 1):
 L_mat += (1-gamma)*I
 
 phi_y_val = -sp.pi
-iterations = 5
+outer_iterations = 5
+inner_iterations = 20
 results = list()
 
-d_nu = 2/iterations
-d_E = 4/iterations
+d_nu = 0.5/outer_iterations
+d_E = 1/outer_iterations
 
-for k in range(iterations):
-    nu = -0.99 + d_nu*k
+for k in range(outer_iterations):
+    nu = 0.49 + d_nu*k
     print("Nu: {}".format(nu))
-    for l in range(iterations):
+    for l in range(outer_iterations):
         E = 0 + d_E*l
+        print("E: {}".format(E))
         #cycle through all error modes
         smoothing_factors = list()
-        for i in range(iterations):
+        for i in range(inner_iterations):
             dx = 1
             phi_x_val = -sp.pi
-            for j in range(iterations):
+            for j in range(inner_iterations):
                 K_val = (E / (2*(1-nu)))
                 mu_val = (E / (2*(1+nu)))
                 L_evaluated = L_mat.subs({mu: mu_val, K: K_val, phi_x: phi_x_val, phi_y: phi_y_val})
                 eigenvalues = np.linalg.eig(np.array(L_evaluated, dtype=np.complex128)).eigenvalues
                 spectral_radius = max(np.abs(ev) for ev in eigenvalues)
                 if (np.abs(phi_x_val) >= 0.5*np.pi and np.abs(phi_y_val) >= 0.5*np.pi):
+                    #print(spectral_radius)
                     smoothing_factors.append(spectral_radius)
-                phi_x_val += (2*sp.pi)/iterations
-            phi_y_val += (2*sp.pi)/iterations
+                phi_x_val += (2*sp.pi)/inner_iterations
+            phi_y_val += (2*sp.pi)/inner_iterations
         
-        results.append((E, nu, max(val for val in smoothing_factors)))
-    print("{} % complete".format((k+1)*100/iterations))
+        results.append((E, nu, np.max(smoothing_factors)))
+        print(np.max(smoothing_factors))
+    print("{} % complete".format((k+1)*100/outer_iterations))
 
 x = np.array([float(item[0]) for item in results])
 y = np.array([float(item[1]) for item in results])
 z = np.array([float(item[2]) for item in results])
+
+print(results)
 
 
 

@@ -35,8 +35,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initiali1e grid
-    nodes_x = 256
-    nodes_y = 256
+    nodes_x = 32
+    nodes_y = 32
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -45,8 +45,8 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 1000
-    dt = 0.00007
+    timesteps = 200
+    dt = 0.0001
 
     # params
     E = 0.085 * 2.5
@@ -92,7 +92,7 @@ if __name__ == "__main__":
             gamma=0.8,
             v1=2,
             v2=2,
-            max_levels=None,
+            max_levels=3,
         )
     finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps):
