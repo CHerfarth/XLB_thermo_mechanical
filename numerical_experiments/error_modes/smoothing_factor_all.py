@@ -118,25 +118,25 @@ for i in range(velocity_set.q - 1):
 
 L_mat += (1-gamma)*I
 
-phi_y_val = -sp.pi
-outer_iterations = 5
+outer_iterations = 20
 inner_iterations = 20
 results = list()
 
-d_nu = 0.5/outer_iterations
-d_E = 1/outer_iterations
+d_nu = 1/outer_iterations
+d_E = 2/outer_iterations
 
 for k in range(outer_iterations):
-    nu = 0.49 + d_nu*k
+    nu = 0.01 + d_nu*k
     print("Nu: {}".format(nu))
     for l in range(outer_iterations):
         E = 0 + d_E*l
         print("E: {}".format(E))
         #cycle through all error modes
         smoothing_factors = list()
+        phi_y_val = -np.pi
         for i in range(inner_iterations):
             dx = 1
-            phi_x_val = -sp.pi
+            phi_x_val = -np.pi
             for j in range(inner_iterations):
                 K_val = (E / (2*(1-nu)))
                 mu_val = (E / (2*(1+nu)))
@@ -145,9 +145,11 @@ for k in range(outer_iterations):
                 spectral_radius = max(np.abs(ev) for ev in eigenvalues)
                 if (np.abs(phi_x_val) >= 0.5*np.pi and np.abs(phi_y_val) >= 0.5*np.pi):
                     #print(spectral_radius)
+                    #print("phi_x: {},  phi_y: {}, spectal radius: {}".format(phi_x_val, phi_y_val, spectral_radius))
                     smoothing_factors.append(spectral_radius)
-                phi_x_val += (2*sp.pi)/inner_iterations
-            phi_y_val += (2*sp.pi)/inner_iterations
+                phi_x_val += (2*np.pi)/inner_iterations
+            phi_y_val += (2*np.pi)/inner_iterations
+        
         
         results.append((E, nu, np.max(smoothing_factors)))
         print(np.max(smoothing_factors))
