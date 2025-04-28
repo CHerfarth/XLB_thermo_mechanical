@@ -50,24 +50,9 @@ class Level:
 
         self.relax = relaxation
 
-    def set_defect_correction(self):
-        #assumes: defect_correction set to defect_correction of finer level, but not scaled yet
-        #... and residual set to residual of finer grid, but not scaled yet
-        #... and approximation of finer grid set to f_4
-        self.startup()
+    #def set_defect_correction(self):
+        #Todo
 
-        #wp.launch(utils.multiply_populations, inputs=[self.defect_correction, 4., 9], dim=self.f_4.shape[1:]) #scale defect_correction
-        #wp.launch(utils.multiply_populations, inputs=[self.residual, 4., 9], dim=self.f_4.shape[1:])
-
-        wp.launch(utils.copy_populations, inputs=[self.f_4, self.f_2, 9], dim=self.f_1.shape[1:])
-        self.stepper(self.f_4, self.f_3)  # perform one step of operator on restricted finer grid approximation  
-        #rules for operator: A(f) = current - previous
-        wp.launch(utils.subtract_populations, inputs=[self.f_3, self.f_2, self.f_4, 9], dim=self.f_4.shape[1:])
-
-        wp.launch(utils.add_populations, inputs=[self.defect_correction, self.f_4, self.defect_correction, 9], dim=self.f_4.shape[1:]) 
-        wp.launch(utils.subtract_populations, inputs=[self.defect_correction, self.residual, self.defect_correction, 9], dim=self.f_4.shape[1:]) 
-
-        wp.launch(utils.copy_populations, inputs=[self.f_2, self.f_4, 9], dim=self.f_1.shape[1:]) #copy fine approximation back to f_4
 
     def startup(self):
         solid_simulation = SimulationParams()
@@ -90,6 +75,7 @@ class Level:
         if get_residual:
             #rules for operator: A(f) = current - previous
             wp.launch(utils.subtract_populations, inputs=[self.f_2, self.f_3, self.residual, 9], dim=self.residual.shape[1:])
+            wp.launch(utils.subtract_populations, inputs=[self.defect_correction, self.residual, self.residual, 9], dim=self.defect_correction.shape[1:])
             return self.residual
     
     def get_error_approx(self):
@@ -111,31 +97,22 @@ class Level:
 
 
         if (coarse != None):
-            wp.launch(restrict, inputs=[coarse.f_1, self.f_1, 9], dim=coarse.f_1.shape[1:])
-            wp.launch(restrict, inputs=[coarse.residual, residual, 9], dim=coarse.defect_correction.shape[1:])
-            wp.launch(restrict, inputs=[coarse.f_4, self.f_1, 9], dim=coarse.f_4.shape[1:])
-            wp.launch(restrict, inputs=[coarse.defect_correction, self.defect_correction, 9], dim=coarse.defect_correction.shape[1:])
-            coarse.set_defect_correction()
-            #wp.launch(utils.set_population_to_zero, inputs=[coarse.stepper.force, 2], dim=coarse.stepper.force.shape[1:])
+            wp.launch(utils.set_population_to_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:]) 
+            wp.launch(utils.set_population_to_zero, inputs=[coarse.stepper.force, 9], dim=coarse.stepper.force.shape[1:])
+            wp.launch(restrict, inputs=[coarse.defect_correction, residual, 9], dim=coarse.defect_correction.shape[1:])
+            wp.launch(utils.multiply_populations, inputs=[coarse.defect_correction, 4., 9], dim=coarse.defect_correction.shape[1:])
+
 
             coarse.start_v_cycle()
+
+            wp.launch(interpolate, inputs=[coarse.f_1, self.f_4, coarse.nodes_x, coarse.nodes_y, 9], dim=coarse.f_1.shape[1:])
+            #print(np.linalg.norm(self.f_4.numpy()))
+            wp.launch(utils.add_populations, inputs=[self.f_1, self.f_4, self.f_1, 9], dim=self.f_1.shape[1:])
             
-            error_approx = coarse.get_error_approx()
-            #print("Error on level {}      {}".format(coarse.level_num, np.max(error_approx.numpy())))  
-            wp.launch(interpolate, inputs=[error_approx, self.f_3, coarse.nodes_x, coarse.nodes_y, 9], dim=error_approx.shape[1:])
-            #wp.launch(utils.multiply_populations, inputs=[self.f_3, 0.25, 9], dim=self.f_3.shape[1:])
-            wp.launch(utils.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
         
         for i in range(self.v2-1):
             self.perform_smoothing(get_residual=False)
         
-        '''if (coarse == None):
-            for i in range(20):
-                self.perform_smoothing(get_residual=False)'''
-            #if (np.linalg.norm(residual.numpy()) > 1e-6):
-            #    print(np.linalg.norm(residual.numpy()))
-            #    self.start_v_cycle()'''
-
         return np.linalg.norm(self.perform_smoothing(get_residual=True).numpy())
 
 
