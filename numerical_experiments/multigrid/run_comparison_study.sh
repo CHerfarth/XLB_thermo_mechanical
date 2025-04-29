@@ -1,10 +1,10 @@
 #!/bin/bash
 
-iterations=5
+iterations=4
 nodes_x=16
 nodes_y=16
-timesteps=100
-dt=0.000001
+timesteps=20
+dt=0.01
 for ((i=0; i<iterations; i++))
 do
     python3 comparison.py $nodes_x $nodes_y $timesteps $dt >> tmp.txt

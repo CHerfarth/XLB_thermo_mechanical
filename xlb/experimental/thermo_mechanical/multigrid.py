@@ -47,6 +47,7 @@ class Level:
                 f_destination[l, i, j, 0] = (
                     gamma * (f_after_stream[l, i, j, 0] - defect_correction[l, i, j, 0]) + (1.0 - gamma) * f_previous[l, i, j, 0]
                 )
+                #f_destination[l,i,j,0] = f_after_stream[l,i,j,0]
 
         self.relax = relaxation
 
@@ -74,7 +75,7 @@ class Level:
 
         if get_residual:
             #rules for operator: A(f) = current - previous
-            wp.launch(utils.subtract_populations, inputs=[self.f_2, self.f_3, self.residual, 9], dim=self.residual.shape[1:])
+            wp.launch(utils.subtract_populations, inputs=[self.f_2, self.f_3, self.residual, 9], dim=self.residual.shape[1:]) #change!!
             wp.launch(utils.subtract_populations, inputs=[self.defect_correction, self.residual, self.residual, 9], dim=self.defect_correction.shape[1:])
             return self.residual
     
@@ -98,20 +99,25 @@ class Level:
 
         if (coarse != None):
             wp.launch(utils.set_population_to_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:]) 
-            wp.launch(utils.set_population_to_zero, inputs=[coarse.stepper.force, 9], dim=coarse.stepper.force.shape[1:])
+            wp.launch(utils.set_population_to_zero, inputs=[coarse.stepper.force, 2], dim=coarse.stepper.force.shape[1:])
             wp.launch(restrict, inputs=[coarse.defect_correction, residual, 9], dim=coarse.defect_correction.shape[1:])
-            wp.launch(utils.multiply_populations, inputs=[coarse.defect_correction, 4., 9], dim=coarse.defect_correction.shape[1:])
+            wp.launch(utils.multiply_populations, inputs=[coarse.defect_correction, 0.25, 9], dim=coarse.defect_correction.shape[1:])
 
 
             coarse.start_v_cycle()
 
             wp.launch(interpolate, inputs=[coarse.f_1, self.f_4, coarse.nodes_x, coarse.nodes_y, 9], dim=coarse.f_1.shape[1:])
-            #print(np.linalg.norm(self.f_4.numpy()))
+            #wp.launch(utils.multiply_populations, inputs=[self.f_4, 4., 9], dim=self.f_4.shape[1:])
+            print(np.linalg.norm(self.f_4.numpy()))
             wp.launch(utils.add_populations, inputs=[self.f_1, self.f_4, self.f_1, 9], dim=self.f_1.shape[1:])
             
         
         for i in range(self.v2-1):
             self.perform_smoothing(get_residual=False)
+
+        if (coarse == None):
+            for i in range(20):
+                self.perform_smoothing(get_residual=False)
         
         return np.linalg.norm(self.perform_smoothing(get_residual=True).numpy())
 
@@ -178,6 +184,7 @@ class MultigridSolver:
         else:
             self.max_levels = min(max_levels, self.max_possible_levels)
 
+
         # setup levels
         self.levels = list()
         for i in range(self.max_levels):
@@ -185,7 +192,7 @@ class MultigridSolver:
             ny_level = (nodes_y - 1) // (2**i) + 1
             dx = length_x / float(nx_level)
             dy = length_y / float(ny_level)
-            dt_level = dt*4
+            dt_level = dt*(4**i)
             assert math.isclose(dx, dy)
             level = Level(
                 nodes_x=nx_level,

@@ -106,9 +106,9 @@ if __name__ == "__main__":
             nu=nu,
             force_load=force_load,
             gamma=0.8,
-            v1=2,
-            v2=2,
-            max_levels=2, #change!!
+            v1=1,
+            v2=1,
+            max_levels=None, 
         )
     finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps):
@@ -123,6 +123,10 @@ if __name__ == "__main__":
 
 
     #------------------------------------- collect data for normal LB ----------------------------------
+
+
+    solid_simulation = SimulationParams()
+    solid_simulation.set_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
     
     # initialize stepper
     stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
