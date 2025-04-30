@@ -35,8 +35,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initiali1e grid
-    nodes_x = 32
-    nodes_y = 32
+    nodes_x = 8
+    nodes_y = 8
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -90,9 +90,9 @@ if __name__ == "__main__":
             nu=nu,
             force_load=force_load,
             gamma=0.8,
-            v1=1,
-            v2=1,
-            max_levels=None,
+            v1=2,
+            v2=2,
+            max_levels=3,
         )
     finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps):
@@ -102,6 +102,8 @@ if __name__ == "__main__":
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
 
         # write out error norms
+        #print(finest_level.f_1.numpy()[1,:,:,0])
+        print("-----------------------------------------------------------")
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)

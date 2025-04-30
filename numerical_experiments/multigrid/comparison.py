@@ -43,7 +43,7 @@ if __name__ == "__main__":
     parser.add_argument("nodes_x", type=int)
     parser.add_argument("nodes_y", type=int)
     parser.add_argument("timesteps", type=int)
-    parser.add_argument("dt", type=float)
+    #parser.add_argument("dt", type=float)
     args = parser.parse_args()
 
     # initiali1e grid
@@ -58,11 +58,12 @@ if __name__ == "__main__":
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     timesteps = args.timesteps
-    dt = args.dt
+    #dt = args.dt
+    dt = dx*dx
 
     # params
     E = 0.085 * 2.5
-    nu = 0.8
+    nu = 0.3
 
     solid_simulation = SimulationParams()
     solid_simulation.set_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
@@ -94,6 +95,7 @@ if __name__ == "__main__":
 
     #-------------------------------------- collect data for multigrid----------------------------
     data_over_wu = list()
+    residuals = list()
     benchmark_data = BenchmarkData()
     benchmark_data.wu = 0.
     multigrid_solver = MultigridSolver(
@@ -106,16 +108,19 @@ if __name__ == "__main__":
             nu=nu,
             force_load=force_load,
             gamma=0.8,
-            v1=1,
-            v2=1,
+            v1=2,
+            v2=2,
             max_levels=None, 
         )
     finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle()
+        residuals.append(residual_norm)
         macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
         data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
+        if utils.last_n_avg(residuals, 50) < 1e-6:
+            break
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)
@@ -138,6 +143,7 @@ if __name__ == "__main__":
     residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
 
     data_over_wu = list()  # to track error over time
+    residuals = list()
     benchmark_data = BenchmarkData()
     benchmark_data.wu = 0.
 
@@ -148,11 +154,13 @@ if __name__ == "__main__":
         stepper(f_1, f_3)
         f_1, f_2, f_3 = f_3, f_1, f_2
         wp.launch(utils.subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_3.shape[1:])
-        residual_norm = np.linalg.norm(residual.numpy())
-
+        residual_norm = np.max(residual.numpy())
+        residuals.append(residual_norm)
         macroscopics = stepper.get_macroscopics_host(f_1)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
         data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
+        if utils.last_n_avg(residuals, 50) < 1e-6:
+            break
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)

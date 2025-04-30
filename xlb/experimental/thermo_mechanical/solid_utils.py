@@ -243,3 +243,12 @@ def process_error(macroscopics, expected_macroscopics, timestep, dx, norms_over_
     l2_disp, linf_disp, l2_stress, linf_stress = get_error_norms(macroscopics, expected_macroscopics, dx, timestep)
     norms_over_time.append((timestep, l2_disp, linf_disp, l2_stress, linf_stress))
     return l2_disp, linf_disp, l2_stress, linf_stress
+
+def last_n_avg(data, n):
+    length = len(data)
+    weight = 1/min(n, length)
+    val = 0.
+    for i in range(min(n, length)):
+        val += data[length -1 -i]
+    val = val*weight
+    return val
