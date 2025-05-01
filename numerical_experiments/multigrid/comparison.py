@@ -108,8 +108,8 @@ if __name__ == "__main__":
             nu=nu,
             force_load=force_load,
             gamma=0.8,
-            v1=2,
-            v2=2,
+            v1=40,
+            v2=40,
             max_levels=None, 
         )
     finest_level = multigrid_solver.get_finest_level()
@@ -119,8 +119,8 @@ if __name__ == "__main__":
         macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
         data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
-        if utils.last_n_avg(residuals, 50) < 1e-6:
-            break
+        #if utils.last_n_avg(residuals, 50) < 1e-6:
+        #    break
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)
@@ -159,8 +159,8 @@ if __name__ == "__main__":
         macroscopics = stepper.get_macroscopics_host(f_1)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
         data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
-        if utils.last_n_avg(residuals, 50) < 1e-6:
-            break
+        #if utils.last_n_avg(residuals, 50) < 1e-6:
+        #    break
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)

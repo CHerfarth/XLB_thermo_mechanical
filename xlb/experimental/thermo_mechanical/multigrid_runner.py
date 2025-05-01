@@ -35,8 +35,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initiali1e grid
-    nodes_x = 64
-    nodes_y = 64
+    nodes_x = 64*2
+    nodes_y = 64*2
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -45,8 +45,8 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 500
-    dt = 0.00025
+    timesteps = 200
+    dt = 0.00025/4
 
     # params
     E = 0.085 * 2.5
@@ -54,6 +54,7 @@ if __name__ == "__main__":
 
     solid_simulation = SimulationParams()
     solid_simulation.set_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+    print("E: {}        nu: {}".format(solid_simulation.E, solid_simulation.nu))
 
     # get force load
     x, y = sympy.symbols("x y")
@@ -90,8 +91,8 @@ if __name__ == "__main__":
             nu=nu,
             force_load=force_load,
             gamma=0.8,
-            v1=2,
-            v2=2,
+            v1=8,
+            v2=8,
             max_levels=None,
         )
     finest_level = multigrid_solver.get_finest_level()
@@ -107,7 +108,7 @@ if __name__ == "__main__":
 
         # write out error norms
         #print(finest_level.f_1.numpy()[1,:,:,0])
-        print("-----------------------------------------------------------")
+        #print("-----------------------------------------------------------")
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)

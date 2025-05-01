@@ -1,9 +1,9 @@
 #!/bin/bash
 
-iterations=4
+iterations=6
 nodes_x=16
 nodes_y=16
-timesteps=600
+timesteps=1000
 dt=0.001
 for ((i=0; i<iterations; i++))
 do

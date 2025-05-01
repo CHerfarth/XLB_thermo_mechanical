@@ -99,19 +99,20 @@ class Level:
             #get residual
             residual = self.get_residual()
             #restrict residual to defect_corrrection on coarse grid
-            if (self.level_num == 1):
+            '''if (self.level_num == 1):
                 print("Before:")
                 print("Coarse def: {}".format(np.max(coarse.defect_correction.numpy())))
-                print("Fine f_1: {}".format(np.max(self.f_1.numpy())))
+                print("Fine f_1: {}".format(np.max(self.f_1.numpy())))'''
             wp.launch(restrict, inputs=[coarse.defect_correction, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
-            #set intial guess of coarse mesh to zero
+            #set intial guess of coarse mesh to residual
+            wp.launch(restrict, inputs=[coarse.f_1, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
             #wp.launch(utils.set_population_to_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:])
             #scale defect correction?
             wp.launch(utils.multiply_populations, inputs=[coarse.defect_correction, 4., 9], dim=coarse.defect_correction.shape[1:])
-            if (self.level_num == 1):
+            '''if (self.level_num == 1):
                 print("Middle:")
                 print("Coarse def: {}".format(np.max(coarse.defect_correction.numpy())))
-                print("Fine f_1: {}".format(np.max(self.f_1.numpy())))
+                print("Fine f_1: {}".format(np.max(self.f_1.numpy())))'''
             #start v_cycle on coarse grid
             coarse.start_v_cycle()
             #get approximation of error
@@ -123,7 +124,7 @@ class Level:
             #wp.launch(utils.multiply_populations, inputs=[self.f_3, 0.25, 9], dim=self.f_3.shape[1:])
             #add error_approx to current estimate
             #print("Fine: {}".format(np.max(self.f_3.numpy())))
-            if (self.level_num == 1):
+            '''if (self.level_num == 1):
                 print("After:")
                 print("Coarse def: {}".format(np.max(coarse.defect_correction.numpy())))
                 print("Fine f_1: {}".format(np.max(self.f_1.numpy())))
@@ -135,7 +136,7 @@ class Level:
                 wp.launch(utils.subtract_populations, inputs=[self.f_1, self.f_3, self.f_4, 9], dim=self.f_1.shape[1:])
                 print(self.f_4.numpy()[1,:,:,0])
                 wp.launch(utils.add_populations, inputs=[self.f_1, self.f_3, self.f_4, 9], dim=self.f_1.shape[1:])
-                print(self.f_4.numpy()[1,:,:,0])
+                print(self.f_4.numpy()[1,:,:,0])'''
             wp.launch(utils.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
 
         #do post_smoothing
