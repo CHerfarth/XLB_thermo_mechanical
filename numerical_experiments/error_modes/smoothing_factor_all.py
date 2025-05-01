@@ -122,6 +122,7 @@ outer_iterations = 20
 inner_iterations = 20
 data_amplification = list()
 data_difference = list()
+data_smoothing_normal = list()
 
 d_nu = 1/outer_iterations
 d_E = 2/outer_iterations
@@ -156,6 +157,7 @@ for k in range(outer_iterations):
         
         data_amplification.append((E, nu, np.max(smoothing_factors)))
         data_difference.append((E, nu, np.max(spectral_radii) - np.max(smoothing_factors)))
+        data_smoothing_normal.append((E, nu, np.max(spectral_radii)))
 
         print(np.max(smoothing_factors))
     print("{} % complete".format((k+1)*100/outer_iterations))
@@ -220,3 +222,36 @@ plt.title('Plot of Difference')
 
 # Show the plot
 plt.savefig('difference.png')
+
+
+#----------------------------Plot difference to non-multigrid smoothing------------------
+indicator = lambda x: 10 if x > 1 else 0
+
+x = np.array([float(item[0]) for item in data_smoothing_normal])
+y = np.array([float(item[1]) for item in data_smoothing_normal])
+z = np.array([indicator(float(item[2])) for item in data_smoothing_normal])
+
+# Create a grid of points
+x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100),
+                            np.linspace(y.min(), y.max(), 100))
+
+# Interpolate the scattered data onto the grid
+z_grid = griddata((x, y), z, (x_grid, y_grid))
+
+# Create a 2D contour plot
+fig, ax = plt.subplots(figsize=(8, 6))
+contour = ax.contourf(x_grid, y_grid, z_grid, levels=2, cmap='viridis')
+
+
+
+# Add color bar to the plot
+plt.colorbar(contour)
+
+# Set labels
+ax.set_xlabel('E_scaled')
+ax.set_ylabel('nu')
+plt.title('Plot of Stability')
+
+# Show the plot
+plt.savefig('stability.png')
+
