@@ -3,8 +3,8 @@
 iterations=4
 nodes_x=16
 nodes_y=16
-timesteps=20
-dt=0.01
+timesteps=600
+dt=0.001
 for ((i=0; i<iterations; i++))
 do
     python3 comparison.py $nodes_x $nodes_y $timesteps $dt >> tmp.txt

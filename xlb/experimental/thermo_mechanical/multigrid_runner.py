@@ -35,8 +35,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initiali1e grid
-    nodes_x = 8
-    nodes_y = 8
+    nodes_x = 64
+    nodes_y = 64
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -45,8 +45,8 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 100
-    dt = 0.001
+    timesteps = 500
+    dt = 0.00025
 
     # params
     E = 0.085 * 2.5
@@ -92,9 +92,13 @@ if __name__ == "__main__":
             gamma=0.8,
             v1=2,
             v2=2,
-            max_levels=3,
+            max_levels=None,
         )
     finest_level = multigrid_solver.get_finest_level()
+    '''finest_level.stepper(finest_level.f_1, finest_level.f_2)
+    print(finest_level.stepper.force.shape)
+    wp.launch(utils.set_population_to_zero, inputs=[finest_level.stepper.force, 2], dim=finest_level.stepper.force.shape[1:]) 
+    wp.launch(utils.copy_populations, inputs=[finest_level.f_2, finest_level.defect_correction, 9], dim=finest_level.f_2.shape[1:])'''
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle()
         residual_over_time.append(residual_norm)

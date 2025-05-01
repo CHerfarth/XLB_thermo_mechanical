@@ -43,7 +43,7 @@ if __name__ == "__main__":
     parser.add_argument("nodes_x", type=int)
     parser.add_argument("nodes_y", type=int)
     parser.add_argument("timesteps", type=int)
-    #parser.add_argument("dt", type=float)
+    parser.add_argument("dt", type=float)
     args = parser.parse_args()
 
     # initiali1e grid
@@ -58,12 +58,12 @@ if __name__ == "__main__":
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     timesteps = args.timesteps
-    #dt = args.dt
-    dt = dx*dx
+    dt = args.dt
+    #dt = dx*dx
 
     # params
     E = 0.085 * 2.5
-    nu = 0.3
+    nu = 0.8
 
     solid_simulation = SimulationParams()
     solid_simulation.set_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
