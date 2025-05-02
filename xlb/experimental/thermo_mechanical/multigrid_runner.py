@@ -35,8 +35,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initiali1e grid
-    nodes_x = 32
-    nodes_y = 32
+    nodes_x = 64*2
+    nodes_y = 64*2
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     timesteps = 200
-    dt = 0.0001
+    dt = 0.00025/4
 
     # params
     E = 0.085 * 2.5
@@ -54,6 +54,7 @@ if __name__ == "__main__":
 
     solid_simulation = SimulationParams()
     solid_simulation.set_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+    print("E: {}        nu: {}".format(solid_simulation.E, solid_simulation.nu))
 
     # get force load
     x, y = sympy.symbols("x y")
@@ -90,11 +91,15 @@ if __name__ == "__main__":
             nu=nu,
             force_load=force_load,
             gamma=0.8,
-            v1=2,
-            v2=2,
-            max_levels=3,
+            v1=8,
+            v2=8,
+            max_levels=None,
         )
     finest_level = multigrid_solver.get_finest_level()
+    '''finest_level.stepper(finest_level.f_1, finest_level.f_2)
+    print(finest_level.stepper.force.shape)
+    wp.launch(utils.set_population_to_zero, inputs=[finest_level.stepper.force, 2], dim=finest_level.stepper.force.shape[1:]) 
+    wp.launch(utils.copy_populations, inputs=[finest_level.f_2, finest_level.defect_correction, 9], dim=finest_level.f_2.shape[1:])'''
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle()
         residual_over_time.append(residual_norm)
@@ -102,6 +107,8 @@ if __name__ == "__main__":
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
 
         # write out error norms
+        #print(finest_level.f_1.numpy()[1,:,:,0])
+        #print("-----------------------------------------------------------")
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)
