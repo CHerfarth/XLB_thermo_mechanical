@@ -8,13 +8,19 @@ from xlb.grid import grid_factory
 from xlb.experimental.thermo_mechanical.solid_stepper import SolidsStepper
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 from  xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
+from xlb import DefaultConfig
 import math
 from typing import Any
 
 
 class Level:
-    def __init__(self, nodes_x, nodes_y, dx, dt, force_load, gamma, v1, v2, level_num, multigrid, compute_backend, velocity_set, precision_policy):
-        wp.config.mode = "debug"
+    def __init__(self, nodes_x, nodes_y, dx, dt, force_load, gamma, v1, v2, level_num, multigrid, compute_backend=None, velocity_set=None, precision_policy=None):
+        #set params
+        self.velocity_set = velocity_set or DefaultConfig.velocity_set
+        self.precision_policy = precision_policy or DefaultConfig.default_precision_policy
+        self.compute_backend = compute_backend or DefaultConfig.default_backend
+        self.store_dtype = self.precision_policy.store_precision.wp_dtype
+        self.compute_dtype = self.precision_policy.compute_precision.wp_dtype
         self.grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
         self.nodes_x = nodes_x
         self.nodes_y = nodes_y
@@ -27,13 +33,13 @@ class Level:
         self.startup()
         self.multigrid = multigrid
         # setup grids
-        self.f_1 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-        self.f_2 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-        self.f_3 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-        self.f_4 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-        self.macroscopics = self.grid.create_field(cardinality=9, dtype=precision_policy.store_precision) 
-        self.residual = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-        self.defect_correction = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        self.f_1 = self.grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
+        self.f_2 = self.grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
+        self.f_3 = self.grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
+        self.f_4 = self.grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
+        self.macroscopics = self.grid.create_field(cardinality=9, dtype=self.precision_policy.store_precision) 
+        self.residual = self.grid.create_field(cardinality=velocity_set.q, dtype=self.precision_policy.store_precision)
+        self.defect_correction = self.grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
         # setup stepper
         self.stepper = SolidsStepper(self.grid, force_load)
         self.v1 = v1
@@ -41,7 +47,7 @@ class Level:
         self.level_num = level_num
 
         @wp.kernel
-        def relaxation(f_after_stream: Any, f_previous: Any, defect_correction: Any, f_destination: Any, gamma: Any):
+        def relaxation(f_after_stream: wp.array4d(dtype=self.store_dtype), f_previous:wp.array4d(dtype=self.store_dtype), defect_correction: wp.array4d(dtype=self.store_dtype), f_destination: wp.array4d(dtype=self.store_dtype), gamma: self.store_dtype):
             i, j, k = wp.tid()
             for l in range(velocity_set.q):
                 f_destination[l, i, j, 0] = (
@@ -73,12 +79,10 @@ class Level:
         self.startup()
         wp.launch(utils.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
         wp.launch(utils.add_populations, inputs=[self.f_1, self.defect_correction, self.residual, 9], dim=self.f_1.shape[1:])
-        #wp.launch(utils.subtract_populations, inputs=[self.f_1, self.defect_correction, self.residual,9], dim=self.defect_correction.shape[1:])
         self.stepper(self.f_3, self.f_2)
         #rules for operator: A(f) = current - previous
         # --> residual = defect - A(f) = defect + previous - current
         wp.launch(utils.subtract_populations, inputs=[self.residual, self.f_2, self.residual, 9], dim=self.residual.shape[1:])
-        #wp.launch(utils.add_populations, inputs=[self.residual, self.f_2, self.residual, 9], dim=self.residual.shape[1:])
         return self.residual
 
 
@@ -99,53 +103,22 @@ class Level:
             #get residual
             residual = self.get_residual()
             #restrict residual to defect_corrrection on coarse grid
-            '''if (self.level_num == 1):
-                print("Before:")
-                print("Coarse def: {}".format(np.max(coarse.defect_correction.numpy())))
-                print("Fine f_1: {}".format(np.max(self.f_1.numpy())))'''
             wp.launch(restrict, inputs=[coarse.defect_correction, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
             #set intial guess of coarse mesh to residual
             wp.launch(restrict, inputs=[coarse.f_1, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
-            #wp.launch(utils.set_population_to_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:])
             #scale defect correction?
             wp.launch(utils.multiply_populations, inputs=[coarse.defect_correction, 4., 9], dim=coarse.defect_correction.shape[1:])
-            '''if (self.level_num == 1):
-                print("Middle:")
-                print("Coarse def: {}".format(np.max(coarse.defect_correction.numpy())))
-                print("Fine f_1: {}".format(np.max(self.f_1.numpy())))'''
             #start v_cycle on coarse grid
             coarse.start_v_cycle()
             #get approximation of error
             error_approx = coarse.f_1
-            #print("Coarse: {}".format(np.max(error_approx.numpy())))
-            #interpolate error approx to fine grid
+            #interpolate back to fine grid
             wp.launch(interpolate, inputs=[self.f_3, error_approx, 9], dim=self.f_3.shape[1:])
-            #scale correction?
-            #wp.launch(utils.multiply_populations, inputs=[self.f_3, 0.25, 9], dim=self.f_3.shape[1:])
-            #add error_approx to current estimate
-            #print("Fine: {}".format(np.max(self.f_3.numpy())))
-            '''if (self.level_num == 1):
-                print("After:")
-                print("Coarse def: {}".format(np.max(coarse.defect_correction.numpy())))
-                print("Fine f_1: {}".format(np.max(self.f_1.numpy())))
-            if (self.level_num == 1) and False:
-                print("Defect Correction: {}".format(np.max(self.defect_correction.numpy())))
-                print("Error approx: {}".format(np.max(self.f_3.numpy())))
-                print(self.f_3.numpy()[1,:,:,0])
-                print(self.f_1.numpy()[1,:,:,0])
-                wp.launch(utils.subtract_populations, inputs=[self.f_1, self.f_3, self.f_4, 9], dim=self.f_1.shape[1:])
-                print(self.f_4.numpy()[1,:,:,0])
-                wp.launch(utils.add_populations, inputs=[self.f_1, self.f_3, self.f_4, 9], dim=self.f_1.shape[1:])
-                print(self.f_4.numpy()[1,:,:,0])'''
             wp.launch(utils.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
 
         #do post_smoothing
         for i in range(self.v2):
             self.perform_smoothing()
-
-        '''if (coarse == None):
-            for i in range(20):
-                self.perform_smoothing()'''
 
         residual_host = self.get_residual().numpy()
         return np.max(residual_host)
@@ -161,19 +134,9 @@ def interpolate(fine: Any, coarse: Any, dim: Any):
     coarse_i = i/2
     coarse_j = j/2 #check if really rounds down!
 
-    if (wp.mod(i, 2) == 0) and (wp.mod(j, 2) == 0) or True:
 
-        for l in range(dim):
-            fine[l,i,j,0] = coarse[l,coarse_i,coarse_j,0]
-    '''elif (wp.mod(i, 2) == 0) and (wp.mod(j,2) == 1):
-        for l in range(dim):
-            fine[l,i,j,0] = 0.5*(coarse[l,coarse_i,coarse_j,0] + coarse[l, coarse_i, coarse_j+1, 0])
-    elif (wp.mod(i,2) == 1) and (wp.mod(j,2) == 1):
-        for l in range(dim):
-            fine[l,i,j,0] = 0.5*(coarse[l,coarse_i,coarse_j,0] + coarse[l, coarse_i+1, coarse_j, 0])
-    else:
-        for l in range(dim):
-            fine[l,i,j,0] = 0.25*(coarse[l,coarse_i,coarse_j,0]+coarse[l,coarse_i+1,coarse_j,0]+coarse[l,coarse_i,coarse_j+1,0]+coarse[l,coarse_i+1,coarse_j+1,0])'''
+    for l in range(dim):
+        fine[l,i,j,0] = coarse[l,coarse_i,coarse_j,0]
 
    
 
@@ -184,9 +147,6 @@ def restrict(coarse: Any, fine: Any, fine_nodes_x: Any, fine_nodes_y: Any, dim: 
    for l in range(dim):
         val =  0.
         val += fine[l, 2*i, 2*j, 0]
-        #val += fine[l, wp.mod(2*i+1, fine_nodes_x), 2*j, 0]
-        #val += fine[l, 2*i, wp.mod(2*j+1, fine_nodes_y), 0]
-        #val += fine[l, wp.mod(2*i+1, fine_nodes_x), wp.mod(2*j+1, fine_nodes_y), 0]
         val += fine[l, 2*i+1, 2*j, 0]
         val += fine[l, 2*i, 2*j+1, 0]
         val += fine[l, 2*i+1, 2*j+1, 0]
@@ -203,11 +163,12 @@ class MultigridSolver:
     A class implementing a multigrid iterative solver for elliptic PDEs.
     """
 
-    def __init__(self, nodes_x, nodes_y, length_x, length_y, dt, E, nu, force_load, gamma, v1, v2, max_levels=None):
-        compute_backend = ComputeBackend.WARP
-        precision_policy = PrecisionPolicy.FP32FP32
-        velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
-        xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
+    def __init__(self, nodes_x, nodes_y, length_x, length_y, dt, E, nu, force_load, gamma, v1, v2, max_levels=None,  compute_backend=None, velocity_set=None, precision_policy=None):
+
+        wp.config.mode = "debug"
+        self.velocity_set = velocity_set or DefaultConfig.velocity_set
+        self.precision_policy = precision_policy or DefaultConfig.default_precision_policy
+        self.compute_backend = compute_backend or DefaultConfig.default_backend
 
         solid_simulation = SimulationParams()
         solid_simulation.set_parameters(
@@ -246,11 +207,12 @@ class MultigridSolver:
                 v2=v2,
                 level_num=i,
                 multigrid=self,
-                compute_backend=compute_backend,
-                velocity_set=velocity_set,
-                precision_policy=precision_policy,
+                compute_backend=self.compute_backend,
+                velocity_set=self.velocity_set,
+                precision_policy=self.precision_policy,
             )
             if (i != 0):
+                print(type(level.stepper.force))
                 wp.launch(utils.set_population_to_zero, inputs=[level.stepper.force, 2], dim=level.stepper.force.shape[1:])
 
             self.levels.append(level)
