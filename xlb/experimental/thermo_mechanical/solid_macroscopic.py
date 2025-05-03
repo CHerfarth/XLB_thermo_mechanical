@@ -9,6 +9,7 @@ from xlb.precision_policy import PrecisionPolicy
 from xlb.operator.operator import Operator
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
+from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 
 
 class SolidMacroscopics(Operator):
@@ -37,7 +38,7 @@ class SolidMacroscopics(Operator):
         )  
 
         #get kernels
-        kernel_provider = utils.KernelProvider()
+        kernel_provider = KernelProvider()
         solid_vec = kernel_provider.solid_vec
         read_local_population = kernel_provider.read_local_population
         calc_moments = kernel_provider.calc_moments
@@ -48,7 +49,7 @@ class SolidMacroscopics(Operator):
 
 
         @wp.kernel
-        def update(f: Any, bared_moments: Any, force: Any, omega: Any, theta: Any):
+        def update(f: wp.array4d(dtype=self.store_dtype), bared_moments: wp.array4d(dtype=self.store_dtype), force: wp.array4d(dtype=self.store_dtype), omega: solid_vec, theta: self.compute_dtype):
             i, j, k = wp.tid()  # for 2d, k will equal 1
 
             # calculate moments
@@ -56,8 +57,8 @@ class SolidMacroscopics(Operator):
             m = calc_moments(f_local)
 
             # apply half-forcing and get displacement
-            m[0] += 0.5 * force[0, i, j, 0]
-            m[1] += 0.5 * force[1, i, j, 0]
+            m[0] += 0.5 * self.compute_dtype(force[0, i, j, 0])
+            m[1] += 0.5 * self.compute_dtype(force[1, i, j, 0])
 
             m_eq = calc_equilibrium(m, theta)  # do something with this?
             for l in range(m._length_):
@@ -66,7 +67,7 @@ class SolidMacroscopics(Operator):
             write_population_to_global(bared_moments, m, i, j)
 
         @wp.kernel
-        def calc_macroscopics(macroscopics: Any, f: Any, bared_moments: Any, force: Any, L: Any, T: Any, theta: Any, kappa: Any):
+        def calc_macroscopics(macroscopics: wp.array4d(dtype=self.store_dtype), f: wp.array4d(dtype=self.store_dtype), bared_moments: wp.array4d(dtype=self.store_dtype), force: wp.array4d(dtype=self.store_dtype), L: self.compute_dtype, T: self.compute_dtype, theta: self.compute_dtype, kappa: self.compute_dtype):
             i, j, k = wp.tid()
             f_local = read_local_population(f, i, j) 
             m_local = calc_moments(f_local)

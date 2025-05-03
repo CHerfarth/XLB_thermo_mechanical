@@ -8,6 +8,7 @@ from xlb.grid import grid_factory
 from xlb.experimental.thermo_mechanical.solid_stepper import SolidsStepper
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 from  xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
+from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import math
 from typing import Any
 
@@ -40,7 +41,7 @@ class Level:
         self.level_num = level_num
 
         #get all necessary kernels
-        kernel_provider = utils.KernelProvider()
+        kernel_provider = KernelProvider()
         self.relax = kernel_provider.relaxation
         self.interpolate = kernel_provider.interpolate
         self.restrict = kernel_provider.restrict

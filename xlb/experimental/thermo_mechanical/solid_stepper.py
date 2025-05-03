@@ -14,6 +14,7 @@ from xlb.experimental.thermo_mechanical.solid_bounceback import SolidsDirichlet
 from xlb.experimental.thermo_mechanical.solid_macroscopic import SolidMacroscopics
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
+from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 
 # Mapping:
 #    i  j   |   m_q
@@ -56,7 +57,7 @@ class SolidsStepper(Stepper):
         omega_12 = 1 / (tau_12 + 0.5)
         omega_21 = 1 / (tau_21 + 0.5)
         omega_f = 1 / (tau_f + 0.5)
-        self.omega = utils.KernelProvider().solid_vec(0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_f, 0.0)
+        self.omega = KernelProvider().solid_vec(0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_f, 0.0)
 
         # ----------handle force load---------
         b_x_scaled = lambda x_node, y_node: force_load[0](
@@ -97,7 +98,7 @@ class SolidsStepper(Stepper):
         self.temp_f = grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
 
         #get kernels
-        kernel_provider = utils.KernelProvider()
+        kernel_provider = KernelProvider()
         self.copy_populations = kernel_provider.copy_populations 
 
     @Operator.register_backend(ComputeBackend.WARP)

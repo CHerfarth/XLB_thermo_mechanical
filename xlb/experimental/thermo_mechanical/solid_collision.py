@@ -12,6 +12,7 @@ from functools import partial
 
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
+from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 
 
 class SolidsCollision(Collision):
@@ -32,7 +33,7 @@ class SolidsCollision(Collision):
 
     def _construct_warp(self):
         # construct warp kernel
-        kernel_provider = utils.KernelProvider()
+        kernel_provider = KernelProvider()
         solid_vec = kernel_provider.solid_vec
         read_local_population = kernel_provider.read_local_population
         calc_moments = kernel_provider.calc_moments
