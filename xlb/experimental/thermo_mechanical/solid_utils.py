@@ -31,140 +31,194 @@ from xlb.experimental.thermo_mechanical.solid_simulation_params import Simulatio
 #    f      |   7
 #    0  0   |   8 (irrelevant)
 
+class KernelProvider:
+    _instance = None
 
-solid_vec = wp.vec(
-    9, dtype=PrecisionPolicy.FP32FP32.compute_precision.wp_dtype
-)  # this is the default precision policy; it can be changed by calling set_precision_policy()
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
-params = SimulationParams()
-K_scaled = params.K
-theta = params.theta
-lamb = params.lamb
+    def __init__(self, precision_policy=None):
+        if not hasattr(self, "_initialized"):
+            self._initialized = True
+            #compile all kernels
 
+            params = SimulationParams()
+            K_scaled = params.K
+            theta = params.theta
+            lamb = params.lamb
 
-def get_updated_params():
-    global K_scaled, theta, lamb
-    params = SimulationParams()
-    K_scaled = params.K
-    theta = params.theta
-    lamb = params.lamb
+            solid_vec = wp.vec(
+                9, dtype=PrecisionPolicy.FP32FP32.compute_precision.wp_dtype
+            )  # this is the default precision policy; it can be changed by calling set_precision_policy()
 
+            self.solid_vec = solid_vec
 
-def set_precision_policy(precision_policy):
-    global solid_vec
-    solid_vec = wp.vec(9, dtype=precision_policy.compute_precision.wp_dtype)
-
-
-@wp.func
-def read_local_population(f: wp.array4d(dtype=Any), x: wp.int32, y: wp.int32):
-    f_local = solid_vec()
-    for i in range(9):
-        f_local[i] = f[i, x, y, 0]
-    return f_local
-
-
-@wp.func
-def write_population_to_global(f: wp.array4d(dtype=Any), f_local: solid_vec, x: wp.int32, y: wp.int32):
-    for i in range(9):
-        f[i, x, y, 0] = f_local[i]
+            @wp.func
+            def read_local_population(f: wp.array4d(dtype=Any), x: wp.int32, y: wp.int32):
+                f_local = solid_vec()
+                for i in range(9):
+                    f_local[i] = f[i, x, y, 0]
+                return f_local
+            
 
 
-@wp.func
-def write_vec_to_global(array: wp.array4d(dtype=Any), array_local: Any, x: wp.int32, y: wp.int32, dim: wp.int32):
-    for i in range(dim):
-        array[i, x, y, 0] = array_local[i]
+            @wp.func
+            def write_population_to_global(f: wp.array4d(dtype=Any), f_local: solid_vec, x: wp.int32, y: wp.int32):
+                for i in range(9):
+                    f[i, x, y, 0] = f_local[i]
 
 
-@wp.func
-def calc_moments(f: solid_vec):
-    m = solid_vec()
-    # Todo: find better way to do this!
-    m[0] = f[3] - f[6] + f[7] - f[4] - f[8] + f[5]
-    m[1] = f[1] - f[2] + f[7] + f[4] - f[8] - f[5]
-    m[2] = f[7] - f[4] + f[8] - f[5]
-    m[3] = f[3] + f[1] + f[6] + f[2] + 2.0 * f[7] + 2.0 * f[4] + 2.0 * f[8] + 2.0 * f[5]
-    m[4] = f[3] - f[1] + f[6] - f[2]
-    m[5] = f[7] - f[4] - f[8] + f[5]
-    m[6] = f[7] + f[4] - f[8] - f[5]
-    m[7] = f[7] + f[4] + f[8] + f[5]
-    m[8] = 0.0
-    # m_7 is m_22 right now, we now convert it to m_f
-    tau_s = 2.0 * K_scaled / (1.0 + theta)
-    tau_f = 0.5  # todo: make modular, as function argument etc
-    gamma = (theta * tau_f) / ((1.0 + theta) * (tau_s - tau_f))
-    m[7] += gamma * m[3]
-    return m
+            @wp.func
+            def write_vec_to_global(array: wp.array4d(dtype=Any), array_local: Any, x: wp.int32, y: wp.int32, dim: wp.int32):
+                for i in range(dim):
+                    array[i, x, y, 0] = array_local[i]
 
 
-@wp.kernel
-def copy_populations(origin: wp.array4d(dtype=Any), dest: wp.array4d(dtype=Any), dim: Any):
-    i, j, k = wp.tid()
-    for l in range(dim):
-        dest[l, i, j, 0] = origin[l, i, j, 0]
-
-@wp.kernel
-def set_population_to_zero(f: Any, dim: Any):
-    i,j,k = wp.tid()
-    for l in range(dim):
-        f[l, i, j, 0] = 0.
-
-@wp.kernel
-def multiply_populations(f: wp.array4d(dtype=Any), factor: Any, dim: Any):
-    i, j, k = wp.tid()
-    for l in range(dim):
-        f[l, i, j, 0] *= factor
-
-
-@wp.kernel
-def subtract_populations(a: Any, b: Any, c: Any, dim: Any):
-    i, j, k = wp.tid()
-    for l in range(dim):
-        c[l, i, j, 0] = a[l, i, j, 0] - b[l, i, j, 0]
+            @wp.func
+            def calc_moments(f: solid_vec):
+                m = solid_vec()
+                # Todo: find better way to do this!
+                m[0] = f[3] - f[6] + f[7] - f[4] - f[8] + f[5]
+                m[1] = f[1] - f[2] + f[7] + f[4] - f[8] - f[5]
+                m[2] = f[7] - f[4] + f[8] - f[5]
+                m[3] = f[3] + f[1] + f[6] + f[2] + 2.0 * f[7] + 2.0 * f[4] + 2.0 * f[8] + 2.0 * f[5]
+                m[4] = f[3] - f[1] + f[6] - f[2]
+                m[5] = f[7] - f[4] - f[8] + f[5]
+                m[6] = f[7] + f[4] - f[8] - f[5]
+                m[7] = f[7] + f[4] + f[8] + f[5]
+                m[8] = 0.0
+                # m_7 is m_22 right now, we now convert it to m_f
+                tau_s = 2.0 * K_scaled / (1.0 + theta)
+                tau_f = 0.5  # todo: make modular, as function argument etc
+                gamma = (theta * tau_f) / ((1.0 + theta) * (tau_s - tau_f))
+                m[7] += gamma * m[3]
+                return m
 
 
-@wp.kernel
-def add_populations(a: Any, b: Any, c: Any, dim: Any):
-    i, j, k = wp.tid()
-    for l in range(dim):
-        c[l, i, j, 0] = a[l, i, j, 0] + b[l, i, j, 0]
+            @wp.kernel
+            def copy_populations(origin: wp.array4d(dtype=Any), dest: wp.array4d(dtype=Any), dim: Any):
+                i, j, k = wp.tid()
+                for l in range(dim):
+                    dest[l, i, j, 0] = origin[l, i, j, 0]
+
+            @wp.kernel
+            def set_population_to_zero(f: Any, dim: Any):
+                i,j,k = wp.tid()
+                for l in range(dim):
+                    f[l, i, j, 0] = 0.
+
+            @wp.kernel
+            def multiply_populations(f: wp.array4d(dtype=Any), factor: Any, dim: Any):
+                i, j, k = wp.tid()
+                for l in range(dim):
+                    f[l, i, j, 0] *= factor
 
 
-@wp.func
-def calc_populations(m: solid_vec):
-    f = solid_vec()
-    # m_7 is m_f right now, we convert it back to m_22
-    tau_s = 2.0 * K_scaled / (1.0 + theta)
-    tau_f = 0.5  # todo: make modular, as function argument etc
-    gamma = (theta * tau_f) / ((1.0 + theta) * (tau_s - tau_f))
-    m[7] += -gamma * m[3]
-    # Todo: find better way to do this!
-    f[3] = 2.0 * m[0] + m[3] + m[4] - 2.0 * m[5] - 2.0 * m[7]
-    f[1] = 2.0 * m[1] + m[3] - m[4] - 2.0 * m[6] - 2.0 * m[7]
-    f[6] = -2.0 * m[0] + m[3] + m[4] + 2.0 * m[5] - 2.0 * m[7]
-    f[2] = -2.0 * m[1] + m[3] - m[4] + 2.0 * m[6] - 2.0 * m[7]
-    f[7] = m[2] + m[5] + m[6] + m[7]
-    f[4] = -m[2] - m[5] + m[6] + m[7]
-    f[8] = m[2] - m[5] - m[6] + m[7]
-    f[5] = -m[2] + m[5] - m[6] + m[7]
-    f[0] = 0.0
-    for i in range(9):
-        f[i] = f[i] / 4.0
-    return f
+            @wp.kernel
+            def subtract_populations(a: Any, b: Any, c: Any, dim: Any):
+                i, j, k = wp.tid()
+                for l in range(dim):
+                    c[l, i, j, 0] = a[l, i, j, 0] - b[l, i, j, 0]
 
 
-@wp.func
-def calc_equilibrium(m: solid_vec, theta: Any):
-    m_eq = solid_vec()
-    m_eq[0] = m[0]
-    m_eq[1] = m[1]
-    m_eq[2] = 0.0
-    m_eq[3] = 0.0
-    m_eq[4] = 0.0
-    m_eq[5] = theta * m[0]
-    m_eq[6] = theta * m[1]
-    m_eq[7] = 0.0
-    m_eq[8] = 0.0
-    return m_eq
+            @wp.kernel
+            def add_populations(a: Any, b: Any, c: Any, dim: Any):
+                i, j, k = wp.tid()
+                for l in range(dim):
+                    c[l, i, j, 0] = a[l, i, j, 0] + b[l, i, j, 0]
+
+
+            @wp.func
+            def calc_populations(m: solid_vec):
+                f = solid_vec()
+                # m_7 is m_f right now, we convert it back to m_22
+                tau_s = 2.0 * K_scaled / (1.0 + theta)
+                tau_f = 0.5  # todo: make modular, as function argument etc
+                gamma = (theta * tau_f) / ((1.0 + theta) * (tau_s - tau_f))
+                m[7] += -gamma * m[3]
+                # Todo: find better way to do this!
+                f[3] = 2.0 * m[0] + m[3] + m[4] - 2.0 * m[5] - 2.0 * m[7]
+                f[1] = 2.0 * m[1] + m[3] - m[4] - 2.0 * m[6] - 2.0 * m[7]
+                f[6] = -2.0 * m[0] + m[3] + m[4] + 2.0 * m[5] - 2.0 * m[7]
+                f[2] = -2.0 * m[1] + m[3] - m[4] + 2.0 * m[6] - 2.0 * m[7]
+                f[7] = m[2] + m[5] + m[6] + m[7]
+                f[4] = -m[2] - m[5] + m[6] + m[7]
+                f[8] = m[2] - m[5] - m[6] + m[7]
+                f[5] = -m[2] + m[5] - m[6] + m[7]
+                f[0] = 0.0
+                for i in range(9):
+                    f[i] = f[i] / 4.0
+                return f
+
+
+            @wp.func
+            def calc_equilibrium(m: solid_vec, theta: Any):
+                m_eq = solid_vec()
+                m_eq[0] = m[0]
+                m_eq[1] = m[1]
+                m_eq[2] = 0.0
+                m_eq[3] = 0.0
+                m_eq[4] = 0.0
+                m_eq[5] = theta * m[0]
+                m_eq[6] = theta * m[1]
+                m_eq[7] = 0.0
+                m_eq[8] = 0.0
+                return m_eq
+            
+            @wp.kernel
+            def relaxation(f_after_stream: Any, f_previous: Any, defect_correction: Any, f_destination: Any, gamma: Any, dim: wp.int32):
+                i, j, k = wp.tid()
+                for l in range(dim):
+                    f_destination[l, i, j, 0] = (
+                        gamma * (f_after_stream[l, i, j, 0] - defect_correction[l, i, j, 0]) + (1.0 - gamma) * f_previous[l, i, j, 0]
+                    )
+
+
+            @wp.kernel
+            def interpolate(fine: Any, coarse: Any, dim: Any):
+                i,j,k = wp.tid()
+                coarse_i = i/2
+                coarse_j = j/2 #check if really rounds down!
+
+                if (wp.mod(i, 2) == 0) and (wp.mod(j, 2) == 0) or True:
+
+                    for l in range(dim):
+                        fine[l,i,j,0] = coarse[l,coarse_i,coarse_j,0]
+
+            
+
+            @wp.kernel
+            def restrict(coarse: Any, fine: Any, fine_nodes_x: Any, fine_nodes_y: Any, dim: Any):
+                i,j,k = wp.tid()
+
+                for l in range(dim):
+                        val =  0.
+                        val += fine[l, 2*i, 2*j, 0]
+                        val += fine[l, 2*i+1, 2*j, 0]
+                        val += fine[l, 2*i, 2*j+1, 0]
+                        val += fine[l, 2*i+1, 2*j+1, 0]
+                        coarse[l, i, j, 0] = 0.25*val
+
+
+            # Set all declared functions as properties of the class
+            self.read_local_population = read_local_population
+            self.write_population_to_global = write_population_to_global
+            self.write_vec_to_global = write_vec_to_global
+            self.calc_moments = calc_moments
+            self.copy_populations = copy_populations
+            self.set_population_to_zero = set_population_to_zero
+            self.multiply_populations = multiply_populations
+            self.subtract_populations = subtract_populations
+            self.add_populations = add_populations
+            self.calc_populations = calc_populations
+            self.calc_equilibrium = calc_equilibrium
+            self.relaxation = relaxation
+            self.interpolate = interpolate
+            self.restrict = restrict
+
+
 
 
 def get_force_load(manufactured_displacement, x, y):

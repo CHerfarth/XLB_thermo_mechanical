@@ -34,7 +34,17 @@ class SolidMacroscopics(Operator):
 
         macro_vec = wp.vec(
             9, dtype=self.precision_policy.compute_precision.wp_dtype
-        )  # this is the default precision policy; it can be changed by calling set_precision_policy()
+        )  
+
+        #get kernels
+        kernel_provider = utils.KernelProvider()
+        solid_vec = kernel_provider.solid_vec
+        read_local_population = kernel_provider.read_local_population
+        calc_moments = kernel_provider.calc_moments
+        calc_equilibrium = kernel_provider.calc_equilibrium
+        calc_populations = kernel_provider.calc_populations
+        write_population_to_global = kernel_provider.write_population_to_global
+        write_vec_to_global = kernel_provider.write_vec_to_global
 
 
         @wp.kernel
@@ -42,25 +52,25 @@ class SolidMacroscopics(Operator):
             i, j, k = wp.tid()  # for 2d, k will equal 1
 
             # calculate moments
-            f_local = utils.read_local_population(f, i, j)
-            m = utils.calc_moments(f_local)
+            f_local = read_local_population(f, i, j)
+            m = calc_moments(f_local)
 
             # apply half-forcing and get displacement
             m[0] += 0.5 * force[0, i, j, 0]
             m[1] += 0.5 * force[1, i, j, 0]
 
-            m_eq = utils.calc_equilibrium(m, theta)  # do something with this?
+            m_eq = calc_equilibrium(m, theta)  # do something with this?
             for l in range(m._length_):
                 m[l] = 0.5 * omega[l] * m_eq[l] + (1.0 - 0.5 * omega[l]) * m[l]
 
-            utils.write_population_to_global(bared_moments, m, i, j)
+            write_population_to_global(bared_moments, m, i, j)
 
         @wp.kernel
         def calc_macroscopics(macroscopics: Any, f: Any, bared_moments: Any, force: Any, L: Any, T: Any, theta: Any, kappa: Any):
             i, j, k = wp.tid()
-            f_local = utils.read_local_population(f, i, j) 
-            m_local = utils.calc_moments(f_local)
-            bared_m_local = utils.read_local_population(bared_moments, i, j)
+            f_local = read_local_population(f, i, j) 
+            m_local = calc_moments(f_local)
+            bared_m_local = read_local_population(bared_moments, i, j)
             tau_t = 0.5
             dev_factor = 2./(1.+2.*tau_t)
 
@@ -96,13 +106,13 @@ class SolidMacroscopics(Operator):
             macro[7] = dy_sxy*kappa/T
             macro[8] = dx_sxy*kappa/T
 
-            utils.write_vec_to_global(macroscopics, macro, i, j, 9)
+            write_vec_to_global(macroscopics, macro, i, j, 9)
 
         '''@wp.kernel
         def unscaled_moments(f: Any, unscaled_moments: Any, L: Any, T: Any):    
             i, j, k = wp.tid()
-            f_local = utils.read_local_population(f, i, j)
-            m = utils.calc_moments(f_local)
+            f_local = read_local_population(f, i, j)
+            m = calc_moments(f_local)
             #m_10
             unscaled_moments[0, i, j] = m[0]
             #m_01

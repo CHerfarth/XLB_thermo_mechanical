@@ -25,7 +25,8 @@ class SimulationParams:
 
         return cls._instance
 
-    def set_parameters(self, E, nu, dx, dt, L, T, kappa, theta):
+
+    def set_all_parameters(self, E, nu, dx, dt, L, T, kappa, theta):
         self._E_unscaled = E
         self._E = E
         self._nu_unscaled = nu
@@ -48,7 +49,12 @@ class SimulationParams:
         self._lamb = self._lamb_unscaled * self._T / (self._L * self._L * self._kappa)
         self._K = self._K_unscaled * self._T / (self._L * self._L * self._kappa)
         self._E = self._E * self._T / (self._L * self._L * self._kappa)
-        utils.get_updated_params()
+
+
+    def set_dx_dt(self, dx, dt):
+        assert(np.isclose(dx/(dt*dt), self._dx/(self._dt*self._dt)))
+        self._dx = dx
+        self._dt = dt
 
     @property
     def K_unscaled(self):

@@ -45,7 +45,6 @@ class SolidsStepper(Stepper):
         L = params.L
         kappa = params.kappa
         dt = params.dt
-        utils.set_precision_policy(self.precision_policy)
 
         # ----------calculate omega------------
         omega_11 = 1.0 / (mu / theta + 0.5)
@@ -57,7 +56,7 @@ class SolidsStepper(Stepper):
         omega_12 = 1 / (tau_12 + 0.5)
         omega_21 = 1 / (tau_21 + 0.5)
         omega_f = 1 / (tau_f + 0.5)
-        self.omega = utils.solid_vec(0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_f, 0.0)
+        self.omega = utils.KernelProvider().solid_vec(0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_f, 0.0)
 
         # ----------handle force load---------
         b_x_scaled = lambda x_node, y_node: force_load[0](
@@ -97,11 +96,15 @@ class SolidsStepper(Stepper):
         # ----------create field for temp stuff------------
         self.temp_f = grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
 
+        #get kernels
+        kernel_provider = utils.KernelProvider()
+        self.copy_populations = kernel_provider.copy_populations 
+
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f_1, f_2):  # f_1 carries current population, f_2 carries the previous post_collision population
         params = SimulationParams()
         theta = params.theta
-        wp.launch(utils.copy_populations, inputs=[f_2, self.temp_f, self.velocity_set.q], dim=f_1.shape[1:])
+        wp.launch(self.copy_populations, inputs=[f_2, self.temp_f, self.velocity_set.q], dim=f_1.shape[1:])
         bared_moments = self.macroscopic.get_bared_moments_device(f_1)
         # Collision Stage
         wp.launch(self.collision.warp_kernel, inputs=[f_1, self.force, self.omega, theta], dim=f_1.shape[1:])

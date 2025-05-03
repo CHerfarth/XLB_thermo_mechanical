@@ -24,7 +24,6 @@ class Level:
         self.gamma = gamma
         self.dx = dx
         self.dt = dt
-        self.startup()
         self.multigrid = multigrid
         # setup grids
         self.f_1 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
@@ -40,52 +39,44 @@ class Level:
         self.v2 = v2
         self.level_num = level_num
 
-        @wp.kernel
-        def relaxation(f_after_stream: Any, f_previous: Any, defect_correction: Any, f_destination: Any, gamma: Any):
-            i, j, k = wp.tid()
-            for l in range(velocity_set.q):
-                f_destination[l, i, j, 0] = (
-                    gamma * (f_after_stream[l, i, j, 0] - defect_correction[l, i, j, 0]) + (1.0 - gamma) * f_previous[l, i, j, 0]
-                )
-        self.relax = relaxation
+        #get all necessary kernels
+        kernel_provider = utils.KernelProvider()
+        self.relax = kernel_provider.relaxation
+        self.interpolate = kernel_provider.interpolate
+        self.restrict = kernel_provider.restrict
+        self.copy_populations = kernel_provider.copy_populations
+        self.add_populations = kernel_provider.add_populations
+        self.subtract_populations = kernel_provider.subtract_populations
+        self.multiply_populations = kernel_provider.multiply_populations
+        self.set_population_to_zero = kernel_provider.set_population_to_zero
+
+        if (self.level_num != 0):
+            wp.launch(self.set_population_to_zero, inputs=[self.stepper.force, 2], dim=self.stepper.force.shape[1:])
 
 
-    def startup(self):
-        solid_simulation = SimulationParams()
-        E = solid_simulation.E_unscaled
-        nu = solid_simulation.nu_unscaled
-        kappa = solid_simulation.kappa
-        theta = solid_simulation.theta
-        solid_simulation.set_parameters(E=E, nu=nu, dx=self.dx, dt=self.dt, L=self.dx, T=self.dt, kappa=kappa, theta=theta)
-    
   
     def perform_smoothing(self):
         #for statistics
         benchmark_data = BenchmarkData()
         benchmark_data.wu += (0.25**self.level_num)
-        self.startup()
-        wp.launch(utils.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
+        wp.launch(self.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_1, self.f_2)
-        wp.launch(self.relax, inputs=[self.f_2, self.f_3, self.defect_correction, self.f_1, self.gamma], dim=self.f_1.shape[1:])
+        wp.launch(self.relax, inputs=[self.f_2, self.f_3, self.defect_correction, self.f_1, self.gamma, self.velocity_set.q], dim=self.f_1.shape[1:])
 
 
     def get_residual(self):
-        self.startup()
-        wp.launch(utils.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
-        wp.launch(utils.add_populations, inputs=[self.f_1, self.defect_correction, self.residual, 9], dim=self.f_1.shape[1:])
-        #wp.launch(utils.subtract_populations, inputs=[self.f_1, self.defect_correction, self.residual,9], dim=self.defect_correction.shape[1:])
+        wp.launch(self.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
+        wp.launch(self.add_populations, inputs=[self.f_1, self.defect_correction, self.residual, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_3, self.f_2)
         #rules for operator: A(f) = current - previous
         # --> residual = defect - A(f) = defect + previous - current
-        wp.launch(utils.subtract_populations, inputs=[self.residual, self.f_2, self.residual, 9], dim=self.residual.shape[1:])
-        #wp.launch(utils.add_populations, inputs=[self.residual, self.f_2, self.residual, 9], dim=self.residual.shape[1:])
+        wp.launch(self.subtract_populations, inputs=[self.residual, self.f_2, self.residual, 9], dim=self.residual.shape[1:])
         return self.residual
 
 
 
     
     def get_macroscopics(self):
-        self.startup()
         return self.stepper.get_macroscopics_host(self.f_1)
     
 
@@ -99,53 +90,23 @@ class Level:
             #get residual
             residual = self.get_residual()
             #restrict residual to defect_corrrection on coarse grid
-            '''if (self.level_num == 1):
-                print("Before:")
-                print("Coarse def: {}".format(np.max(coarse.defect_correction.numpy())))
-                print("Fine f_1: {}".format(np.max(self.f_1.numpy())))'''
-            wp.launch(restrict, inputs=[coarse.defect_correction, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
+            wp.launch(self.restrict, inputs=[coarse.defect_correction, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
             #set intial guess of coarse mesh to residual
-            wp.launch(restrict, inputs=[coarse.f_1, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
-            #wp.launch(utils.set_population_to_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:])
+            wp.launch(self.restrict, inputs=[coarse.f_1, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
             #scale defect correction?
-            wp.launch(utils.multiply_populations, inputs=[coarse.defect_correction, 4., 9], dim=coarse.defect_correction.shape[1:])
-            '''if (self.level_num == 1):
-                print("Middle:")
-                print("Coarse def: {}".format(np.max(coarse.defect_correction.numpy())))
-                print("Fine f_1: {}".format(np.max(self.f_1.numpy())))'''
+            wp.launch(self.multiply_populations, inputs=[coarse.defect_correction, 4., 9], dim=coarse.defect_correction.shape[1:])
             #start v_cycle on coarse grid
             coarse.start_v_cycle()
             #get approximation of error
             error_approx = coarse.f_1
-            #print("Coarse: {}".format(np.max(error_approx.numpy())))
             #interpolate error approx to fine grid
-            wp.launch(interpolate, inputs=[self.f_3, error_approx, 9], dim=self.f_3.shape[1:])
-            #scale correction?
-            #wp.launch(utils.multiply_populations, inputs=[self.f_3, 0.25, 9], dim=self.f_3.shape[1:])
+            wp.launch(self.interpolate, inputs=[self.f_3, error_approx, 9], dim=self.f_3.shape[1:])
             #add error_approx to current estimate
-            #print("Fine: {}".format(np.max(self.f_3.numpy())))
-            '''if (self.level_num == 1):
-                print("After:")
-                print("Coarse def: {}".format(np.max(coarse.defect_correction.numpy())))
-                print("Fine f_1: {}".format(np.max(self.f_1.numpy())))
-            if (self.level_num == 1) and False:
-                print("Defect Correction: {}".format(np.max(self.defect_correction.numpy())))
-                print("Error approx: {}".format(np.max(self.f_3.numpy())))
-                print(self.f_3.numpy()[1,:,:,0])
-                print(self.f_1.numpy()[1,:,:,0])
-                wp.launch(utils.subtract_populations, inputs=[self.f_1, self.f_3, self.f_4, 9], dim=self.f_1.shape[1:])
-                print(self.f_4.numpy()[1,:,:,0])
-                wp.launch(utils.add_populations, inputs=[self.f_1, self.f_3, self.f_4, 9], dim=self.f_1.shape[1:])
-                print(self.f_4.numpy()[1,:,:,0])'''
-            wp.launch(utils.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
+            wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
 
         #do post_smoothing
         for i in range(self.v2):
             self.perform_smoothing()
-
-        '''if (coarse == None):
-            for i in range(20):
-                self.perform_smoothing()'''
 
         residual_host = self.get_residual().numpy()
         return np.max(residual_host)
@@ -155,42 +116,6 @@ class Level:
 
 
    
-@wp.kernel
-def interpolate(fine: Any, coarse: Any, dim: Any):
-    i,j,k = wp.tid()
-    coarse_i = i/2
-    coarse_j = j/2 #check if really rounds down!
-
-    if (wp.mod(i, 2) == 0) and (wp.mod(j, 2) == 0) or True:
-
-        for l in range(dim):
-            fine[l,i,j,0] = coarse[l,coarse_i,coarse_j,0]
-    '''elif (wp.mod(i, 2) == 0) and (wp.mod(j,2) == 1):
-        for l in range(dim):
-            fine[l,i,j,0] = 0.5*(coarse[l,coarse_i,coarse_j,0] + coarse[l, coarse_i, coarse_j+1, 0])
-    elif (wp.mod(i,2) == 1) and (wp.mod(j,2) == 1):
-        for l in range(dim):
-            fine[l,i,j,0] = 0.5*(coarse[l,coarse_i,coarse_j,0] + coarse[l, coarse_i+1, coarse_j, 0])
-    else:
-        for l in range(dim):
-            fine[l,i,j,0] = 0.25*(coarse[l,coarse_i,coarse_j,0]+coarse[l,coarse_i+1,coarse_j,0]+coarse[l,coarse_i,coarse_j+1,0]+coarse[l,coarse_i+1,coarse_j+1,0])'''
-
-   
-
-@wp.kernel
-def restrict(coarse: Any, fine: Any, fine_nodes_x: Any, fine_nodes_y: Any, dim: Any):
-   i,j,k = wp.tid()
-
-   for l in range(dim):
-        val =  0.
-        val += fine[l, 2*i, 2*j, 0]
-        #val += fine[l, wp.mod(2*i+1, fine_nodes_x), 2*j, 0]
-        #val += fine[l, 2*i, wp.mod(2*j+1, fine_nodes_y), 0]
-        #val += fine[l, wp.mod(2*i+1, fine_nodes_x), wp.mod(2*j+1, fine_nodes_y), 0]
-        val += fine[l, 2*i+1, 2*j, 0]
-        val += fine[l, 2*i, 2*j+1, 0]
-        val += fine[l, 2*i+1, 2*j+1, 0]
-        coarse[l, i, j, 0] = 0.25*val
 
 
 
@@ -203,16 +128,12 @@ class MultigridSolver:
     A class implementing a multigrid iterative solver for elliptic PDEs.
     """
 
-    def __init__(self, nodes_x, nodes_y, length_x, length_y, dt, E, nu, force_load, gamma, v1, v2, max_levels=None):
+    def __init__(self, nodes_x, nodes_y, length_x, length_y, dt, force_load, gamma, v1, v2, max_levels=None):
         compute_backend = ComputeBackend.WARP
         precision_policy = PrecisionPolicy.FP32FP32
         velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
         xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
-        solid_simulation = SimulationParams()
-        solid_simulation.set_parameters(
-            E=E, nu=nu, dx=1, dt=1, L=1, T=1, kappa=1, theta=1.0 / 3.0
-        )  # just placeholder, so E and nu get past to all levels
 
         # TODO: boundary conditions
 
@@ -250,8 +171,6 @@ class MultigridSolver:
                 velocity_set=velocity_set,
                 precision_policy=precision_policy,
             )
-            if (i != 0):
-                wp.launch(utils.set_population_to_zero, inputs=[level.stepper.force, 2], dim=level.stepper.force.shape[1:])
 
             self.levels.append(level)
 

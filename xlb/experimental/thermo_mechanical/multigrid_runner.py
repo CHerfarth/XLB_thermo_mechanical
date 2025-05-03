@@ -53,7 +53,8 @@ if __name__ == "__main__":
     nu = 0.8
 
     solid_simulation = SimulationParams()
-    solid_simulation.set_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+    kernel_provider = utils.KernelProvider()
     print("E: {}        nu: {}".format(solid_simulation.E, solid_simulation.nu))
 
     # get force load
@@ -87,8 +88,6 @@ if __name__ == "__main__":
             length_x=length_x,
             length_y=length_y,
             dt=dt,
-            E=E,
-            nu=nu,
             force_load=force_load,
             gamma=0.8,
             v1=8,
