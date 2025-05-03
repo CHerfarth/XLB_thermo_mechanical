@@ -9,6 +9,7 @@ from xlb.experimental.thermo_mechanical.solid_stepper import SolidsStepper
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 from  xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
+from xlb import DefaultConfig
 import math
 from typing import Any
 
@@ -130,12 +131,9 @@ class MultigridSolver:
     """
 
     def __init__(self, nodes_x, nodes_y, length_x, length_y, dt, force_load, gamma, v1, v2, max_levels=None):
-        compute_backend = ComputeBackend.WARP
-        precision_policy = PrecisionPolicy.FP32FP32
-        velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
-        xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
-
-
+        precision_policy = DefaultConfig.default_precision_policy
+        compute_backend = DefaultConfig.default_backend
+        velocity_set = DefaultConfig.velocity_set
         # TODO: boundary conditions
 
         # Determine maximum possible levels

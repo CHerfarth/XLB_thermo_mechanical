@@ -43,33 +43,33 @@ class SolidsCollision(Collision):
 
         @wp.kernel
         def collide(
-            f: wp.array4d(dtype=Any),
-            force: wp.array4d(dtype=Any),
+            f: wp.array4d(dtype=self.store_dtype),
+            force: wp.array4d(dtype=self.store_dtype),
             omega: solid_vec,
             theta: Any,
         ):
             i, j, k = wp.tid()  # for 2d, k will equal 1
 
-            # calculate moments
+            '''# calculate moments
             f_local = read_local_population(f, i, j)
             m = calc_moments(f_local)
 
             # apply half-forcing and get displacement
-            m[0] += 0.5 * force[0, i, j, 0]
-            m[1] += 0.5 * force[1, i, j, 0]
+            m[0] += self.compute_dtype(0.5) * force[0, i, j, 0]
+            m[1] += self.compute_dtype(0.5) * force[1, i, j, 0]
 
-            m_eq = calc_equilibrium(m, theta)
+            m_eq = calc_equilibrium(m, self.compute_dtype(theta))
 
             # get post-collision populations
             for l in range(m._length_):
-                m[l] = omega[l] * m_eq[l] + (1.0 - omega[l]) * m[l]
+                m[l] = omega[l] * m_eq[l] + (self.compute_dtype(1.0) - omega[l]) * m[l]
 
             # half-forcing
-            m[0] += 0.5 * force[0, i, j, 0]
-            m[1] += 0.5 * force[1, i, j, 0]
+            m[0] += self.compute_dtype(0.5) * force[0, i, j, 0]
+            m[1] += self.compute_dtype(0.5) * force[1, i, j, 0]
 
             # get populations and write back to global
             f_local = calc_populations(m)
-            write_population_to_global(f, f_local, i, j)
+            write_population_to_global(f, f_local, i, j)'''
 
         return None, collide
