@@ -18,7 +18,6 @@ from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
 from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
-from xlb import DefaultConfig
 import argparse
 
 
@@ -32,15 +31,13 @@ def write_results(data_over_wu, name):
 
 
 if __name__ == "__main__":
+    wp.config.mode = "debug"
     compute_backend = ComputeBackend.WARP
-    precision_policy = PrecisionPolicy.FP64FP64
+    precision_policy = PrecisionPolicy.FP32FP32
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
 
-    print("Defaul precision policy: {}".format(DefaultConfig.default_precision_policy))
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
-    wp.config.mode = "debug"
     
-    print("Defaul precision policy: {}".format(DefaultConfig.default_precision_policy))
 
     parser = argparse.ArgumentParser("convergence_study")
     parser.add_argument("nodes_x", type=int)
@@ -48,7 +45,6 @@ if __name__ == "__main__":
     parser.add_argument("timesteps", type=int)
     parser.add_argument("dt", type=float)
     args = parser.parse_args()
-    print("Defaul precision policy: {}".format(DefaultConfig.default_precision_policy))
 
     # initiali1e grid
     nodes_x = args.nodes_x
@@ -95,7 +91,6 @@ if __name__ == "__main__":
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
-    print("Defaul precision policy: {}".format(DefaultConfig.default_precision_policy))
 
 
     #-------------------------------------- collect data for multigrid----------------------------
@@ -113,8 +108,8 @@ if __name__ == "__main__":
             nu=nu,
             force_load=force_load,
             gamma=0.8,
-            v1=20,
-            v2=20,
+            v1=40,
+            v2=40,
             max_levels=None, 
         )
     finest_level = multigrid_solver.get_finest_level()
@@ -124,11 +119,12 @@ if __name__ == "__main__":
         macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
         data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
+        #if utils.last_n_avg(residuals, 50) < 1e-6:
+        #    break
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)
     write_results(data_over_wu, "multigrid_results.csv")
-    print("Defaul precision policy: {}".format(DefaultConfig.default_precision_policy))
 
 
     #------------------------------------- collect data for normal LB ----------------------------------
@@ -150,7 +146,6 @@ if __name__ == "__main__":
     residuals = list()
     benchmark_data = BenchmarkData()
     benchmark_data.wu = 0.
-    print("Defaul precision policy: {}".format(DefaultConfig.default_precision_policy))
 
     l2, linf = 0, 0
     for i in range(timesteps):
@@ -164,6 +159,8 @@ if __name__ == "__main__":
         macroscopics = stepper.get_macroscopics_host(f_1)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
         data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
+        #if utils.last_n_avg(residuals, 50) < 1e-6:
+        #    break
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)

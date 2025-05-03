@@ -5,7 +5,6 @@ import sympy
 import numpy as np
 from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
-from xlb import DefaultConfig
 
 
 # Mapping:
@@ -33,49 +32,47 @@ from xlb import DefaultConfig
 #    0  0   |   8 (irrelevant)
 
 
+solid_vec = wp.vec(
+    9, dtype=PrecisionPolicy.FP32FP32.compute_precision.wp_dtype
+)  # this is the default precision policy; it can be changed by calling set_precision_policy()
 
-
-K_scaled, theta, lamb = None, None, None
-precision_policy = PrecisionPolicy.FP64FP64 
-print("Initalised utils; precision policy: {}".format(precision_policy))
-compute_dtype = precision_policy.compute_precision.wp_dtype
-store_dtype = precision_policy.store_precision.wp_dtype
-solid_vec = wp.vec(9, dtype=compute_dtype)
+params = SimulationParams()
+K_scaled = params.K
+theta = params.theta
+lamb = params.lamb
 
 
 def get_updated_params():
-    global K_scaled, theta, lamb, precision_policy, compute_dtype, store_dtype, solid_vec
+    global K_scaled, theta, lamb
     params = SimulationParams()
     K_scaled = params.K
     theta = params.theta
     lamb = params.lamb
-    precision_policy  = params.precision_policy
-    compute_dtype=precision_policy.compute_precision.wp_dtype
-    store_dtype=precision_policy.store_precision.wp_dtype
-    solid_vec = wp.vec(9, dtype=compute_dtype)
-    print("Computing with:{}".format(compute_dtype))
-'''    print("Utils: changed to precision policy {}".format(precision_policy))
-    print("Defaul precision policy: {}".format(DefaultConfig.default_precision_policy))'''
+
+
+def set_precision_policy(precision_policy):
+    global solid_vec
+    solid_vec = wp.vec(9, dtype=precision_policy.compute_precision.wp_dtype)
 
 
 @wp.func
-def read_local_population(f: wp.array4d(dtype=store_dtype), x: wp.int32, y: wp.int32):
+def read_local_population(f: wp.array4d(dtype=Any), x: wp.int32, y: wp.int32):
     f_local = solid_vec()
     for i in range(9):
-        f_local[i] = compute_dtype(f[i, x, y, 0])
+        f_local[i] = f[i, x, y, 0]
     return f_local
 
 
 @wp.func
-def write_population_to_global(f: wp.array4d(dtype=store_dtype), f_local: solid_vec, x: wp.int32, y: wp.int32):
+def write_population_to_global(f: wp.array4d(dtype=Any), f_local: solid_vec, x: wp.int32, y: wp.int32):
     for i in range(9):
-        f[i, x, y, 0] = store_dtype(f_local[i])
+        f[i, x, y, 0] = f_local[i]
 
 
 @wp.func
-def write_vec_to_global(array: wp.array4d(dtype=store_dtype), array_local: Any, x: wp.int32, y: wp.int32, dim: wp.int32):
+def write_vec_to_global(array: wp.array4d(dtype=Any), array_local: Any, x: wp.int32, y: wp.int32, dim: wp.int32):
     for i in range(dim):
-        array[i, x, y, 0] = store_dtype(array_local[i])
+        array[i, x, y, 0] = array_local[i]
 
 
 @wp.func
@@ -100,41 +97,36 @@ def calc_moments(f: solid_vec):
 
 
 @wp.kernel
-def copy_populations(origin: wp.array4d(dtype=store_dtype), dest: wp.array4d(dtype=store_dtype), dim: wp.int32):
+def copy_populations(origin: wp.array4d(dtype=Any), dest: wp.array4d(dtype=Any), dim: Any):
     i, j, k = wp.tid()
     for l in range(dim):
         dest[l, i, j, 0] = origin[l, i, j, 0]
 
 @wp.kernel
-def set_population_to_zero(f: Any, dim: wp.int32):
+def set_population_to_zero(f: Any, dim: Any):
     i,j,k = wp.tid()
-    #for l in range(dim):
-        #wp.printf("got: %f", wp.float64(0.))
-        #f[l, i, j, 0] = 0.#wp.float64(0.)
+    for l in range(dim):
+        f[l, i, j, 0] = 0.
 
 @wp.kernel
-def multiply_populations(f: wp.array4d(dtype=store_dtype), factor: compute_dtype, dim: wp.int32):
+def multiply_populations(f: wp.array4d(dtype=Any), factor: Any, dim: Any):
     i, j, k = wp.tid()
-    print(type(f))
-    print("starting multiply whoop whoop")
     for l in range(dim):
-        f[l, i, j, 0]=store_dtype(factor*compute_dtype(f[l,i,j,0]))
+        f[l, i, j, 0] *= factor
 
 
 @wp.kernel
-def subtract_populations(a: wp.array4d(dtype=store_dtype), b: wp.array4d(dtype=store_dtype), c: wp.array4d(dtype=store_dtype), dim: wp.int32):
+def subtract_populations(a: Any, b: Any, c: Any, dim: Any):
     i, j, k = wp.tid()
     for l in range(dim):
-        c[l, i, j, 0] = store_dtype(compute_dtype(a[l, i, j, 0]) - compute_dtype(b[l, i, j, 0]))
+        c[l, i, j, 0] = a[l, i, j, 0] - b[l, i, j, 0]
 
 
 @wp.kernel
-def add_populations(a: wp.array4d(dtype=store_dtype), b: wp.array4d(dtype=store_dtype), c: wp.array4d(dtype=store_dtype), dim: wp.int32):
+def add_populations(a: Any, b: Any, c: Any, dim: Any):
     i, j, k = wp.tid()
-    print("C type: ")
-    print(type(c))
     for l in range(dim):
-        c[l, i, j, 0] = store_dtype(compute_dtype(a[l, i, j, 0]) + compute_dtype(b[l, i, j, 0]))
+        c[l, i, j, 0] = a[l, i, j, 0] + b[l, i, j, 0]
 
 
 @wp.func
@@ -161,7 +153,7 @@ def calc_populations(m: solid_vec):
 
 
 @wp.func
-def calc_equilibrium(m: solid_vec, theta: compute_dtype):
+def calc_equilibrium(m: solid_vec, theta: Any):
     m_eq = solid_vec()
     m_eq[0] = m[0]
     m_eq[1] = m[1]

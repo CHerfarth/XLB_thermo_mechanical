@@ -4,7 +4,6 @@ from typing import Any
 import sympy
 import numpy as np
 import xlb.experimental.thermo_mechanical.solid_utils as utils
-from xlb import DefaultConfig
 
 
 # these are the global variables needed throughout the simulation
@@ -23,11 +22,10 @@ class SimulationParams:
             cls._instance._K = None
             cls._instance._mu = None
             cls._instance._lamb = None
-            cls._instance._precision_policy = None
 
         return cls._instance
 
-    def set_parameters(self, E, nu, dx, dt, L, T, kappa, theta, precision_policy=None):
+    def set_parameters(self, E, nu, dx, dt, L, T, kappa, theta):
         self._E_unscaled = E
         self._E = E
         self._nu_unscaled = nu
@@ -50,17 +48,7 @@ class SimulationParams:
         self._lamb = self._lamb_unscaled * self._T / (self._L * self._L * self._kappa)
         self._K = self._K_unscaled * self._T / (self._L * self._L * self._kappa)
         self._E = self._E * self._T / (self._L * self._L * self._kappa)
-
-        #set precision policy
-        if (precision_policy == None):
-            self._precision_policy = DefaultConfig.default_precision_policy 
-        else:
-            self._precision_policy = precision_policy
         utils.get_updated_params()
-
-    @property
-    def precision_policy(self):
-        return self._precision_policy
 
     @property
     def K_unscaled(self):

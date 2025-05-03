@@ -11,10 +11,10 @@ from mpltools import annotation
 
 
 multigrid_data = pd.read_csv("multigrid_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64)
-#multigrid_data = multigrid_data.iloc[:-45000]
+multigrid_data = multigrid_data.iloc[:-45000]
 print(multigrid_data.head())
 normal_data = pd.read_csv("normal_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64)
-#normal_data = normal_data.iloc[:-45000]
+normal_data = normal_data.iloc[:-45000]
 print(normal_data.head())
 max_wu_normal = normal_data["wu"].max()
 print(max_wu_normal)
@@ -24,8 +24,8 @@ title = "Residuals over Work Units (WU)"
 x_label = "WU"
 y_label = "Residual"
 fig, ax = plt.subplots()
-ax.plot(multigrid_data['wu'], multigrid_data['residual_norm'], "-", color='blue', label='Residual Multigrid LB')
-ax.plot(normal_data['wu'], normal_data['residual_norm'], "-", color='green', label='Residual Standard LB')
+ax.plot(multigrid_data['wu'], multigrid_data['residual_norm']/multigrid_data['residual_norm'][0], "-", color='blue', label='Residual Multigrid LB')
+ax.plot(normal_data['wu'], normal_data['residual_norm']/normal_data['residual_norm'][0], "-", color='green', label='Residual Standard LB')
 ax.grid(True)
 ax.set_xlim((0,max_wu_normal))
 plt.yscale("log")

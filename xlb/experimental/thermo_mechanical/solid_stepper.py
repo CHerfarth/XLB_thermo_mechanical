@@ -45,6 +45,7 @@ class SolidsStepper(Stepper):
         L = params.L
         kappa = params.kappa
         dt = params.dt
+        utils.set_precision_policy(self.precision_policy)
 
         # ----------calculate omega------------
         omega_11 = 1.0 / (mu / theta + 0.5)
