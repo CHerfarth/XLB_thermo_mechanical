@@ -51,26 +51,26 @@ class SolidMacroscopics(Operator):
         @wp.kernel
         def update(f: wp.array4d(dtype=self.store_dtype), bared_moments: wp.array4d(dtype=self.store_dtype), force: wp.array4d(dtype=self.store_dtype), omega: solid_vec, theta: self.compute_dtype):
             i, j, k = wp.tid()  # for 2d, k will equal 1
-            #zero_p_five = self.compute_dtype(0.5)
+            zero_p_five = self.compute_dtype(0.5)
 
-            # calculate moments
-            #f_local = read_local_population(f, i, j)
-            #m = calc_moments(f_local)
+            #calculate moments
+            f_local = read_local_population(f, i, j)
+            m = calc_moments(f_local)
 
             # apply half-forcing and get displacement
-            #m[0] += zero_p_five * self.compute_dtype(force[0, i, j, 0])
-            #m[1] += zero_p_five * self.compute_dtype(force[1, i, j, 0])
+            m[0] += zero_p_five * self.compute_dtype(force[0, i, j, 0])
+            m[1] += zero_p_five * self.compute_dtype(force[1, i, j, 0])
 
-            #m_eq = calc_equilibrium(m, theta)  # do something with this?
-            #for l in range(m._length_):
-            #   m[l] = zero_p_five * omega[l] * m_eq[l] + (self.compute_dtype(1.0) - zero_p_five * omega[l]) * m[l]
+            m_eq = calc_equilibrium(m, theta)  # do something with this?
+            for l in range(m._length_):
+               m[l] = zero_p_five * omega[l] * m_eq[l] + (self.compute_dtype(1.0) - zero_p_five * omega[l]) * m[l]
 
-            #write_population_to_global(bared_moments, m, i, j)
+            write_population_to_global(bared_moments, m, i, j)
 
         @wp.kernel
         def calc_macroscopics(macroscopics: wp.array4d(dtype=self.store_dtype), f: wp.array4d(dtype=self.store_dtype), bared_moments: wp.array4d(dtype=self.store_dtype), force: wp.array4d(dtype=self.store_dtype), L: self.compute_dtype, T: self.compute_dtype, theta: self.compute_dtype, kappa: self.compute_dtype):
             i, j, k = wp.tid()
-            '''zero_p_five = self.compute_dtype(0.5)
+            zero_p_five = self.compute_dtype(0.5)
             f_local = read_local_population(f, i, j) 
             m_local = calc_moments(f_local)
             bared_m_local = read_local_population(bared_moments, i, j)
@@ -90,8 +90,8 @@ class SolidMacroscopics(Operator):
 
             m_12 = m_local[5]
             m_21 = m_local[6]
-            g_x = force[0,i,j,0]
-            g_y = force[1,i,j,0]
+            g_x = self.compute_dtype(force[0,i,j,0])
+            g_y = self.compute_dtype(force[1,i,j,0])
             dx_sxx = dev_factor* (theta*dis_x - m_12) - g_x
             dy_syy = dev_factor*(theta*dis_y - m_21) - g_y
             dy_sxy = dev_factor*(m_12 - theta*dis_x)
@@ -109,9 +109,9 @@ class SolidMacroscopics(Operator):
             macro[7] = dy_sxy*kappa/T
             macro[8] = dx_sxy*kappa/T
 
-            write_vec_to_global(macroscopics, macro, i, j, 9)'''
+            write_vec_to_global(macroscopics, macro, i, j, 9)
 
-        '''@wp.kernel
+        @wp.kernel
         def unscaled_moments(f: Any, unscaled_moments: Any, L: Any, T: Any):    
             i, j, k = wp.tid()
             f_local = read_local_population(f, i, j)
@@ -131,7 +131,7 @@ class SolidMacroscopics(Operator):
             #m_21
             unscaled_moments[6, i, j] = m[6] 
             #m_f
-            unscaled_moments[7, i, j] = m[7] * T / L'''
+            unscaled_moments[7, i, j] = m[7] * T / L
         
         self.update_bared_moments_kernel = update
         self.calc_macroscopics_kernel = calc_macroscopics
@@ -141,11 +141,11 @@ class SolidMacroscopics(Operator):
     def update_bared_moments(self, f):  # updates all bared moments
         params = SimulationParams()
         theta = params.theta
-        #wp.launch(
-        #    self.update_bared_moments_kernel,
-        #    inputs=[f, self.bared_moments, self.force, self.omega, theta],
-        #    dim=f.shape[1:],
-        #)
+        wp.launch(
+            self.update_bared_moments_kernel,
+            inputs=[f, self.bared_moments, self.force, self.omega, theta],
+            dim=f.shape[1:],
+        )
 
     def get_macroscopics_host(self, f):
        return self.get_macroscopics_device(f).numpy()

@@ -41,8 +41,6 @@ class KernelProvider:
         if precision_policy == None:
             precision_policy = DefaultConfig.default_precision_policy
 
-        print("Working with precision policy {}".format(precision_policy))
-        
         compute_dtype = precision_policy.compute_precision.wp_dtype
         store_dtype = precision_policy.store_precision.wp_dtype
 
@@ -91,7 +89,7 @@ class KernelProvider:
             m[5] = f[7] - f[4] - f[8] + f[5]
             m[6] = f[7] + f[4] - f[8] - f[5]
             m[7] = f[7] + f[4] + f[8] + f[5]
-            m[8] = 0.0
+            m[8] = compute_dtype(0.0)
             # m_7 is m_22 right now, we now convert it to m_f
             tau_s = compute_dtype(2.0) * K_scaled / (compute_dtype(1.0) + theta)
             tau_f = compute_dtype(0.5)  # todo: make modular, as function argument etc
@@ -110,7 +108,7 @@ class KernelProvider:
         def set_population_to_zero(f: wp.array4d(dtype=store_dtype), dim: Any):
             i,j,k = wp.tid()
             for l in range(dim):
-                f[l, i, j, 0] = compute_dtype(0.)
+                f[l, i, j, 0] = store_dtype(0.)
 
         @wp.kernel
         def multiply_populations(f: wp.array4d(dtype=store_dtype), factor: compute_dtype, dim: wp.int32):
@@ -200,10 +198,10 @@ class KernelProvider:
 
             for l in range(dim):
                     val =  compute_dtype(0.)
-                    val += fine[l, 2*i, 2*j, 0]
-                    val += fine[l, 2*i+1, 2*j, 0]
-                    val += fine[l, 2*i, 2*j+1, 0]
-                    val += fine[l, 2*i+1, 2*j+1, 0]
+                    val += compute_dtype(fine[l, 2*i, 2*j, 0])
+                    val += compute_dtype(fine[l, 2*i+1, 2*j, 0])
+                    val += compute_dtype(fine[l, 2*i, 2*j+1, 0])
+                    val += compute_dtype(fine[l, 2*i+1, 2*j+1, 0])
                     coarse[l, i, j, 0] = store_dtype(compute_dtype(0.25)*val)
 
 

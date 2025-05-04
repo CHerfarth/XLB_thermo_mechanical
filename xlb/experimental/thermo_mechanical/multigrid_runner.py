@@ -30,7 +30,7 @@ def write_results(norms_over_time, name):
 if __name__ == "__main__":
     wp.config.mode = "debug"
     compute_backend = ComputeBackend.WARP
-    precision_policy = PrecisionPolicy.FP64FP64
+    precision_policy = PrecisionPolicy.FP64FP32
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
 
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
@@ -55,9 +55,6 @@ if __name__ == "__main__":
 
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
-    kernel_provider = KernelProvider()
-    kernel_provider1 = KernelProvider()
-    print("{}           {}".format(kernel_provider, kernel_provider1))
     print("E: {}        nu: {}".format(solid_simulation.E, solid_simulation.nu))
 
     # get force load
