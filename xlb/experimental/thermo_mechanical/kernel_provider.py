@@ -185,10 +185,8 @@ class KernelProvider:
             coarse_i = i/2
             coarse_j = j/2 #check if really rounds down!
 
-            if (wp.mod(i, 2) == 0) and (wp.mod(j, 2) == 0) or True:
-
-                for l in range(dim):
-                    fine[l,i,j,0] = coarse[l,coarse_i,coarse_j,0]
+            for l in range(dim):
+                fine[l,i,j,0] = coarse[l,coarse_i,coarse_j,0]
 
         
 

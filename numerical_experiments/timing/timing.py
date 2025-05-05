@@ -3,23 +3,20 @@ import sys
 from xlb.compute_backend import ComputeBackend
 from xlb.precision_policy import PrecisionPolicy
 from xlb.grid import grid_factory
-import xlb.experimental
 from xlb.experimental.thermo_mechanical.solid_stepper import SolidsStepper
 import xlb.velocity_set
 import warp as wp
 import numpy as np
-from typing import Any
 import sympy
 import csv
 import math
 import xlb.experimental.thermo_mechanical.solid_utils as utils
-import xlb.experimental.thermo_mechanical.solid_bounceback as bc
-from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
 from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import argparse
+import time
 
 
 def write_results(data_over_wu, name):
@@ -33,7 +30,7 @@ def write_results(data_over_wu, name):
 
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
-    precision_policy = PrecisionPolicy.FP32FP32
+    precision_policy = PrecisionPolicy.FP64FP64
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
 
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
@@ -42,7 +39,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("convergence_study")
     parser.add_argument("nodes_x", type=int)
     parser.add_argument("nodes_y", type=int)
-    parser.add_argument("timesteps", type=int)
+    parser.add_argument("max_timesteps_multi", type=int)
+    parser.add_argument("max_timesteps_standard", type=int)
     parser.add_argument("dt", type=float)
     args = parser.parse_args()
 
@@ -57,21 +55,22 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = args.timesteps
     dt = args.dt
     #dt = dx*dx
 
     # params
-    E = 0.085 * 2.5
+    E = 0.085 * 0.25
     nu = 0.8
 
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
 
+    print("Simulating with E {} and nu {}".format(solid_simulation.E, solid_simulation.nu))
+
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x)*sympy.sin(2*sympy.pi*y)  # + 3
-    manufactured_v = sympy.cos(2 * sympy.pi * y)*sympy.sin(2*sympy.pi*x)  # + 3
+    manufactured_u = sympy.cos(2 * sympy.pi * x)*sympy.sin(4*sympy.pi*y)  # + 3
+    manufactured_v = sympy.cos(2 * sympy.pi * y)*sympy.sin(4*sympy.pi*x)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -92,10 +91,13 @@ if __name__ == "__main__":
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
 
+    tol = 1e-13
+
 
     #-------------------------------------- collect data for multigrid----------------------------
-    data_over_wu = list()
-    residuals = list()
+    converged = 0
+    #run once to check how many timesteps needed for convergence
+    timesteps = args.max_timesteps_multi
     benchmark_data = BenchmarkData()
     benchmark_data.wu = 0.
     multigrid_solver = MultigridSolver(
@@ -113,35 +115,58 @@ if __name__ == "__main__":
     finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle(return_residual=True)
-        residuals.append(residual_norm)
-        macroscopics = finest_level.get_macroscopics()
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
-        data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
-        if (benchmark_data.wu > timesteps):
+        #print(residual_norm)
+        if residual_norm < tol:
+            print("Multigrid LB converged in {} iterations".format(i))
+            converged = 1
             break
 
-    print(l2_disp, linf_disp, l2_stress, linf_stress)
-    print(residual_norm)
-    write_results(data_over_wu, "multigrid_results.csv")
+    if not converged:
+        print("Multigrid LB did not converge")
+        i = 0 #no second run needed if not converged the first time
+
+    #run second time to get runtime
+    timesteps = i
+    benchmark_data = BenchmarkData()
+    benchmark_data.wu = 0.
+    multigrid_solver = MultigridSolver(
+            nodes_x=nodes_x,
+            nodes_y=nodes_y,
+            length_x=length_x,
+            length_y=length_y,
+            dt=dt,
+            force_load=force_load,
+            gamma=0.8,
+            v1=40,
+            v2=40,
+            max_levels=None, 
+        )
+    finest_level = multigrid_solver.get_finest_level()
+    wp.synchronize()
+    start = time.time()
+    for i in range(timesteps):
+        residual_norm = finest_level.start_v_cycle()
+    wp.synchronize()
+    end = time.time()
+    runtime = end-start
+
+    print("Multigrid_Converged: {}".format(converged))
+    print("Multigrid_Time: {}".format(runtime))
 
 
     #------------------------------------- collect data for normal LB ----------------------------------
 
-
-    solid_simulation = SimulationParams()
-    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
-    
+    timesteps =args.max_timesteps_standard
+    converged = 0
+    #-----------run first time
     # initialize stepper
     stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
-
     # startup grids
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
 
-    data_over_wu = list()  # to track error over time
-    residuals = list()
     benchmark_data = BenchmarkData()
     benchmark_data.wu = 0.
     
@@ -149,23 +174,56 @@ if __name__ == "__main__":
     copy_populations = kernel_provider.copy_populations
     subtract_populations = kernel_provider.subtract_populations
 
-    l2, linf = 0, 0
     for i in range(timesteps):
         benchmark_data.wu += 1
         wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
         stepper(f_1, f_3)
         f_1, f_2, f_3 = f_3, f_1, f_2
         wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_3.shape[1:])
-        residual_norm = np.linalg.norm(residual.numpy())
-        residuals.append(residual_norm)
-        macroscopics = stepper.get_macroscopics_host(f_1)
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
-        data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
-        #if utils.last_n_avg(residuals, 50) < 1e-6:
-        #    break
+        if (i%100 == 0):
+            residual_norm = np.max(np.abs(residual.numpy()))
+            #print(residual_norm)
+            if residual_norm < tol:
+                print("Standard LB converged in {} iterations".format(i))
+                converged = 1
+                break
 
-    print(l2_disp, linf_disp, l2_stress, linf_stress)
-    print(residual_norm)
-    write_results(data_over_wu, "normal_results.csv")
+
+    if not converged:
+        print("Standard LB did not converge")
+        i = 0 #no second run needed if not converged the first time
+
+    #--------------run second time
+    timesteps = i
+    # initialize stepper
+    stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
+    # startup grids
+    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+
+    benchmark_data = BenchmarkData()
+    benchmark_data.wu = 0.
+    
+    kernel_provider = KernelProvider()
+    copy_populations = kernel_provider.copy_populations
+    subtract_populations = kernel_provider.subtract_populations
+
+    wp.synchronize()
+    start = time.time()
+
+    for i in range(timesteps):
+        benchmark_data.wu += 1
+        stepper(f_1, f_3)
+        f_1, f_2, f_3 = f_3, f_1, f_2
+
+    wp.synchronize()
+    end = time.time()
+    runtime = end-start
+        
+    print("Standard_Converged: {}".format(converged))
+    print("Standard_Time: {}".format(runtime))
+
 
     

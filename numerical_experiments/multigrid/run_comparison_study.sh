@@ -1,6 +1,6 @@
 #!/bin/bash
 
-iterations=6
+iterations=5
 nodes_x=16
 nodes_y=16
 timesteps=1000

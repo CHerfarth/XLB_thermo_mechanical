@@ -8,6 +8,13 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from matplotlib.ticker import FuncFormatter
 from scipy.interpolate import griddata
+import argparse
+
+
+parser = argparse.ArgumentParser("Smoothing Factor Study")
+parser.add_argument("gamma", type=float)
+args = parser.parse_args()
+gamma_relax = args.gamma 
 
 #vars:
 theta = 1/3
@@ -105,11 +112,8 @@ M_eq[1,1] = 1
 M_eq[5,0] = theta
 M_eq[6,1] = theta
 
-#for relaxation
-gamma = 1#0.8
 
-
-L_mat = gamma*(M_inv*D*M_eq*M + M_inv*(I-D)*M)
+L_mat = gamma_relax*(M_inv*D*M_eq*M + M_inv*(I-D)*M)
 
 phi_x, phi_y = sp.symbols('phi_x phi_y')
 
@@ -117,7 +121,7 @@ for i in range(velocity_set.q - 1):
     L_mat[i,:] = L_mat[i,:]*sp.exp(-sp.I*(phi_x * velocity_set.c[0, i+1] + phi_y * velocity_set.c[1,i+1]))
     print("x_dir, y_dir: {} {}".format(velocity_set.c[0,i+1], velocity_set.c[1,i+1]))
 
-L_mat += (1-gamma)*I
+L_mat += (1-gamma_relax)*I
 
 outer_iterations = 20
 inner_iterations = 20

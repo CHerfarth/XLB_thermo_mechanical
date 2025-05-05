@@ -1,1 +1,2 @@
-rm -rf plots_nodes*
+rm -rf plots_nodes* 
+rm *.csv

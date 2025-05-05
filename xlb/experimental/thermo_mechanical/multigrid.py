@@ -82,7 +82,7 @@ class Level:
         return self.stepper.get_macroscopics_host(self.f_1)
     
 
-    def start_v_cycle(self):
+    def start_v_cycle(self, return_residual=False):
         #do pre-smoothing
         for i in range(self.v1):
             self.perform_smoothing()
@@ -110,8 +110,11 @@ class Level:
         for i in range(self.v2):
             self.perform_smoothing()
 
-        residual_host = self.get_residual().numpy()
-        return np.max(residual_host)
+        if return_residual:
+            residual_host = self.get_residual().numpy()
+            return np.max(np.abs(residual_host))
+        else:
+            return 0.
 
 
 
@@ -150,7 +153,6 @@ class MultigridSolver:
         for i in range(self.max_levels):
             nx_level = (nodes_x-1) // (2**i) + 1  # IMPORTANT: only works with nodes as power of two at the moment
             ny_level = (nodes_y-1) // (2**i) + 1
-            print("Level {} with {} nodes".format(i, nx_level))
             dx = length_x / float(nx_level)
             dy = length_y / float(ny_level)
             dt_level = dt*(4**i)

@@ -17,6 +17,8 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 import argparse
 import xlb.experimental.thermo_mechanical.solid_bounceback as bc
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
+from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
+from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 
 
 def write_results(norms_over_time, name):
@@ -28,7 +30,7 @@ def write_results(norms_over_time, name):
 
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
-    precision_policy = PrecisionPolicy.FP32FP32
+    precision_policy = PrecisionPolicy.FP64FP64
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
 
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
@@ -62,7 +64,7 @@ if __name__ == "__main__":
     nu = 0.8
 
     solid_simulation = SimulationParams()
-    solid_simulation.set_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=2., theta=1.0 / 3.0)
+    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1., theta=1.0 / 3.0)
 
     # get force load
     x, y = sympy.symbols("x y")
@@ -98,29 +100,33 @@ if __name__ == "__main__":
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
 
-    # initialize stepper
-    stepper = SolidsStepper(grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values)
-
-    # startup grids
-    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-
-    norms_over_time = list()  # to track error over time
-    tolerance = 1e-8
-
-    l2, linf = 0, 0
+    #-------------------------------------- collect data for multigrid----------------------------
+    print("Starting simulation...")
+    data_over_wu = list()
+    residuals = list()
+    benchmark_data = BenchmarkData()
+    benchmark_data.wu = 0.
+    multigrid_solver = MultigridSolver(
+            nodes_x=nodes_x,
+            nodes_y=nodes_y,
+            length_x=length_x,
+            length_y=length_y,
+            dt=dt,
+            force_load=force_load,
+            gamma=0.8,
+            v1=40,
+            v2=40,
+            max_levels=None, 
+        )
+    finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps):
-        stepper(f_1, f_3)
-        f_1, f_2, f_3 = f_3, f_1, f_2
+        residual_norm = finest_level.start_v_cycle()
+        residuals.append(residual_norm)
+        macroscopics = finest_level.get_macroscopics()
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
+        data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
 
-    macroscopics = stepper.get_macroscopics_host(f_1)
-    utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
-    # write out error norms
-    last_norms = norms_over_time[len(norms_over_time) - 1]
-    print("Final error L2_disp: {}".format(last_norms[1]))
-    print("Final error Linf_disp: {}".format(last_norms[2]))
-    print("Final error L2_stress: {}".format(last_norms[3]))
-    print("Final error Linf_stress: {}".format(last_norms[4]))
-    print("in {} timesteps".format(last_norms[0]))
-    # write_results(norms_over_time, "results.csv")
+    print("Final error L2_disp: {}".format(l2_disp))
+    print("Final error Linf_disp: {}".format(linf_disp))
+    print("Final error L2_stress: {}".format(l2_stress))
+    print("Final error Linf_stress: {}".format(linf_stress))

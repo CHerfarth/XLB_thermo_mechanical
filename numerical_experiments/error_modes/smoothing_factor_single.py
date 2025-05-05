@@ -8,11 +8,17 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from matplotlib.ticker import FuncFormatter
 from scipy.interpolate import griddata
+import argparse
 
+parser = argparse.ArgumentParser("amplification_factor")
+parser.add_argument('E',type=float)
+parser.add_argument('nu', type=float)
+args = parser.parse_args()
 #vars:
 theta = 1/3
-E = 0.8
-nu = 0.49
+E = args.E
+nu = args.nu
+
 #K = E / (2 * (1 - nu))
 #mu = E / (2 * (1 + nu))
 K, mu, k, phi = sp.symbols('K mu k ph')
