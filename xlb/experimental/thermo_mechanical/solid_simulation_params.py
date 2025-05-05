@@ -25,7 +25,6 @@ class SimulationParams:
 
         return cls._instance
 
-
     def set_all_parameters(self, E, nu, dx, dt, L, T, kappa, theta):
         self._E_unscaled = E
         self._E = E
@@ -37,7 +36,7 @@ class SimulationParams:
         self._L = L
         self._kappa = kappa
         self._theta = theta
-        #self._precision_policy = precision_policy
+        # self._precision_policy = precision_policy
 
         # Calculate derived parameters
         self._K_unscaled = E / (2 * (1 - nu))
@@ -50,9 +49,8 @@ class SimulationParams:
         self._K = self._K_unscaled * self._T / (self._L * self._L * self._kappa)
         self._E = self._E * self._T / (self._L * self._L * self._kappa)
 
-
     def set_dx_dt(self, dx, dt):
-        assert(np.isclose(dx/(dt*dt), self._dx/(self._dt*self._dt)))
+        assert np.isclose(dx / (dt * dt), self._dx / (self._dt * self._dt))
         self._dx = dx
         self._dt = dt
 
@@ -131,6 +129,6 @@ class SimulationParams:
     def lamb(self):
         return self._lamb
 
-    '''@property
+    """@property
     def precision_policy(self):
-        return self._precision_policy'''
+        return self._precision_policy"""

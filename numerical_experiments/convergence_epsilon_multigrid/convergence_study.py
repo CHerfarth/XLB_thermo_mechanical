@@ -64,7 +64,7 @@ if __name__ == "__main__":
     nu = 0.8
 
     solid_simulation = SimulationParams()
-    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1., theta=1.0 / 3.0)
+    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
 
     # get force load
     x, y = sympy.symbols("x y")
@@ -100,24 +100,24 @@ if __name__ == "__main__":
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
 
-    #-------------------------------------- collect data for multigrid----------------------------
+    # -------------------------------------- collect data for multigrid----------------------------
     print("Starting simulation...")
     data_over_wu = list()
     residuals = list()
     benchmark_data = BenchmarkData()
-    benchmark_data.wu = 0.
+    benchmark_data.wu = 0.0
     multigrid_solver = MultigridSolver(
-            nodes_x=nodes_x,
-            nodes_y=nodes_y,
-            length_x=length_x,
-            length_y=length_y,
-            dt=dt,
-            force_load=force_load,
-            gamma=0.8,
-            v1=40,
-            v2=40,
-            max_levels=None, 
-        )
+        nodes_x=nodes_x,
+        nodes_y=nodes_y,
+        length_x=length_x,
+        length_y=length_y,
+        dt=dt,
+        force_load=force_load,
+        gamma=0.8,
+        v1=40,
+        v2=40,
+        max_levels=None,
+    )
     finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle()

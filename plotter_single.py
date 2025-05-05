@@ -8,8 +8,8 @@ import argparse
 
 
 parser = argparse.ArgumentParser("convergence_study")
-parser.add_argument("results_csv",type=str)
-parser.add_argument("dt",type=float)
+parser.add_argument("results_csv", type=str)
+parser.add_argument("dt", type=float)
 parser.add_argument("output_file")
 args = parser.parse_args()
 
@@ -21,14 +21,14 @@ y_label = "Error"
 title = "Error Norms over Time"
 dt = args.dt
 
-data['time'] = data['timestep']
+data["time"] = data["timestep"]
 
 
 fig, ax = plt.subplots()
-ax.plot(data['time'], data['l2_disp'], "-", color='blue', label='L2 disp')
-ax.plot(data['time'], data['linf_disp'], "--", color='blue', label='Linf disp')
-ax.plot(data['time'], data['l2_stress'], "-", color='green', label='L2 stress')
-ax.plot(data['time'], data['linf_stress'], "--", color='green', label='Linf stress')
+ax.plot(data["time"], data["l2_disp"], "-", color="blue", label="L2 disp")
+ax.plot(data["time"], data["linf_disp"], "--", color="blue", label="Linf disp")
+ax.plot(data["time"], data["l2_stress"], "-", color="green", label="L2 stress")
+ax.plot(data["time"], data["linf_stress"], "--", color="green", label="Linf stress")
 
 
 ax.grid(True)

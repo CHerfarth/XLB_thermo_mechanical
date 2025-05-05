@@ -7,9 +7,6 @@ from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 
 
-
-
-
 def get_force_load(manufactured_displacement, x, y):
     params = SimulationParams()
     mu = params.mu_unscaled
@@ -87,11 +84,12 @@ def process_error(macroscopics, expected_macroscopics, timestep, dx, norms_over_
     norms_over_time.append((timestep, l2_disp, linf_disp, l2_stress, linf_stress))
     return l2_disp, linf_disp, l2_stress, linf_stress
 
+
 def last_n_avg(data, n):
     length = len(data)
-    weight = 1/min(n, length)
-    val = 0.
+    weight = 1 / min(n, length)
+    val = 0.0
     for i in range(min(n, length)):
-        val += data[length -1 -i]
-    val = val*weight
+        val += data[length - 1 - i]
+    val = val * weight
     return val

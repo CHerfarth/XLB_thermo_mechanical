@@ -7,7 +7,7 @@ from xlb.precision_policy import PrecisionPolicy
 from xlb.grid import grid_factory
 from xlb.experimental.thermo_mechanical.solid_stepper import SolidsStepper
 import xlb.experimental.thermo_mechanical.solid_utils as utils
-from  xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
+from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 from xlb import DefaultConfig
 import math
@@ -32,7 +32,7 @@ class Level:
         self.f_2 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.f_3 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.f_4 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-        self.macroscopics = self.grid.create_field(cardinality=9, dtype=precision_policy.store_precision) 
+        self.macroscopics = self.grid.create_field(cardinality=9, dtype=precision_policy.store_precision)
         self.residual = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.defect_correction = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         # setup stepper
@@ -41,7 +41,7 @@ class Level:
         self.v2 = v2
         self.level_num = level_num
 
-        #get all necessary kernels
+        # get all necessary kernels
         kernel_provider = KernelProvider()
         self.relax = kernel_provider.relaxation
         self.interpolate = kernel_provider.interpolate
@@ -52,61 +52,56 @@ class Level:
         self.multiply_populations = kernel_provider.multiply_populations
         self.set_population_to_zero = kernel_provider.set_population_to_zero
 
-        if (self.level_num != 0):
+        if self.level_num != 0:
             wp.launch(self.set_population_to_zero, inputs=[self.stepper.force, 2], dim=self.stepper.force.shape[1:])
 
-
-  
     def perform_smoothing(self):
-        #for statistics
+        # for statistics
         benchmark_data = BenchmarkData()
-        benchmark_data.wu += (0.25**self.level_num)
+        benchmark_data.wu += 0.25**self.level_num
         wp.launch(self.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_1, self.f_2)
         wp.launch(self.relax, inputs=[self.f_2, self.f_3, self.defect_correction, self.f_1, self.gamma, self.velocity_set.q], dim=self.f_1.shape[1:])
-
 
     def get_residual(self):
         wp.launch(self.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
         wp.launch(self.add_populations, inputs=[self.f_1, self.defect_correction, self.residual, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_3, self.f_2)
-        #rules for operator: A(f) = current - previous
+        # rules for operator: A(f) = current - previous
         # --> residual = defect - A(f) = defect + previous - current
         wp.launch(self.subtract_populations, inputs=[self.residual, self.f_2, self.residual, 9], dim=self.residual.shape[1:])
         return self.residual
 
-
-
-    
     def get_macroscopics(self):
         return self.stepper.get_macroscopics_host(self.f_1)
-    
 
     def start_v_cycle(self, return_residual=False):
-        #do pre-smoothing
+        # do pre-smoothing
         for i in range(self.v1):
             self.perform_smoothing()
-        
+
         coarse = self.multigrid.get_next_level(self.level_num)
-        if (coarse != None):
-            #get residual
+        if coarse != None:
+            # get residual
             residual = self.get_residual()
-            #restrict residual to defect_corrrection on coarse grid
-            wp.launch(self.restrict, inputs=[coarse.defect_correction, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
-            #set intial guess of coarse mesh to residual
+            # restrict residual to defect_corrrection on coarse grid
+            wp.launch(
+                self.restrict, inputs=[coarse.defect_correction, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:]
+            )
+            # set intial guess of coarse mesh to residual
             wp.launch(self.restrict, inputs=[coarse.f_1, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
-            #scale defect correction?
-            wp.launch(self.multiply_populations, inputs=[coarse.defect_correction, 4., 9], dim=coarse.defect_correction.shape[1:])
-            #start v_cycle on coarse grid
+            # scale defect correction?
+            wp.launch(self.multiply_populations, inputs=[coarse.defect_correction, 4.0, 9], dim=coarse.defect_correction.shape[1:])
+            # start v_cycle on coarse grid
             coarse.start_v_cycle()
-            #get approximation of error
+            # get approximation of error
             error_approx = coarse.f_1
-            #interpolate error approx to fine grid
+            # interpolate error approx to fine grid
             wp.launch(self.interpolate, inputs=[self.f_3, error_approx, 9], dim=self.f_3.shape[1:])
-            #add error_approx to current estimate
+            # add error_approx to current estimate
             wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
 
-        #do post_smoothing
+        # do post_smoothing
         for i in range(self.v2):
             self.perform_smoothing()
 
@@ -114,18 +109,7 @@ class Level:
             residual_host = self.get_residual().numpy()
             return np.max(np.abs(residual_host))
         else:
-            return 0.
-
-
-
-
-
-   
-
-
-
-
-
+            return 0.0
 
 
 class MultigridSolver:
@@ -147,15 +131,14 @@ class MultigridSolver:
         else:
             self.max_levels = min(max_levels, self.max_possible_levels)
 
-
         # setup levels
         self.levels = list()
         for i in range(self.max_levels):
-            nx_level = (nodes_x-1) // (2**i) + 1  # IMPORTANT: only works with nodes as power of two at the moment
-            ny_level = (nodes_y-1) // (2**i) + 1
+            nx_level = (nodes_x - 1) // (2**i) + 1  # IMPORTANT: only works with nodes as power of two at the moment
+            ny_level = (nodes_y - 1) // (2**i) + 1
             dx = length_x / float(nx_level)
             dy = length_y / float(ny_level)
-            dt_level = dt*(4**i)
+            dt_level = dt * (4**i)
             assert math.isclose(dx, dy)
             level = Level(
                 nodes_x=nx_level,
@@ -174,7 +157,6 @@ class MultigridSolver:
             )
 
             self.levels.append(level)
-
 
     def get_next_level(self, level_num):
         if level_num + 1 < self.max_levels:

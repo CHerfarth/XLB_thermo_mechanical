@@ -29,15 +29,12 @@ def write_results(data_over_wu, name):
         writer.writerows(data_over_wu)
 
 
-
-
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP32FP32
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
 
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
-    
 
     parser = argparse.ArgumentParser("convergence_study")
     parser.add_argument("nodes_x", type=int)
@@ -52,14 +49,14 @@ if __name__ == "__main__":
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
-    length_x = 1.
-    length_y = 1.
+    length_x = 1.0
+    length_y = 1.0
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     timesteps = args.timesteps
     dt = args.dt
-    #dt = dx*dx
+    # dt = dx*dx
 
     # params
     E = 0.085 * 2.5
@@ -70,8 +67,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x)*sympy.sin(2*sympy.pi*y)  # + 3
-    manufactured_v = sympy.cos(2 * sympy.pi * y)*sympy.sin(2*sympy.pi*x)  # + 3
+    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)  # + 3
+    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -92,24 +89,23 @@ if __name__ == "__main__":
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
 
-
-    #-------------------------------------- collect data for multigrid----------------------------
+    # -------------------------------------- collect data for multigrid----------------------------
     data_over_wu = list()
     residuals = list()
     benchmark_data = BenchmarkData()
-    benchmark_data.wu = 0.
+    benchmark_data.wu = 0.0
     multigrid_solver = MultigridSolver(
-            nodes_x=nodes_x,
-            nodes_y=nodes_y,
-            length_x=length_x,
-            length_y=length_y,
-            dt=dt,
-            force_load=force_load,
-            gamma=0.8,
-            v1=40,
-            v2=40,
-            max_levels=None, 
-        )
+        nodes_x=nodes_x,
+        nodes_y=nodes_y,
+        length_x=length_x,
+        length_y=length_y,
+        dt=dt,
+        force_load=force_load,
+        gamma=0.8,
+        v1=40,
+        v2=40,
+        max_levels=None,
+    )
     finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle(return_residual=True)
@@ -117,20 +113,18 @@ if __name__ == "__main__":
         macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
         data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
-        if (benchmark_data.wu > timesteps):
+        if benchmark_data.wu > timesteps:
             break
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)
     write_results(data_over_wu, "multigrid_results.csv")
 
-
-    #------------------------------------- collect data for normal LB ----------------------------------
-
+    # ------------------------------------- collect data for normal LB ----------------------------------
 
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
-    
+
     # initialize stepper
     stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
 
@@ -143,8 +137,8 @@ if __name__ == "__main__":
     data_over_wu = list()  # to track error over time
     residuals = list()
     benchmark_data = BenchmarkData()
-    benchmark_data.wu = 0.
-    
+    benchmark_data.wu = 0.0
+
     kernel_provider = KernelProvider()
     copy_populations = kernel_provider.copy_populations
     subtract_populations = kernel_provider.subtract_populations
@@ -161,11 +155,9 @@ if __name__ == "__main__":
         macroscopics = stepper.get_macroscopics_host(f_1)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
         data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
-        #if utils.last_n_avg(residuals, 50) < 1e-6:
+        # if utils.last_n_avg(residuals, 50) < 1e-6:
         #    break
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)
     write_results(data_over_wu, "normal_results.csv")
-
-    

@@ -32,11 +32,11 @@ from xlb import DefaultConfig
 #    f      |   7
 #    0  0   |   8 (irrelevant)
 
+
 class KernelProvider:
     def __init__(self, precision_policy=None):
-    
         self._initialized = True
-        #compile all kernels
+        # compile all kernels
 
         if precision_policy == None:
             precision_policy = DefaultConfig.default_precision_policy
@@ -49,10 +49,7 @@ class KernelProvider:
         theta = compute_dtype(params.theta)
         lamb = compute_dtype(params.lamb)
 
-
-        solid_vec = wp.vec(
-            9, dtype=compute_dtype
-        )  
+        solid_vec = wp.vec(9, dtype=compute_dtype)
 
         self.solid_vec = solid_vec
 
@@ -62,20 +59,16 @@ class KernelProvider:
             for i in range(9):
                 f_local[i] = compute_dtype(f[i, x, y, 0])
             return f_local
-        
-
 
         @wp.func
         def write_population_to_global(f: wp.array4d(dtype=store_dtype), f_local: solid_vec, x: wp.int32, y: wp.int32):
             for i in range(9):
                 f[i, x, y, 0] = store_dtype(f_local[i])
 
-
         @wp.func
         def write_vec_to_global(array: wp.array4d(dtype=store_dtype), array_local: Any, x: wp.int32, y: wp.int32, dim: wp.int32):
             for i in range(dim):
                 array[i, x, y, 0] = store_dtype(array_local[i])
-
 
         @wp.func
         def calc_moments(f: solid_vec):
@@ -84,7 +77,16 @@ class KernelProvider:
             m[0] = f[3] - f[6] + f[7] - f[4] - f[8] + f[5]
             m[1] = f[1] - f[2] + f[7] + f[4] - f[8] - f[5]
             m[2] = f[7] - f[4] + f[8] - f[5]
-            m[3] = f[3] + f[1] + f[6] + f[2] + compute_dtype(2.0) * f[7] + compute_dtype(2.0) * f[4] + compute_dtype(2.0) * f[8] + compute_dtype(2.0) * f[5]
+            m[3] = (
+                f[3]
+                + f[1]
+                + f[6]
+                + f[2]
+                + compute_dtype(2.0) * f[7]
+                + compute_dtype(2.0) * f[4]
+                + compute_dtype(2.0) * f[8]
+                + compute_dtype(2.0) * f[5]
+            )
             m[4] = f[3] - f[1] + f[6] - f[2]
             m[5] = f[7] - f[4] - f[8] + f[5]
             m[6] = f[7] + f[4] - f[8] - f[5]
@@ -97,7 +99,6 @@ class KernelProvider:
             m[7] += gamma * m[3]
             return m
 
-
         @wp.kernel
         def copy_populations(origin: wp.array4d(dtype=store_dtype), dest: wp.array4d(dtype=store_dtype), dim: wp.int32):
             i, j, k = wp.tid()
@@ -106,16 +107,15 @@ class KernelProvider:
 
         @wp.kernel
         def set_population_to_zero(f: wp.array4d(dtype=store_dtype), dim: Any):
-            i,j,k = wp.tid()
+            i, j, k = wp.tid()
             for l in range(dim):
-                f[l, i, j, 0] = store_dtype(0.)
+                f[l, i, j, 0] = store_dtype(0.0)
 
         @wp.kernel
         def multiply_populations(f: wp.array4d(dtype=store_dtype), factor: compute_dtype, dim: wp.int32):
             i, j, k = wp.tid()
             for l in range(dim):
-                f[l, i, j, 0] = store_dtype(factor*compute_dtype(f[l,i,j,0]))
-
+                f[l, i, j, 0] = store_dtype(factor * compute_dtype(f[l, i, j, 0]))
 
         @wp.kernel
         def subtract_populations(a: wp.array4d(dtype=store_dtype), b: wp.array4d(dtype=store_dtype), c: wp.array4d(dtype=store_dtype), dim: wp.int32):
@@ -123,13 +123,11 @@ class KernelProvider:
             for l in range(dim):
                 c[l, i, j, 0] = store_dtype(compute_dtype(a[l, i, j, 0]) - compute_dtype(b[l, i, j, 0]))
 
-
         @wp.kernel
         def add_populations(a: wp.array4d(dtype=store_dtype), b: wp.array4d(dtype=store_dtype), c: wp.array4d(dtype=store_dtype), dim: wp.int32):
             i, j, k = wp.tid()
             for l in range(dim):
                 c[l, i, j, 0] = store_dtype(compute_dtype(a[l, i, j, 0]) + compute_dtype(b[l, i, j, 0]))
-
 
         @wp.func
         def calc_populations(m: solid_vec):
@@ -154,7 +152,6 @@ class KernelProvider:
                 f[i] = f[i] / compute_dtype(4.0)
             return f
 
-
         @wp.func
         def calc_equilibrium(m: solid_vec, theta: compute_dtype):
             zero = compute_dtype(0.0)
@@ -169,39 +166,45 @@ class KernelProvider:
             m_eq[7] = zero
             m_eq[8] = zero
             return m_eq
-        
+
         @wp.kernel
-        def relaxation(f_after_stream: wp.array4d(dtype=store_dtype), f_previous: wp.array4d(dtype=store_dtype), defect_correction: wp.array4d(dtype=store_dtype), f_destination: wp.array4d(dtype=store_dtype), gamma: compute_dtype, dim: wp.int32):
+        def relaxation(
+            f_after_stream: wp.array4d(dtype=store_dtype),
+            f_previous: wp.array4d(dtype=store_dtype),
+            defect_correction: wp.array4d(dtype=store_dtype),
+            f_destination: wp.array4d(dtype=store_dtype),
+            gamma: compute_dtype,
+            dim: wp.int32,
+        ):
             i, j, k = wp.tid()
             for l in range(dim):
                 f_destination[l, i, j, 0] = store_dtype(
-                    gamma * (compute_dtype(f_after_stream[l, i, j, 0]) - compute_dtype(defect_correction[l, i, j, 0])) + (compute_dtype(1.0) - gamma) * compute_dtype(f_previous[l, i, j, 0])
+                    gamma * (compute_dtype(f_after_stream[l, i, j, 0]) - compute_dtype(defect_correction[l, i, j, 0]))
+                    + (compute_dtype(1.0) - gamma) * compute_dtype(f_previous[l, i, j, 0])
                 )
-
 
         @wp.kernel
         def interpolate(fine: wp.array4d(dtype=store_dtype), coarse: wp.array4d(dtype=store_dtype), dim: wp.int32):
-            i,j,k = wp.tid()
-            coarse_i = i/2
-            coarse_j = j/2 #check if really rounds down!
+            i, j, k = wp.tid()
+            coarse_i = i / 2
+            coarse_j = j / 2  # check if really rounds down!
 
             for l in range(dim):
-                fine[l,i,j,0] = coarse[l,coarse_i,coarse_j,0]
-
-        
+                fine[l, i, j, 0] = coarse[l, coarse_i, coarse_j, 0]
 
         @wp.kernel
-        def restrict(coarse: wp.array4d(dtype=store_dtype), fine: wp.array4d(dtype=store_dtype), fine_nodes_x: wp.int32, fine_nodes_y: wp.int32, dim: wp.int32):
-            i,j,k = wp.tid()
+        def restrict(
+            coarse: wp.array4d(dtype=store_dtype), fine: wp.array4d(dtype=store_dtype), fine_nodes_x: wp.int32, fine_nodes_y: wp.int32, dim: wp.int32
+        ):
+            i, j, k = wp.tid()
 
             for l in range(dim):
-                    val =  compute_dtype(0.)
-                    val += compute_dtype(fine[l, 2*i, 2*j, 0])
-                    val += compute_dtype(fine[l, 2*i+1, 2*j, 0])
-                    val += compute_dtype(fine[l, 2*i, 2*j+1, 0])
-                    val += compute_dtype(fine[l, 2*i+1, 2*j+1, 0])
-                    coarse[l, i, j, 0] = store_dtype(compute_dtype(0.25)*val)
-
+                val = compute_dtype(0.0)
+                val += compute_dtype(fine[l, 2 * i, 2 * j, 0])
+                val += compute_dtype(fine[l, 2 * i + 1, 2 * j, 0])
+                val += compute_dtype(fine[l, 2 * i, 2 * j + 1, 0])
+                val += compute_dtype(fine[l, 2 * i + 1, 2 * j + 1, 0])
+                coarse[l, i, j, 0] = store_dtype(compute_dtype(0.25) * val)
 
         # Set all declared functions as properties of the class
         self.read_local_population = read_local_population
