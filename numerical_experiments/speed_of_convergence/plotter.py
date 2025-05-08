@@ -32,7 +32,7 @@ ax.grid(True)
 plt.yscale("log")
 ax.set_title(title)
 # plot expected speed of convergence
-slope = amplification_factor**smoothing_steps_per_iteration
+slope = amplification_factor**4#**smoothing_steps_per_iteration
 multigrid_data["slope_power"] = slope ** multigrid_data["iteration"]
 ax.plot(multigrid_data["iteration"], multigrid_data["slope_power"], "--", color="black", label="Expected Speed of convergence")
 ax.set_ylim((1e-14, 1))

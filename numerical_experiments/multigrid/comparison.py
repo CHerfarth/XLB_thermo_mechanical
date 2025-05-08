@@ -31,7 +31,7 @@ def write_results(data_over_wu, name):
 
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
-    precision_policy = PrecisionPolicy.FP32FP32
+    precision_policy = PrecisionPolicy.FP64FP64
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
 
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
@@ -102,8 +102,8 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=40,
-        v2=40,
+        v1=3,
+        v2=3,
         max_levels=None,
     )
     finest_level = multigrid_solver.get_finest_level()

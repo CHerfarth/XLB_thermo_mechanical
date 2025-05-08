@@ -127,7 +127,7 @@ for i in range(velocity_set.q - 1):
 L_mat += (1 - gamma) * I
 
 phi_y_val = -sp.pi
-iterations = 20
+iterations = 25
 results = list()
 for i in range(iterations):
     dx = 1

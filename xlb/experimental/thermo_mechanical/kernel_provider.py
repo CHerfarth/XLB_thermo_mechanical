@@ -184,6 +184,26 @@ class KernelProvider:
                 )
 
         @wp.kernel
+        def interpolate_through_moments(fine: wp.array4d(dtype=store_dtype), coarse: wp.array4d(dtype=store_dtype)):
+            i, j, k = wp.tid()
+
+            coarse_i = i / 2
+            coarse_j = j / 2
+
+            f_local_coarse =read_local_population(coarse, coarse_i, coarse_j)
+            m_coarse = calc_moments(f_local_coarse)
+            m_fine = m_coarse
+
+            #scale necessary components of m
+            m_fine[2] = compute_dtype(2.0)*m_fine[2]
+            m_fine[3] = compute_dtype(2.0)*m_fine[3]
+            m_fine[4] = compute_dtype(2.0)*m_fine[4]
+            m_fine[7] = compute_dtype(2.0)*m_fine[7]
+
+            f_local_fine = calc_populations(m_fine)
+            write_population_to_global(fine, f_local_fine, i, j)
+        
+        @wp.kernel
         def interpolate(fine: wp.array4d(dtype=store_dtype), coarse: wp.array4d(dtype=store_dtype), dim: wp.int32):
             i, j, k = wp.tid()
             coarse_i = i / 2
@@ -191,6 +211,8 @@ class KernelProvider:
 
             for l in range(dim):
                 fine[l, i, j, 0] = coarse[l, coarse_i, coarse_j, 0]
+
+
 
         @wp.kernel
         def restrict(
@@ -206,6 +228,32 @@ class KernelProvider:
                 val += compute_dtype(fine[l, 2 * i + 1, 2 * j + 1, 0])
                 coarse[l, i, j, 0] = store_dtype(compute_dtype(0.25) * val)
 
+        @wp.kernel
+        def restrict_through_moments(coarse: wp.array4d(dtype=store_dtype), fine:wp.array4d(dtype=store_dtype)):
+            i, j, k = wp.tid()
+
+            f_local_fine_a = read_local_population(fine, 2*i, 2*j)
+            f_local_fine_b = read_local_population(fine, 2*i+1, 2*j)
+            f_local_fine_c = read_local_population(fine, 2*i, 2*j+1)
+            f_local_fine_d = read_local_population(fine, 2*i+1, 2*j+1)
+            m_fine_a = calc_moments(f_local_fine_a)
+            m_fine_b = calc_moments(f_local_fine_b)
+            m_fine_c = calc_moments(f_local_fine_c)
+            m_fine_d = calc_moments(f_local_fine_d)
+
+            m_coarse = compute_dtype(0.25)*(m_fine_a+m_fine_b+m_fine_c+m_fine_d) 
+
+            #scale necessary components of m
+            m_coarse[2] = compute_dtype(0.5)*m_coarse[2]
+            m_coarse[3] = compute_dtype(0.5)*m_coarse[3]
+            m_coarse[4] = compute_dtype(0.5)*m_coarse[4]
+            m_coarse[7] = compute_dtype(0.5)*m_coarse[7]
+
+            f_local_coarse = calc_populations(m_coarse)
+            write_population_to_global(coarse, f_local_coarse, i, j)
+
+
+
         # Set all declared functions as properties of the class
         self.read_local_population = read_local_population
         self.write_population_to_global = write_population_to_global
@@ -220,4 +268,6 @@ class KernelProvider:
         self.calc_equilibrium = calc_equilibrium
         self.relaxation = relaxation
         self.interpolate = interpolate
+        self.interpolate_through_moments = interpolate_through_moments
         self.restrict = restrict
+        self.restrict_through_moments = restrict_through_moments

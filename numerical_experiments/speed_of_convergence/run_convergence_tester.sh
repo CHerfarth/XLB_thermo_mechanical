@@ -1,9 +1,9 @@
 #!/bin/bash
 
-nodes_x=128
-nodes_y=128
+nodes_x=512
+nodes_y=512
 timesteps=100
-dt=0.0001
+dt=0.00001
 
 
 python3 convergence_tester.py $nodes_x $nodes_y $timesteps $dt > tmp_1.txt
@@ -25,7 +25,11 @@ python3 ../error_modes/smoothing_factor_single.py $E_scaled $nu > tmp_1.txt
 cat tmp_1.txt | grep "Amplification" > tmp_2.txt
 amplification=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
 
-python3 plotter.py $amplification 8
+echo "Expected amplification factor $amplification"
+
+python3 plotter.py $amplification 6
+
+echo "Plots generated"
 
 rm tmp*
 

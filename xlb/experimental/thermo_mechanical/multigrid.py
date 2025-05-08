@@ -44,8 +44,9 @@ class Level:
         # get all necessary kernels
         kernel_provider = KernelProvider()
         self.relax = kernel_provider.relaxation
-        self.interpolate = kernel_provider.interpolate
-        self.restrict = kernel_provider.restrict
+        self.interpolate = kernel_provider.interpolate_through_moments
+        #self.restrict = kernel_provider.restrict
+        self.restrict = kernel_provider.restrict_through_moments
         self.copy_populations = kernel_provider.copy_populations
         self.add_populations = kernel_provider.add_populations
         self.subtract_populations = kernel_provider.subtract_populations
@@ -85,11 +86,13 @@ class Level:
             # get residual
             residual = self.get_residual()
             # restrict residual to defect_corrrection on coarse grid
-            wp.launch(
-                self.restrict, inputs=[coarse.defect_correction, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:]
-            )
+            #wp.launch(
+            #    self.restrict, inputs=[coarse.defect_correction, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:]
+            #)
+            wp.launch(self.restrict, inputs=[coarse.defect_correction, residual], dim=coarse.defect_correction.shape[1:])
             # set intial guess of coarse mesh to residual
-            wp.launch(self.restrict, inputs=[coarse.f_1, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
+            #wp.launch(self.restrict, inputs=[coarse.f_1, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
+            wp.launch(self.restrict, inputs=[coarse.f_1, residual], dim=coarse.f_1.shape[1:])
             # scale defect correction?
             wp.launch(self.multiply_populations, inputs=[coarse.defect_correction, 4.0, 9], dim=coarse.defect_correction.shape[1:])
             # start v_cycle on coarse grid
@@ -97,7 +100,8 @@ class Level:
             # get approximation of error
             error_approx = coarse.f_1
             # interpolate error approx to fine grid
-            wp.launch(self.interpolate, inputs=[self.f_3, error_approx, 9], dim=self.f_3.shape[1:])
+            #wp.launch(self.interpolate, inputs=[self.f_3, error_approx, 9], dim=self.f_3.shape[1:])
+            wp.launch(self.interpolate, inputs=[self.f_3, error_approx], dim=self.f_3.shape[1:])
             # add error_approx to current estimate
             wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
 
