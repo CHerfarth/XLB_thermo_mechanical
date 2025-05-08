@@ -31,9 +31,7 @@ class Level:
         self.f_1 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.f_2 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.f_3 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-        self.f_4 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.macroscopics = self.grid.create_field(cardinality=9, dtype=precision_policy.store_precision)
-        self.residual = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.defect_correction = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         # setup stepper
         self.stepper = SolidsStepper(self.grid, force_load)
@@ -45,6 +43,7 @@ class Level:
         kernel_provider = KernelProvider()
         self.relax = kernel_provider.relaxation
         self.interpolate = kernel_provider.interpolate_through_moments
+        #self.interpolate = kernel_provider.interpolate
         #self.restrict = kernel_provider.restrict
         self.restrict = kernel_provider.restrict_through_moments
         self.copy_populations = kernel_provider.copy_populations
@@ -66,12 +65,12 @@ class Level:
 
     def get_residual(self):
         wp.launch(self.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
-        wp.launch(self.add_populations, inputs=[self.f_1, self.defect_correction, self.residual, 9], dim=self.f_1.shape[1:])
+        wp.launch(self.add_populations, inputs=[self.f_1, self.defect_correction, self.f_2, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_3, self.f_2)
         # rules for operator: A(f) = current - previous
         # --> residual = defect - A(f) = defect + previous - current
-        wp.launch(self.subtract_populations, inputs=[self.residual, self.f_2, self.residual, 9], dim=self.residual.shape[1:])
-        return self.residual
+        wp.launch(self.subtract_populations, inputs=[self.f_2, self.f_2, self.f_2, 9], dim=self.f_2.shape[1:])
+        return self.f_2
 
     def get_macroscopics(self):
         return self.stepper.get_macroscopics_host(self.f_1)
@@ -92,7 +91,8 @@ class Level:
             wp.launch(self.restrict, inputs=[coarse.defect_correction, residual], dim=coarse.defect_correction.shape[1:])
             # set intial guess of coarse mesh to residual
             #wp.launch(self.restrict, inputs=[coarse.f_1, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
-            wp.launch(self.restrict, inputs=[coarse.f_1, residual], dim=coarse.f_1.shape[1:])
+            #wp.launch(self.restrict, inputs=[coarse.f_1, residual], dim=coarse.f_1.shape[1:])
+            wp.launch(self.set_population_to_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:])
             # scale defect correction?
             wp.launch(self.multiply_populations, inputs=[coarse.defect_correction, 4.0, 9], dim=coarse.defect_correction.shape[1:])
             # start v_cycle on coarse grid
@@ -109,11 +109,15 @@ class Level:
         for i in range(self.v2):
             self.perform_smoothing()
 
+        if coarse == None:
+            for i in range(40):
+                self.perform_smoothing()
+
         if return_residual:
             residual_host = self.get_residual().numpy()
-            return np.max(np.abs(residual_host))
+            return residual_host
         else:
-            return 0.0
+            return None
 
 
 class MultigridSolver:
@@ -128,7 +132,7 @@ class MultigridSolver:
         # TODO: boundary conditions
 
         # Determine maximum possible levels
-        self.max_possible_levels = min(int(np.log2(nodes_x)), int(np.log2(nodes_y))) + 1
+        self.max_possible_levels = min(int(np.log2(nodes_x)), int(np.log2(nodes_y))) #+ 1
 
         if max_levels is None:
             self.max_levels = self.max_possible_levels

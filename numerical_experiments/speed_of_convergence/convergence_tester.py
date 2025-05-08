@@ -39,7 +39,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("convergence_study")
     parser.add_argument("nodes_x", type=int)
     parser.add_argument("nodes_y", type=int)
-    parser.add_argument("timesteps", type=int)
+    parser.add_argument("timesteps_mg", type=int)
+    parser.add_argument("timesteps_standard", type=int)
     parser.add_argument("dt", type=float)
     args = parser.parse_args()
 
@@ -54,7 +55,8 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = args.timesteps
+    timesteps_mg = args.timesteps_mg
+    timesteps_standard = args.timesteps_standard
     dt = args.dt
     # dt = dx*dx
 
@@ -104,13 +106,13 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=4,
-        v2=4,
+        v1=3,
+        v2=2,
         max_levels=None,
     )
     finest_level = multigrid_solver.get_finest_level()
-    for i in range(timesteps):
-        residual_norm = finest_level.start_v_cycle(return_residual=True)
+    for i in range(timesteps_mg):
+        residual_norm = np.linalg.norm(finest_level.start_v_cycle(return_residual=True))
         residuals.append(residual_norm)
         macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
@@ -121,3 +123,47 @@ if __name__ == "__main__":
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)
     write_results(data_over_wu, "multigrid_results.csv")
+
+
+    # ------------------------------------- collect data for normal LB ----------------------------------
+
+    solid_simulation = SimulationParams()
+    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+
+    # initialize stepper
+    stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
+
+    # startup grids
+    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+
+    data_over_wu = list()  # to track error over time
+    residuals = list()
+    benchmark_data = BenchmarkData()
+    benchmark_data.wu = 0.0
+
+    kernel_provider = KernelProvider()
+    copy_populations = kernel_provider.copy_populations
+    subtract_populations = kernel_provider.subtract_populations
+
+    l2, linf = 0, 0
+    for i in range(timesteps_standard):
+        benchmark_data.wu += 1
+        wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
+        stepper(f_1, f_3)
+        f_1, f_2, f_3 = f_3, f_1, f_2
+        wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_3.shape[1:])
+        residual_norm = np.linalg.norm(residual.numpy())
+        residuals.append(residual_norm)
+        macroscopics = stepper.get_macroscopics_host(f_1)
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
+        data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
+        if residual_norm < 1e-14:
+            break
+
+    print(l2_disp, linf_disp, l2_stress, linf_stress)
+    print(residual_norm)
+    write_results(data_over_wu, "normal_results.csv")
+

@@ -3,11 +3,11 @@
 iterations=5
 nodes_x=16
 nodes_y=16
-timesteps=5000
+timesteps=200
 dt=0.001
 for ((i=0; i<iterations; i++))
 do
-    python3 comparison.py $nodes_x $nodes_y $timesteps $dt >> tmp.txt
+    python3 comparison.py $nodes_x $nodes_y $timesteps $dt #>> tmp.txt
     rm tmp.txt
     python3 plotter.py >> tmp.txt
     rm tmp.txt

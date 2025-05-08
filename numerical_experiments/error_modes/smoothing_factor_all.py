@@ -11,6 +11,13 @@ from scipy.interpolate import griddata
 import argparse
 
 
+def is_normal_matrix(A, tol=1e-10):
+    if A.shape[0] != A.shape[1]:
+        return False  # Must be square
+    A_star = A.conj().T
+    return np.allclose(A @ A_star, A_star @ A, atol=tol)
+
+
 parser = argparse.ArgumentParser("Smoothing Factor Study")
 parser.add_argument("gamma", type=float)
 args = parser.parse_args()
@@ -112,6 +119,12 @@ M_eq[1, 1] = 1
 M_eq[5, 0] = theta
 M_eq[6, 1] = theta
 
+#test matrix
+f =  np.zeros(8)
+K_val = 1
+mu_val = 1
+L_evaluated = L_mat.subs({mu: mu_val, K: K_val, phi_x: phi_x_val, phi_y: phi_y_val})
+
 
 L_mat = gamma_relax * (M_inv * D * M_eq * M + M_inv * (I - D) * M)
 
@@ -149,6 +162,10 @@ for k in range(outer_iterations):
                 K_val = E / (2 * (1 - nu))
                 mu_val = E / (2 * (1 + nu))
                 L_evaluated = L_mat.subs({mu: mu_val, K: K_val, phi_x: phi_x_val, phi_y: phi_y_val})
+
+                #check for normality
+                assert(is_normal_matrix(np.array(L_evaluated, dtype=np.complex128)))
+
                 eigenvalues = np.linalg.eig(np.array(L_evaluated, dtype=np.complex128)).eigenvalues
                 spectral_radius = max(np.abs(ev) for ev in eigenvalues)
                 if np.abs(phi_x_val) != 0.0 and np.abs(phi_y_val) != 0.0:

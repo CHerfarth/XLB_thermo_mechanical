@@ -59,11 +59,13 @@ if __name__ == "__main__":
     # dt = dx*dx
 
     # params
-    E = 0.085 * 2.5
+    E = 0.085*25
     nu = 0.8
 
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+
+    print("E scaled {}, nu {}".format(solid_simulation.E, solid_simulation.nu))
 
     # get force load
     x, y = sympy.symbols("x y")
@@ -102,13 +104,13 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=3,
-        v2=3,
+        v1=2,
+        v2=2,
         max_levels=None,
     )
     finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps):
-        residual_norm = finest_level.start_v_cycle(return_residual=True)
+        residual_norm = np.linalg.norm(finest_level.start_v_cycle(return_residual=True))
         residuals.append(residual_norm)
         macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
