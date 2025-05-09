@@ -15,7 +15,7 @@ from typing import Any
 
 
 class Level:
-    def __init__(self, nodes_x, nodes_y, dx, dt, force_load, gamma, v1, v2, level_num, multigrid, compute_backend, velocity_set, precision_policy):
+    def __init__(self, nodes_x, nodes_y, dx, dt, force_load, gamma, v1, v2, level_num, multigrid, compute_backend, velocity_set, precision_policy, coarsest_level_iter=0):
         wp.config.mode = "debug"
         self.grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
         self.nodes_x = nodes_x
@@ -31,6 +31,7 @@ class Level:
         self.f_1 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.f_2 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.f_3 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        self.f_4 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.macroscopics = self.grid.create_field(cardinality=9, dtype=precision_policy.store_precision)
         self.defect_correction = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         # setup stepper
@@ -38,6 +39,7 @@ class Level:
         self.v1 = v1
         self.v2 = v2
         self.level_num = level_num
+        self.coarsest_level_iter = coarsest_level_iter
 
         # get all necessary kernels
         kernel_provider = KernelProvider()
@@ -66,10 +68,10 @@ class Level:
     def get_residual(self):
         wp.launch(self.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
         wp.launch(self.add_populations, inputs=[self.f_1, self.defect_correction, self.f_2, 9], dim=self.f_1.shape[1:])
-        self.stepper(self.f_3, self.f_2)
+        self.stepper(self.f_3, self.f_4)
         # rules for operator: A(f) = current - previous
         # --> residual = defect - A(f) = defect + previous - current
-        wp.launch(self.subtract_populations, inputs=[self.f_2, self.f_2, self.f_2, 9], dim=self.f_2.shape[1:])
+        wp.launch(self.subtract_populations, inputs=[self.f_2, self.f_4, self.f_2, 9], dim=self.f_2.shape[1:])
         return self.f_2
 
     def get_macroscopics(self):
@@ -110,7 +112,7 @@ class Level:
             self.perform_smoothing()
 
         if coarse == None:
-            for i in range(40):
+            for i in range(self.coarsest_level_iter):
                 self.perform_smoothing()
 
         if return_residual:
@@ -125,7 +127,7 @@ class MultigridSolver:
     A class implementing a multigrid iterative solver for elliptic PDEs.
     """
 
-    def __init__(self, nodes_x, nodes_y, length_x, length_y, dt, force_load, gamma, v1, v2, max_levels=None):
+    def __init__(self, nodes_x, nodes_y, length_x, length_y, dt, force_load, gamma, v1, v2, max_levels=None, coarsest_level_iter=0):
         precision_policy = DefaultConfig.default_precision_policy
         compute_backend = DefaultConfig.default_backend
         velocity_set = DefaultConfig.velocity_set
@@ -162,6 +164,7 @@ class MultigridSolver:
                 compute_backend=compute_backend,
                 velocity_set=velocity_set,
                 precision_policy=precision_policy,
+                coarsest_level_iter=coarsest_level_iter
             )
 
             self.levels.append(level)

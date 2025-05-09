@@ -32,7 +32,7 @@ smoothing=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
 echo "Expected amplification factor $amplification"
 echo "Expected smoothing factor standard LB $smoothing"
 
-python3 plotter.py $amplification 5 $smoothing
+python3 plotter.py $amplification 4 $smoothing
 
 echo "Plots generated"
 

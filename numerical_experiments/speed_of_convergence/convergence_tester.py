@@ -71,8 +71,11 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)  # + 3
-    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  # + 3
+    manufactured_u = 0#sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y) + sympy.cos(sympy.pi*x) + sympy.cos(sympy.pi*10*x) + sympy.cos(sympy.pi*20*y)
+    manufactured_v = 0#sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  + sympy.cos(sympy.pi*x) + sympy.cos(sympy.pi*10*x) + sympy.cos(sympy.pi*20*y)
+    for i in range(100):
+        manufactured_u += sympy.cos(2*i*sympy.pi*x)*sympy.sin(2*i*sympy.pi*y)
+        manufactured_v += sympy.cos(2*i*sympy.pi*y)*sympy.sin(2*i*sympy.pi*x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -106,9 +109,10 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=3,
+        v1=2,
         v2=2,
-        max_levels=None,
+        max_levels=2,
+        coarsest_level_iter=10000
     )
     finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps_mg):
@@ -117,7 +121,7 @@ if __name__ == "__main__":
         macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
         data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
-        if residual_norm < 1e-14:
+        if residual_norm < 1e-11:
             break
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
@@ -160,7 +164,7 @@ if __name__ == "__main__":
         macroscopics = stepper.get_macroscopics_host(f_1)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
         data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
-        if residual_norm < 1e-14:
+        if residual_norm < 1e-11:
             break
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
