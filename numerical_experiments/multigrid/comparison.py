@@ -69,11 +69,11 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = 0#sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y) + sympy.cos(sympy.pi*x) + sympy.cos(sympy.pi*10*x) + sympy.cos(sympy.pi*20*y)
-    manufactured_v = 0#sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  + sympy.cos(sympy.pi*x) + sympy.cos(sympy.pi*10*x) + sympy.cos(sympy.pi*20*y)
-    for i in range(100):
+    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y) #+ sympy.cos(sympy.pi*x) + sympy.cos(sympy.pi*10*x) + sympy.cos(sympy.pi*20*y)
+    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x) # + sympy.cos(sympy.pi*x) + sympy.cos(sympy.pi*10*x) + sympy.cos(sympy.pi*20*y)
+    '''for i in range(100):
         manufactured_u += sympy.cos(2*i*sympy.pi*x)*sympy.sin(2*i*sympy.pi*y)
-        manufactured_v += sympy.cos(2*i*sympy.pi*y)*sympy.sin(2*i*sympy.pi*x)
+        manufactured_v += sympy.cos(2*i*sympy.pi*y)*sympy.sin(2*i*sympy.pi*x)'''
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),

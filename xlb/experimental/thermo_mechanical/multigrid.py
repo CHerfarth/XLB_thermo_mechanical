@@ -93,8 +93,7 @@ class Level:
             wp.launch(self.restrict, inputs=[coarse.defect_correction, residual], dim=coarse.defect_correction.shape[1:])
             # set intial guess of coarse mesh to residual
             #wp.launch(self.restrict, inputs=[coarse.f_1, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
-            #wp.launch(self.restrict, inputs=[coarse.f_1, residual], dim=coarse.f_1.shape[1:])
-            wp.launch(self.set_population_to_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:])
+            wp.launch(self.restrict, inputs=[coarse.f_1, residual], dim=coarse.f_1.shape[1:])
             # scale defect correction?
             wp.launch(self.multiply_populations, inputs=[coarse.defect_correction, 4.0, 9], dim=coarse.defect_correction.shape[1:])
             # start v_cycle on coarse grid
