@@ -103,7 +103,7 @@ class Level:
             error_approx = coarse.f_1
             # interpolate error approx to fine grid
             #wp.launch(self.interpolate, inputs=[self.f_3, error_approx, 9], dim=self.f_3.shape[1:])
-            wp.launch(self.interpolate, inputs=[self.f_3, error_approx], dim=self.f_3.shape[1:])
+            wp.launch(self.interpolate, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y], dim=self.f_3.shape[1:])
             # add error_approx to current estimate
             wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
 

@@ -184,14 +184,50 @@ class KernelProvider:
                 )
 
         @wp.kernel
-        def interpolate_through_moments(fine: wp.array4d(dtype=store_dtype), coarse: wp.array4d(dtype=store_dtype)):
+        def interpolate_through_moments(fine: wp.array4d(dtype=store_dtype), coarse: wp.array4d(dtype=store_dtype), coarse_nodes_x: wp.int32, coarse_nodes_y: wp.int32):
             i, j, k = wp.tid()
 
             coarse_i = i / 2
-            coarse_j = j / 2
+            coarse_j = j / 2 #rounds down
 
-            f_local_coarse =read_local_population(coarse, coarse_i, coarse_j)
-            m_coarse = calc_moments(f_local_coarse)
+            res_i = i - coarse_i*2
+            res_j = j - coarse_j*2
+
+            f_a = read_local_population(coarse, coarse_i, coarse_j) 
+            f_b = f_a
+            f_c = f_a
+            f_d = f_a
+
+            #Coding: f_a closest coarsepoint to new fine point
+            #  f_b, f_c along edges of coarse square
+            #  f_d along diagonal
+
+            shift_x = 0
+            shift_y = 0
+
+            if (res_i == 0 and res_j == 0):
+                shift_x = -1
+                shift_y = -1
+            elif (res_i == 0 and res_j == 1):
+                shift_x = -1
+                shift_y = 1
+            elif (res_i == 1 and res_j == 0):
+                shift_x = 1
+                shift_y = -1
+            else:
+                shift_x = 1
+                shift_y = 1
+
+            f_b = read_local_population(coarse, wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x), coarse_j)
+            f_c = read_local_population(coarse, coarse_i, wp.mod(coarse_j+shift_y + coarse_nodes_y, coarse_nodes_y))
+            f_d = read_local_population(coarse, wp.mod(coarse_i+shift_x+coarse_nodes_x, coarse_nodes_x), wp.mod(coarse_j+shift_y+coarse_nodes_y, coarse_nodes_y))
+
+            m_a = calc_moments(f_a)
+            m_b = calc_moments(f_b)
+            m_c = calc_moments(f_c)
+            m_d = calc_moments(f_d)
+
+            m_coarse = compute_dtype(0.0625)*(compute_dtype(9.)*m_a + compute_dtype(3.)*m_b + compute_dtype(3.)*m_c + compute_dtype(1.)*m_d)
             m_fine = m_coarse
 
             #scale necessary components of m
