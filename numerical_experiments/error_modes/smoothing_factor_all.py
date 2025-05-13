@@ -123,8 +123,6 @@ M_eq[6, 1] = theta
 f =  np.zeros(8)
 K_val = 1
 mu_val = 1
-L_evaluated = L_mat.subs({mu: mu_val, K: K_val, phi_x: phi_x_val, phi_y: phi_y_val})
-
 
 L_mat = gamma_relax * (M_inv * D * M_eq * M + M_inv * (I - D) * M)
 
@@ -136,14 +134,15 @@ for i in range(velocity_set.q - 1):
 
 L_mat += (1 - gamma_relax) * I
 
-outer_iterations = 20
+outer_iterations = 30
 inner_iterations = 20
 data_amplification = list()
 data_difference = list()
 data_smoothing_normal = list()
+data_spectral_norms = list()
 
 d_nu = 1 / outer_iterations
-d_E = 2 / outer_iterations
+d_E = 1 / outer_iterations
 
 for k in range(outer_iterations):
     nu = 0.01 + d_nu * k
@@ -154,6 +153,7 @@ for k in range(outer_iterations):
         # cycle through all error modes
         smoothing_factors = list()
         spectral_radii = list()
+        spectral_norms = list()
         phi_y_val = -np.pi
         for i in range(inner_iterations):
             dx = 1
@@ -164,13 +164,14 @@ for k in range(outer_iterations):
                 L_evaluated = L_mat.subs({mu: mu_val, K: K_val, phi_x: phi_x_val, phi_y: phi_y_val})
 
                 #check for normality
-                assert(is_normal_matrix(np.array(L_evaluated, dtype=np.complex128)))
+                #assert(is_normal_matrix(np.array(L_evaluated, dtype=np.complex128)))
 
+                spectral_norm = np.linalg.norm(np.array(L_evaluated, dtype=np.complex128))
                 eigenvalues = np.linalg.eig(np.array(L_evaluated, dtype=np.complex128)).eigenvalues
                 spectral_radius = max(np.abs(ev) for ev in eigenvalues)
+                spectral_norms.append(spectral_norm)
                 if np.abs(phi_x_val) != 0.0 and np.abs(phi_y_val) != 0.0:
                     spectral_radii.append(spectral_radius)
-                print("phi_x: {},  phi_y: {}, spectal radius: {}".format(phi_x_val, phi_y_val, spectral_radius))
                 if np.abs(phi_x_val) >= 0.5 * np.pi and np.abs(phi_y_val) >= 0.5 * np.pi:
                     # print(spectral_radius)
                     smoothing_factors.append(spectral_radius)
@@ -180,6 +181,7 @@ for k in range(outer_iterations):
         data_amplification.append((E, nu, np.max(smoothing_factors)))
         data_difference.append((E, nu, np.max(spectral_radii) - np.max(smoothing_factors)))
         data_smoothing_normal.append((E, nu, np.max(spectral_radii)))
+        data_spectral_norms.append((E, nu, np.max(spectral_norms)))
 
         print("Max amplification factor: {}".format(np.max(smoothing_factors)))
         print("Max smoothing factor normal: {}".format(np.max(spectral_radii)))
@@ -212,6 +214,34 @@ plt.title("Plot of Amplification Factor")
 
 # Show the plot
 plt.savefig("amplification_factors.png")
+
+
+# ----------------------Plot spectral norms-------------------------
+x = np.array([float(item[0]) for item in data_spectral_norms])
+y = np.array([float(item[1]) for item in data_spectral_norms])
+z = np.array([float(item[2]) for item in data_spectral_norms])
+
+# Create a grid of points
+x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100), np.linspace(y.min(), y.max(), 100))
+
+# Interpolate the scattered data onto the grid
+z_grid = griddata((x, y), z, (x_grid, y_grid), method="cubic")
+
+# Create a 2D contour plot
+fig, ax = plt.subplots(figsize=(8, 6))
+contour = ax.contourf(x_grid, y_grid, z_grid, levels=30, cmap="viridis")
+
+
+# Add color bar to the plot
+plt.colorbar(contour)
+
+# Set labels
+ax.set_xlabel("E_scaled")
+ax.set_ylabel("nu")
+plt.title("Plot of Spectral Norms")
+
+# Show the plot
+plt.savefig("spectral_norm.png")
 
 
 # ----------------------------Plot difference to non-multigrid smoothing------------------

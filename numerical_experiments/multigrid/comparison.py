@@ -59,7 +59,7 @@ if __name__ == "__main__":
     # dt = dx*dx
 
     # params
-    E = 0.085*25
+    E = 0.085 * 2.5
     nu = 0.8
 
     solid_simulation = SimulationParams()
@@ -69,9 +69,11 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y) #+ sympy.cos(sympy.pi*x) + sympy.cos(sympy.pi*10*x) + sympy.cos(sympy.pi*20*y)
-    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x) # + sympy.cos(sympy.pi*x) + sympy.cos(sympy.pi*10*x) + sympy.cos(sympy.pi*20*y)
-    '''for i in range(100):
+    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)  # + 3
+    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  # + 3
+    '''manufactured_u = 0#sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y) + sympy.cos(sympy.pi*x) + sympy.cos(sympy.pi*10*x) + sympy.cos(sympy.pi*20*y)
+    manufactured_v = 0#sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  + sympy.cos(sympy.pi*x) + sympy.cos(sympy.pi*10*x) + sympy.cos(sympy.pi*20*y)
+    for i in range(100):
         manufactured_u += sympy.cos(2*i*sympy.pi*x)*sympy.sin(2*i*sympy.pi*y)
         manufactured_v += sympy.cos(2*i*sympy.pi*y)*sympy.sin(2*i*sympy.pi*x)'''
     expected_displacement = np.array([
@@ -107,8 +109,8 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=4,
-        v2=4,
+        v1=1,
+        v2=1,
         max_levels=None,
     )
     finest_level = multigrid_solver.get_finest_level()

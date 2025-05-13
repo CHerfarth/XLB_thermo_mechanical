@@ -1,7 +1,7 @@
 #!/bin/bash
 
-gamma=0
-iterations=11
+gamma=0.8
+iterations=1
 
 for ((i=0; i<iterations;i++))
 do

@@ -42,6 +42,7 @@ if __name__ == "__main__":
     parser.add_argument("timesteps_mg", type=int)
     parser.add_argument("timesteps_standard", type=int)
     parser.add_argument("dt", type=float)
+    parser.add_argument("coarsest_level_iter", type=int)
     args = parser.parse_args()
 
     # initiali1e grid
@@ -112,7 +113,7 @@ if __name__ == "__main__":
         v1=2,
         v2=2,
         max_levels=2,
-        coarsest_level_iter=10000
+        coarsest_level_iter=args.coarsest_level_iter
     )
     finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps_mg):
