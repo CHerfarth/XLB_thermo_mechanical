@@ -1,1 +1,1 @@
-rm log* results* tmp*
+rm log* results* tmp* nohup*

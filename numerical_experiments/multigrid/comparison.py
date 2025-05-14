@@ -69,13 +69,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)  # + 3
-    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  # + 3
-    '''manufactured_u = 0#sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y) + sympy.cos(sympy.pi*x) + sympy.cos(sympy.pi*10*x) + sympy.cos(sympy.pi*20*y)
-    manufactured_v = 0#sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  + sympy.cos(sympy.pi*x) + sympy.cos(sympy.pi*10*x) + sympy.cos(sympy.pi*20*y)
-    for i in range(100):
-        manufactured_u += sympy.cos(2*i*sympy.pi*x)*sympy.sin(2*i*sympy.pi*y)
-        manufactured_v += sympy.cos(2*i*sympy.pi*y)*sympy.sin(2*i*sympy.pi*x)'''
+    manufactured_u = sympy.cos(2*sympy.pi*x)*sympy.sin(4*sympy.pi*x)
+    manufactured_v = sympy.cos(2*sympy.pi*y)*sympy.sin(4*sympy.pi*x) 
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -109,13 +104,19 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=1,
-        v2=1,
+        v1=3,
+        v2=3,
         max_levels=None,
     )
     finest_level = multigrid_solver.get_finest_level()
+
+    #------------set initial guess to white noise------------------------
+    initial_guess = np.zeros_like(finest_level.f_1.numpy())
+    utils.set_from_white_noise(initial_guess, mean=0, seed=31)
+    finest_level.f_1 = wp.from_numpy(initial_guess, dtype=precision_policy.store_precision.wp_dtype)
+
     for i in range(timesteps):
-        residual_norm = np.linalg.norm(finest_level.start_v_cycle(return_residual=True))
+        residual_norm = finest_level.start_v_cycle(return_residual=True)
         residuals.append(residual_norm)
         macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
@@ -136,10 +137,14 @@ if __name__ == "__main__":
     stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
 
     # startup grids
-    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    #set initial guess from white noise
+    initial_guess = np.zeros_like(f_2.numpy())
+    utils.set_from_white_noise(initial_guess, mean=0, seed=31)
+    f_1 = wp.from_numpy(initial_guess, dtype=precision_policy.store_precision.wp_dtype)
+    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
 
     data_over_wu = list()  # to track error over time
     residuals = list()

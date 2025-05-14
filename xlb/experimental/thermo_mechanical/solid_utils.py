@@ -84,6 +84,13 @@ def process_error(macroscopics, expected_macroscopics, timestep, dx, norms_over_
     norms_over_time.append((timestep, l2_disp, linf_disp, l2_stress, linf_stress))
     return l2_disp, linf_disp, l2_stress, linf_stress
 
+def set_from_white_noise(array, mean=0, seed=31):
+    rng = np.random.default_rng(seed)
+    array[:] = rng.normal(loc=mean, scale=1.0, size=array.shape)
+    #manually subtract deviation from mean
+    for l in range(array.shape[0]):
+        array[l,:,:,0] = array[l,:,:,0] - (np.mean(array[l,:,:,0]) - mean)
+
 
 def last_n_avg(data, n):
     length = len(data)
@@ -93,3 +100,4 @@ def last_n_avg(data, n):
         val += data[length - 1 - i]
     val = val * weight
     return val
+

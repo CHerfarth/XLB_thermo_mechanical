@@ -40,6 +40,8 @@ class KernelProvider:
 
         if precision_policy == None:
             precision_policy = DefaultConfig.default_precision_policy
+        
+        velocity_set = DefaultConfig.velocity_set
 
         compute_dtype = precision_policy.compute_precision.wp_dtype
         store_dtype = precision_policy.store_precision.wp_dtype
@@ -287,6 +289,20 @@ class KernelProvider:
 
             f_local_coarse = calc_populations(m_coarse)
             write_population_to_global(coarse, f_local_coarse, i, j)
+        
+        @wp.kernel
+        def l2_norm(f: wp.array4d(dtype=store_dtype), sq_norm: wp.array(dtype=compute_dtype)):
+            i, j, k = wp.tid()
+
+            f_local = read_local_population(f, i, j)
+
+            local_norm = compute_dtype(0.)
+            for l in range(velocity_set.q):
+                local_norm += compute_dtype(f_local[l]) * compute_dtype(f_local[l])
+            
+            wp.atomic_add(sq_norm, 0, local_norm)
+ 
+
 
 
 
@@ -307,3 +323,4 @@ class KernelProvider:
         self.interpolate_through_moments = interpolate_through_moments
         self.restrict = restrict
         self.restrict_through_moments = restrict_through_moments
+        self.l2_norm = l2_norm

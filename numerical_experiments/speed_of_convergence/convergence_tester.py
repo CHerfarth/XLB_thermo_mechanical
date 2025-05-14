@@ -72,11 +72,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = 0#sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y) + sympy.cos(sympy.pi*x) + sympy.cos(sympy.pi*10*x) + sympy.cos(sympy.pi*20*y)
-    manufactured_v = 0#sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  + sympy.cos(sympy.pi*x) + sympy.cos(sympy.pi*10*x) + sympy.cos(sympy.pi*20*y)
-    for i in range(100):
-        manufactured_u += sympy.cos(2*i*sympy.pi*x)*sympy.sin(2*i*sympy.pi*y)
-        manufactured_v += sympy.cos(2*i*sympy.pi*y)*sympy.sin(2*i*sympy.pi*x)
+    manufactured_u = sympy.cos(2*sympy.pi*x)*sympy.sin(4*sympy.pi*x)
+    manufactured_v = sympy.cos(2*sympy.pi*y)*sympy.sin(4*sympy.pi*x) 
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -116,6 +113,13 @@ if __name__ == "__main__":
         coarsest_level_iter=args.coarsest_level_iter
     )
     finest_level = multigrid_solver.get_finest_level()
+
+    #------------set initial guess to white noise------------------------
+    initial_guess = np.zeros_like(finest_level.f_1.numpy())
+    utils.set_from_white_noise(initial_guess, mean=0, seed=31)
+    finest_level.f_1 = wp.from_numpy(initial_guess, dtype=precision_policy.store_precision.wp_dtype)
+
+    wp.synchronize()
     for i in range(timesteps_mg):
         residual_norm = np.linalg.norm(finest_level.start_v_cycle(return_residual=True))
         residuals.append(residual_norm)

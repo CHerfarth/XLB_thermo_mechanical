@@ -21,6 +21,7 @@ class Level:
         self.nodes_x = nodes_x
         self.nodes_y = nodes_y
         self.velocity_set = velocity_set
+        self.precision_policy = precision_policy
         c = self.velocity_set.c_float
         # params needed to set up simulation params
         self.gamma = gamma
@@ -34,6 +35,7 @@ class Level:
         self.f_4 = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         self.macroscopics = self.grid.create_field(cardinality=9, dtype=precision_policy.store_precision)
         self.defect_correction = self.grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        self.residual_norm_sq = None
         # setup stepper
         self.stepper = SolidsStepper(self.grid, force_load)
         self.v1 = v1
@@ -53,9 +55,17 @@ class Level:
         self.subtract_populations = kernel_provider.subtract_populations
         self.multiply_populations = kernel_provider.multiply_populations
         self.set_population_to_zero = kernel_provider.set_population_to_zero
+        self.l2_norm_squared = kernel_provider.l2_norm
 
         if self.level_num != 0:
             wp.launch(self.set_population_to_zero, inputs=[self.stepper.force, 2], dim=self.stepper.force.shape[1:])
+
+
+    def get_residual_norm(self, residual):
+        residual_norm_sq = wp.zeros(shape=1, dtype=self.precision_policy.compute_precision.wp_dtype)
+        wp.launch(self.l2_norm_squared, inputs=[residual, residual_norm_sq], dim=residual.shape[1:])
+        return math.sqrt((1/(residual.shape[0]*residual.shape[1]*residual.shape[2]))*residual_norm_sq.numpy()[0])
+
 
     def perform_smoothing(self):
         # for statistics
@@ -99,7 +109,6 @@ class Level:
             wp.launch(self.multiply_populations, inputs=[coarse.defect_correction, 4.0, 9], dim=coarse.defect_correction.shape[1:])
             # start v_cycle on coarse grid
             coarse.start_v_cycle()
-            coarse.start_v_cycle()
             # get approximation of error
             error_approx = coarse.f_1
             # interpolate error approx to fine grid
@@ -117,8 +126,7 @@ class Level:
                 self.perform_smoothing()
 
         if return_residual:
-            residual_host = self.get_residual().numpy()
-            return residual_host
+            return self.get_residual_norm(self.get_residual()) 
         else:
             return None
 

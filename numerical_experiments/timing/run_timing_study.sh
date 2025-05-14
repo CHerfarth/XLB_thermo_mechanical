@@ -2,11 +2,11 @@
 
 nodes_x=16
 nodes_y=16
-dt=0.1
+dt=0.01
 max_multi=5000
 max_standard=500000
 
-iterations=8
+iterations=5
 current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
 log_file="log_"$current_date_time".txt"
 results_file="results_"$current_date_time".csv"
@@ -17,6 +17,15 @@ for ((i=0; i<iterations; i++))
 do
     python3 timing.py $nodes_x $nodes_y $max_multi $start_multi $interval_multi $max_standard $start_standard $intervals_standard $dt > tmp_1.txt 
     cat tmp_1.txt >> $log_file #write to log
+
+
+    cat tmp_1.txt | grep "E_scaled" > tmp_2.txt
+    E_scaled=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+
+    cat tmp_1.txt | grep "nu" > tmp_2.txt
+    nu=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+
+    echo "Simulated with E $E_scaled and nu $nu"
 
     #get convergence of multigrid 
     cat tmp_1.txt | grep "Multigrid_Converged" > tmp_2.txt
