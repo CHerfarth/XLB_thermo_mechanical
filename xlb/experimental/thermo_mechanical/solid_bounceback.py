@@ -10,6 +10,7 @@ from xlb.compute_backend import ComputeBackend
 from xlb.operator.operator import Operator
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
+from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 
 
 class SolidsDirichlet(Operator):
@@ -39,8 +40,16 @@ class SolidsDirichlet(Operator):
         c = self.velocity_set.c_float
         q = self.velocity_set.q
 
+        kernel_provider = KernelProvider()
+        solid_vec = kernel_provider.solid_vec
+        read_local_population = kernel_provider.read_local_population
+        calc_moments = kernel_provider.calc_moments
+        calc_equilibrium = kernel_provider.calc_equilibrium
+        calc_populations = kernel_provider.calc_populations
+        write_population_to_global = kernel_provider.write_population_to_global
+
         @wp.func
-        def dirichlet_functional(l: Any, i: Any, j: Any, f_current: Any, f_previous: Any, boundary_values: Any, bared_moments: Any, K: Any, mu: Any):
+        def dirichlet_functional(l: wp.int32, i: wp.int32, j: wp.int32, f_current: wp.array4d(dtype=self.store_dtype), f_previous: wp.array4d(dtype=self.store_dtype), boundary_values: wp.array4d(dtype=self.store_dtype), bared_moments: wp.array4d(dtype=self.store_dtype), K: self.compute_dtype, mu: self.compute_dtype):
             new_direction = opp_indices[l]
             x_dir = c[0, new_direction]
             y_dir = c[1, new_direction]
@@ -50,37 +59,37 @@ class SolidsDirichlet(Operator):
             u_y = boundary_values[l * 7 + 1, i, j, 0]
             q_ij = boundary_values[l * 7 + 6, i, j, 0]
             # get moments
-            m_local = utils.read_local_population(bared_moments, i, j)
+            m_local = read_local_population(bared_moments, i, j)
             m_s = m_local[3]
             m_d = m_local[4]
             m_11 = m_local[2]
-            dx_u_x = -0.25 * (m_s / K + m_d / mu)
-            dy_u_y = -0.25 * (m_s / K - m_d / mu)
+            dx_u_x = -self.compute_dtype(0.25) * (m_s / K + m_d / mu)
+            dy_u_y = -self.compute_dtype(0.25) * (m_s / K - m_d / mu)
             cross_dev = -m_11 / mu  # dy_u_x + dx_u_y
 
             # bounceback with zero order correction
-            f_current[new_direction, i, j, 0] = f_previous[l, i, j, 0] + 6.0 * weight * (x_dir * u_x + y_dir * u_y)
+            f_current[new_direction, i, j, 0] = f_previous[l, i, j, 0] + self.compute_dtype(6.0) * weight * (x_dir * u_x + y_dir * u_y)
             # add first order correction
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 1.0) < 1e-3:
-                f_current[new_direction, i, j, 0] += 6.0 * weight * (q_ij - 0.5) * (wp.abs(x_dir) * dx_u_x + wp.abs(y_dir) * dy_u_y)
+                f_current[new_direction, i, j, 0] += self.compute_dtype(6.0) * weight * (q_ij - self.compute_dtype(0.5)) * (wp.abs(x_dir) * dx_u_x + wp.abs(y_dir) * dy_u_y)
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.0) < 1e-3:
-                f_current[new_direction, i, j, 0] += 6.0 * weight * (q_ij - 0.5) * (dx_u_x + dy_u_y + x_dir * y_dir * (cross_dev))
+                f_current[new_direction, i, j, 0] += self.compute_dtype(6.0) * weight * (q_ij - self.compute_dtype(0.5)) * (dx_u_x + dy_u_y + x_dir * y_dir * (cross_dev))
 
         @wp.func
         def vn_functional(
-            old_direction: Any,
-            i: Any,
-            j: Any,
-            f_current: Any,
-            f_previous: Any,
-            boundary_values: Any,
-            force: Any,
-            bared_moments: Any,
-            K: wp.float32,
-            mu: wp.float32,
-            tau_t: wp.float32,
+            old_direction: wp.int32,
+            i: wp.int32,
+            j: wp.int32,
+            f_current: wp.array4d(dtype=self.compute_dtype),
+            f_previous: wp.array4d(dtype=self.compute_dtype),
+            boundary_values: wp.array4d(dtype=self.compute_dtype),
+            force: wp.array4d(dtype=self.compute_dtype),
+            bared_moments: wp.array4d(dtype=self.compute_dtype),
+            K: self.compute_dtype,
+            mu: self.compute_dtype,
+            tau_t: self.compute_dtype,
         ):
-            theta = 1.0 / 3.0  # assuming this, see issue on github
+            theta = self.compute_dtype(1.0) / self.compute_dtype(3.0)  # assuming this, see issue on github
             new_direction = opp_indices[old_direction]
             x_dir = c[0, new_direction]
             y_dir = c[1, new_direction]
@@ -92,54 +101,54 @@ class SolidsDirichlet(Operator):
             T_y = boundary_values[old_direction * 7 + 3, i, j, 0]
             q_ij = boundary_values[old_direction * 7 + 6, i, j, 0]
             # get zeta
-            zeta = 1.0
+            zeta = self.compute_dtype(1.0)
             if wp.abs(n_x) > wp.abs(n_y):
-                zeta = -1.0
+                zeta = -self.compute_dtype(1.0)
             # get c's
-            c_1 = -(2.0 * (1.0 - theta) * (K - mu)) / (theta * (1.0 - theta - 4.0 * mu))
-            c_2 = -(2.0 * mu) / (theta - 2.0 * mu)
-            c_3 = -(4.0 * mu) / (1.0 - theta - 4.0 * mu)
+            c_1 = -(self.compute_dtype(2.0) * (self.compute_dtype(1.0) - theta) * (K - mu)) / (theta * (self.compute_dtype(1.0) - theta - self.compute_dtype(4.0) * mu))
+            c_2 = -(self.compute_dtype(2.0) * mu) / (theta - self.compute_dtype(2.0) * mu)
+            c_3 = -(self.compute_dtype(4.0) * mu) / (self.compute_dtype(1.0) - theta - self.compute_dtype(4.0) * mu)
 
-            local_sum = 0.0
+            local_sum = self.compute_dtype(0.0)
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 1.0) < 1e-3:  # case V1
-                local_sum = 0.0
+                local_sum = self.compute_dtype(0.0)
                 for m in range(q):
                     k = c[0, m]
                     l = c[1, m]
-                    a_ijkl = wp.abs(k) * wp.abs(l) * (1.0 + x_dir * n_x + y_dir * n_y) * c_1
+                    a_ijkl = wp.abs(k) * wp.abs(l) * (self.compute_dtype(1.0) + x_dir * n_x + y_dir * n_y) * c_1
                     a_ijkl += k * l * (x_dir * n_y + y_dir * n_x) * c_2
                     a_ijkl += (
-                        wp.abs(k) * (1.0 - wp.abs(l)) * (wp.abs(x_dir) + x_dir * n_x) + wp.abs(l) * (1.0 - wp.abs(k)) * (wp.abs(y_dir) + y_dir * n_y)
+                        wp.abs(k) * (self.compute_dtype(1.0) - wp.abs(l)) * (wp.abs(x_dir) + x_dir * n_x) + wp.abs(l) * (self.compute_dtype(1.0) - wp.abs(k)) * (wp.abs(y_dir) + y_dir * n_y)
                     ) * c_3
                     if wp.abs(x_dir + k) < 1e-3 and wp.abs(y_dir + l) < 1e-3:
-                        a_ijkl += -1.0
+                        a_ijkl += -self.compute_dtype(1.0)
                     local_sum += a_ijkl * f_previous[m, i, j, 0]
-            elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.0) < 1e-3:  # case V2
-                local_sum = 0.0
+            elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(2.0)) < 1e-3:  # case V2
+                local_sum = self.compute_dtype(0.0)
                 for m in range(q):
                     k = c[0, m]
                     l = c[1, m]
-                    a_ijkl = 0.5 * wp.abs(k) * wp.abs(l) * (0.5 * (1.0 + zeta) * x_dir * n_x + 0.5 * (1.0 - zeta) * y_dir * n_y) * c_1
-                    a_ijkl += 0.5 * k * l * (x_dir * y_dir + 0.5 * (1.0 + zeta) * x_dir * n_y + 0.5 * (1.0 - zeta) * y_dir * n_x) * c_2
+                    a_ijkl = self.compute_dtype(0.5) * wp.abs(k) * wp.abs(l) * (self.compute_dtype(0.5) * (self.compute_dtype(1.0) + zeta) * x_dir * n_x + self.compute_dtype(0.5) * (self.compute_dtype(1.0) - zeta) * y_dir * n_y) * c_1
+                    a_ijkl += self.compute_dtype(0.5) * k * l * (x_dir * y_dir + self.compute_dtype(0.5) * (self.compute_dtype(1.0) + zeta) * x_dir * n_y + self.compute_dtype(0.5) * (self.compute_dtype(1.0) - zeta) * y_dir * n_x) * c_2
                     a_ijkl += (
-                        0.5
+                        self.compute_dtype(0.5)
                         * (
-                            wp.abs(k) * (1.0 - wp.abs(l)) * 0.5 * (1.0 + zeta) * x_dir * n_x
-                            + wp.abs(l) * (1.0 - wp.abs(k)) * 0.5 * (1.0 - zeta) * y_dir * n_y
+                            wp.abs(k) * (self.compute_dtype(1.0) - wp.abs(l)) * self.compute_dtype(0.5) * (self.compute_dtype(1.0) + zeta) * x_dir * n_x
+                            + wp.abs(l) * (self.compute_dtype(1.0) - wp.abs(k)) * self.compute_dtype(0.5) * (self.compute_dtype(1.0) - zeta) * y_dir * n_y
                         )
                         * c_3
                     )
                     if wp.abs(x_dir + k) < 1e-3 and wp.abs(y_dir + l) < 1e-3:
-                        a_ijkl += -1.0
+                        a_ijkl += -self.compute_dtype(1.0)
                     local_sum += a_ijkl * f_previous[m, i, j, 0]
 
             f_current[new_direction, i, j, 0] = local_sum
-            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 1.0) < 1e-3:
+            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(1.0)) < 1e-3:
                 f_current[new_direction, i, j, 0] += T_x * x_dir + T_y * y_dir
-            elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.0) < 1e-3:
-                f_current[new_direction, i, j, 0] += 0.25 * (x_dir * (1.0 + zeta) * T_x + y_dir * (1.0 - zeta) * T_y)
+            elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(2.0)) < 1e-3:
+                f_current[new_direction, i, j, 0] += self.compute_dtype(0.25) * (x_dir * (self.compute_dtype(1.0) + zeta) * T_x + y_dir * (self.compute_dtype(1.0) - zeta) * T_y)
             # get derivatives of stress
-            m_local = utils.read_local_population(bared_moments, i, j)
+            m_local = read_local_population(bared_moments, i, j)
             m_10 = m_local[0]
             m_01 = m_local[1]
             m_11 = m_local[2]
@@ -149,28 +158,28 @@ class SolidsDirichlet(Operator):
             m_21 = m_local[6]
             m_f = m_local[7]
 
-            dx_sxx = 2.0 * (theta * m_10 - m_12) / (1.0 + 2.0 * tau_t) - force[0, i, j, 0]
-            dy_syy = 2.0 * (m_12 - theta * m_10) / (1.0 + 2.0 * tau_t) - force[1, i, j, 0]
-            dy_sxy = 2.0 * (m_12 - theta * m_10) / (1.0 + 2.0 * tau_t)
-            dx_sxy = 2.0 * (m_21 - theta * m_01) / (1.0 + 2.0 * tau_t)
+            dx_sxx = self.compute_dtype(2.0) * (theta * m_10 - m_12) / (self.compute_dtype(1.0) + self.compute_dtype(2.0) * tau_t) - force[0, i, j, 0]
+            dy_syy = self.compute_dtype(2.0) * (m_12 - theta * m_10) / (self.compute_dtype(1.0) + self.compute_dtype(2.0) * tau_t) - force[1, i, j, 0]
+            dy_sxy = self.compute_dtype(2.0) * (m_12 - theta * m_10) / (self.compute_dtype(1.0) + self.compute_dtype(2.0) * tau_t)
+            dx_sxy = self.compute_dtype(2.0) * (m_21 - theta * m_01) / (self.compute_dtype(1.0) + self.compute_dtype(2.0) * tau_t)
 
         @wp.kernel
         def bc_kernel(
-            f_post_stream: Any,
-            f_post_collision: Any,
-            f_previous_post_collision: Any,
-            boundary_array: Any,
-            boundary_values: Any,
-            force: Any,
-            bared_moments: Any,
-            K: Any,
-            mu: Any,
+            f_post_stream: wp.array4d(dtype=self.store_dtype),
+            f_post_collision: wp.array4d(dtype=self.store_dtype),
+            f_previous_post_collision: wp.array4d(dtype=self.store_dtype),
+            boundary_array: wp.array4d(dtype=wp.int8),
+            boundary_values: wp.array4d(dtype=self.store_dtype),
+            force: wp.array4d(dtype=self.store_dtype),
+            bared_moments: wp.array4d(dtype=self.store_dtype),
+            K: self.compute_dtype,
+            mu: self.compute_dtype,
         ):
             i, j, k = wp.tid()  # for 2d k will equal 1
-            tau_t = 0.5  # ToDo: as argument of fuction
+            tau_t = self.compute_dtype(0.5)  # ToDo: as argument of fuction
             if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(q):
-                    f_post_stream[l, i, j, 0] = wp.nan
+                    f_post_stream[l, i, j, 0] = self.compute_dtype(wp.nan)
             elif boundary_array[0, i, j, 0] == wp.int8(2):  # for boundary nodes: check which directions need to be given by dirichlet BC
                 for l in range(q):
                     if boundary_array[l + 1, i, j, 0] == wp.int8(
@@ -210,7 +219,7 @@ class SolidsDirichlet(Operator):
 
 
 # --------------utils used to construct bc arrays----------------
-def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_displacement, indicator, x, y):
+def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_displacement, indicator, x, y, precision_policy=None):
     # Mapping:
     # 0: ghost node
     # 1: interior node

@@ -113,7 +113,7 @@ if __name__ == "__main__":
     finest_level = multigrid_solver.get_finest_level()
 
     #set initial guess from white noise
-    finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, mean=0, seed=31)
+    finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
 
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle(return_residual=True)
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     #set initial guess from white noise
-    f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, mean=0, seed=31)
+    f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=0, seed=31)
 
     data_over_wu = list()  # to track error over time
     residuals = list()
