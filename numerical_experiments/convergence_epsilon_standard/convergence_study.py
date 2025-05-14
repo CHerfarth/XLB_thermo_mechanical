@@ -104,18 +104,24 @@ if __name__ == "__main__":
     stepper = SolidsStepper(grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values)
 
     # startup grids
+    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     #set initial guess from white noise
-    f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, mean=0, seed=31)
+    #f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=0, seed=31)
 
     norms_over_time = list()  # to track error over time
     tolerance = 1e-8
+    macroscopics = stepper.get_macroscopics_host(f_1)
+    print(utils.process_error(macroscopics, expected_macroscopics, 0, dx, norms_over_time))
 
-    l2, linf = 0, 0
     for i in range(timesteps):
         stepper(f_1, f_3)
         f_1, f_2, f_3 = f_3, f_1, f_2
+        if (i%100 == 0):
+            macroscopics = stepper.get_macroscopics_host(f_1)
+            print(utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time))
+
 
     macroscopics = stepper.get_macroscopics_host(f_1)
     utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)

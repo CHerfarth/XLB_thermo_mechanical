@@ -11,6 +11,7 @@ from xlb.operator.operator import Operator
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
+from xlb import DefaultConfig
 
 
 class SolidsDirichlet(Operator):
@@ -70,9 +71,9 @@ class SolidsDirichlet(Operator):
             # bounceback with zero order correction
             f_current[new_direction, i, j, 0] = f_previous[l, i, j, 0] + self.compute_dtype(6.0) * weight * (x_dir * u_x + y_dir * u_y)
             # add first order correction
-            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 1.0) < 1e-3:
+            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(1.0)) < 1e-3:
                 f_current[new_direction, i, j, 0] += self.compute_dtype(6.0) * weight * (q_ij - self.compute_dtype(0.5)) * (wp.abs(x_dir) * dx_u_x + wp.abs(y_dir) * dy_u_y)
-            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 2.0) < 1e-3:
+            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(2.0)) < 1e-3:
                 f_current[new_direction, i, j, 0] += self.compute_dtype(6.0) * weight * (q_ij - self.compute_dtype(0.5)) * (dx_u_x + dy_u_y + x_dir * y_dir * (cross_dev))
 
         @wp.func
@@ -110,7 +111,7 @@ class SolidsDirichlet(Operator):
             c_3 = -(self.compute_dtype(4.0) * mu) / (self.compute_dtype(1.0) - theta - self.compute_dtype(4.0) * mu)
 
             local_sum = self.compute_dtype(0.0)
-            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - 1.0) < 1e-3:  # case V1
+            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(1.0)) < 1e-3:  # case V1
                 local_sum = self.compute_dtype(0.0)
                 for m in range(q):
                     k = c[0, m]
@@ -244,6 +245,9 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
     # 5:
     # 6: q_ij
 
+    if precision_policy == None:
+        precision_policy = DefaultConfig.default_precision_policy
+
     potential = sympy.lambdify([x, y], potential_sympy)
 
     params = SimulationParams()
@@ -256,8 +260,8 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
     values_per_direction = 7
     host_boundary_info = np.zeros(shape=(19, grid.shape[0], grid.shape[1], 1), dtype=np.int8)
     host_boundary_values = np.zeros(
-        shape=(velocity_set.q * values_per_direction, grid.shape[0], grid.shape[1], 1), dtype=np.float32
-    )  # todo: change to compute precision
+        shape=(velocity_set.q * values_per_direction, grid.shape[0], grid.shape[1], 1), dtype=np.float64
+    )  
 
     # lambdify bc
     bc_dirichlet = [sympy.lambdify([x, y], manufactured_displacement[0]), sympy.lambdify([x, y], manufactured_displacement[1])]
@@ -364,4 +368,4 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                         host_boundary_values[(direction + 1) * values_per_direction - 1, i, j, 0] = q_ij
 
     # move to device
-    return wp.from_numpy(host_boundary_info, dtype=wp.int8), wp.from_numpy(host_boundary_values, dtype=wp.float32)
+    return wp.from_numpy(host_boundary_info, dtype=wp.int8), wp.from_numpy(host_boundary_values, dtype=precision_policy.store_precision.wp_dtype)

@@ -121,6 +121,10 @@ if __name__ == "__main__":
         max_levels=None,
     )
     finest_level = multigrid_solver.get_finest_level()
+
+    #set initial guess from white noise
+    finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
+
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle()
         residuals.append(residual_norm)

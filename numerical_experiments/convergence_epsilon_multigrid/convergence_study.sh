@@ -3,9 +3,9 @@
 epsilon=1.0
 nodes_x=16
 nodes_y=16
-timesteps=30
+timesteps=100
 dt=0.01
-iterations=4
+iterations=5
 
 #for bookkeeping
 current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
@@ -49,7 +49,7 @@ do
     nodes_x=$((nodes_x*2))
     nodes_y=$((nodes_y*2))
     dt=$(echo "$dt*0.25"|bc -l)
-    timesteps=$((timesteps*4))
+    #timesteps=$((timesteps*4))
 
     echo "Iteration $i done"
 done
