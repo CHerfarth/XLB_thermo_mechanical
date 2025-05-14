@@ -4,7 +4,7 @@ epsilon=1.0
 nodes_x=16
 nodes_y=16
 timesteps=1000
-dt=0.02
+dt=0.005
 iterations=5
 
 #for bookkeeping

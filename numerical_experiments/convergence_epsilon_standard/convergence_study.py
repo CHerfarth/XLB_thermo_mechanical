@@ -63,6 +63,7 @@ if __name__ == "__main__":
 
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+    print("E scaled {}, nu {}".format(solid_simulation.E, solid_simulation.nu))
 
     # get force load
     x, y = sympy.symbols("x y")
