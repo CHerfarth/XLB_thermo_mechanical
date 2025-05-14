@@ -301,6 +301,14 @@ class KernelProvider:
                 local_norm += compute_dtype(f_local[l]) * compute_dtype(f_local[l])
             
             wp.atomic_add(sq_norm, 0, local_norm)
+        
+        @wp.kernel
+        def convert_moments_to_populations(m: wp.array4d(dtype=store_dtype), f: wp.array4d(dtype=store_dtype)):
+            i, j, k = wp.tid()
+
+            m_local = read_local_population(m, i, j)
+            f_local = calc_populations(m_local)
+            write_population_to_global(f, f_local, i, j)
  
 
 
@@ -324,3 +332,4 @@ class KernelProvider:
         self.restrict = restrict
         self.restrict_through_moments = restrict_through_moments
         self.l2_norm = l2_norm
+        self.convert_moments_to_populations = convert_moments_to_populations

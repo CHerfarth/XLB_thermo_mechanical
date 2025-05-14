@@ -72,6 +72,8 @@ if __name__ == "__main__":
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
     ])
+    print("Mean exp u: {}".format(np.mean(expected_displacement[0,:,:])))
+    print("Mean exp v: {}".format(np.mean(expected_displacement[1,:,:])))
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y)
 
     # get expected stress
@@ -102,9 +104,10 @@ if __name__ == "__main__":
     stepper = SolidsStepper(grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values)
 
     # startup grids
-    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    #set initial guess from white noise
+    f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, mean=0, seed=31)
 
     norms_over_time = list()  # to track error over time
     tolerance = 1e-8

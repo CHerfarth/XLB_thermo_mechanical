@@ -5,6 +5,7 @@ import sympy
 import numpy as np
 from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
+from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 
 
 def get_force_load(manufactured_displacement, x, y):
@@ -84,12 +85,26 @@ def process_error(macroscopics, expected_macroscopics, timestep, dx, norms_over_
     norms_over_time.append((timestep, l2_disp, linf_disp, l2_stress, linf_stress))
     return l2_disp, linf_disp, l2_stress, linf_stress
 
-def set_from_white_noise(array, mean=0, seed=31):
+
+def get_initial_guess_from_white_noise(shape, precision_policy, mean=0, seed=31):
+    kernel_provider = KernelProvider()
+    convert_moments_to_populations = kernel_provider.convert_moments_to_populations
+
     rng = np.random.default_rng(seed)
-    array[:] = rng.normal(loc=mean, scale=1.0, size=array.shape)
+    
+    host = rng.normal(loc=mean, scale=1.0, size=shape)
     #manually subtract deviation from mean
-    for l in range(array.shape[0]):
-        array[l,:,:,0] = array[l,:,:,0] - (np.mean(array[l,:,:,0]) - mean)
+    for l in range(host.shape[0]):
+        host[l,:,:,0] = host[l,:,:,0] - np.full(shape=host[l,:,:,0].shape, fill_value=(np.mean(host[l,:,:,0]) - mean))
+        print(np.mean(host[l,:,:,0]))
+
+    #load onto device
+    device = wp.from_numpy(host, dtype=precision_policy.store_precision.wp_dtype)
+
+    #convert to populations
+    wp.launch(convert_moments_to_populations, inputs=[device, device], dim=device.shape[1:])
+
+    return device
 
 
 def last_n_avg(data, n):

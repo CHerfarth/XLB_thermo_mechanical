@@ -74,6 +74,8 @@ if __name__ == "__main__":
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
     ])
+    print("Mean exp u: {}".format(np.mean(expected_displacement[0,:,:])))
+    print("Mean exp v: {}".format(np.mean(expected_displacement[1,:,:])))
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y)
 
     # get expected stress

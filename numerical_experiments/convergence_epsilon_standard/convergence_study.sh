@@ -5,7 +5,7 @@ nodes_x=20
 nodes_y=20
 timesteps=1000
 dt=0.01
-iterations=6
+iterations=5
 
 #for bookkeeping
 current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"

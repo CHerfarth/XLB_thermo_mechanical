@@ -75,6 +75,8 @@ if __name__ == "__main__":
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
     ])
+    print("Mean exp u: {}".format(np.mean(expected_displacement[0,:,:])))
+    print("Mean exp v: {}".format(np.mean(expected_displacement[1,:,:])))
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y)
 
     # get expected stress
@@ -110,10 +112,8 @@ if __name__ == "__main__":
     )
     finest_level = multigrid_solver.get_finest_level()
 
-    #------------set initial guess to white noise------------------------
-    initial_guess = np.zeros_like(finest_level.f_1.numpy())
-    utils.set_from_white_noise(initial_guess, mean=0, seed=31)
-    finest_level.f_1 = wp.from_numpy(initial_guess, dtype=precision_policy.store_precision.wp_dtype)
+    #set initial guess from white noise
+    finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, mean=0, seed=31)
 
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle(return_residual=True)
@@ -141,10 +141,7 @@ if __name__ == "__main__":
     f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     #set initial guess from white noise
-    initial_guess = np.zeros_like(f_2.numpy())
-    utils.set_from_white_noise(initial_guess, mean=0, seed=31)
-    f_1 = wp.from_numpy(initial_guess, dtype=precision_policy.store_precision.wp_dtype)
-    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, mean=0, seed=31)
 
     data_over_wu = list()  # to track error over time
     residuals = list()
