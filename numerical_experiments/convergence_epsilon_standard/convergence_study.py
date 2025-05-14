@@ -28,7 +28,7 @@ def write_results(norms_over_time, name):
 
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
-    precision_policy = PrecisionPolicy.FP64FP64
+    precision_policy = PrecisionPolicy.FP32FP32
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
 
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
