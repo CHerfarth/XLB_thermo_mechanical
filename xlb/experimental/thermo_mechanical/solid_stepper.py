@@ -127,3 +127,15 @@ class SolidsStepper(Stepper):
     def get_macroscopics_device(self, f):
         # get updated displacement
         return self.macroscopic.get_macroscopics_device(f)
+
+    def add_boundary_conditions(self, boundary_conditions, boundary_values):
+        self.boundary_conditions = boundary_conditions
+        self.boundary_values = boundary_values
+        self.boundaries = SolidsDirichlet(
+            boundary_array=self.boundary_conditions,
+            boundary_values=self.boundary_values,
+            force=self.force,
+            velocity_set=self.velocity_set,
+            precision_policy=self.precision_policy,
+            compute_backend=self.compute_backend,
+        )

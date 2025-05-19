@@ -53,11 +53,11 @@ if __name__ == "__main__":
 
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1, theta=1.0 / 3.0)
-
+    print("E: {}, nu: {}".format(solid_simulation.lamb, solid_simulation.mu))
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x)  # + 3
-    manufactured_v = sympy.cos(2 * sympy.pi * y)  # + 3
+    manufactured_u = 0*x*y#sympy.cos(2 * sympy.pi * x)  # + 3
+    manufactured_v = 0*x*y#sympy.cos(2 * sympy.pi * y)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     boundary_array, boundary_values = bc.init_bc_from_lambda(
         potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
     )
-    potential, boundary_array, boundary_values = None, None, None
+    #potential, boundary_array, boundary_values = None, None, None
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
@@ -93,9 +93,7 @@ if __name__ == "__main__":
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     #set initial guess from white noise
-    initial_guess = np.zeros_like(f_2.numpy())
-    utils.set_from_white_noise(initial_guess, mean=0, seed=31)
-    f_1 = wp.from_numpy(initial_guess, dtype=precision_policy.store_precision.wp_dtype)
+    f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=0, seed=29)
 
     norms_over_time = list()  # to track error over time
     tolerance = 1e-6
@@ -106,11 +104,11 @@ if __name__ == "__main__":
         f_1, f_2 = f_2, f_1
         macroscopics = stepper.get_macroscopics_host(f_1)
         l2_disp, l2_inf, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
-        if i % 1 == 0:
+        if i % 10 == 0:
             macroscopics = stepper.get_macroscopics_host(f_1)
             l2_new, linf_new, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
             #print(l2_new, linf_new, l2_stress, linf_stress)
-            #utils.output_image(macroscopics, i, "figure", potential, dx)
+            utils.output_image(macroscopics, i, "figure", potential, dx)
             if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:
                 print("Final timestep:{}".format(i))
                 break
@@ -128,3 +126,4 @@ if __name__ == "__main__":
     print("Final error Linf_stress: {}".format(last_norms[4]))
     print("in {} timesteps".format(last_norms[0]))
     # write_results(norms_over_time, "results.csv")
+    print(macroscopics[0,:,:,:])

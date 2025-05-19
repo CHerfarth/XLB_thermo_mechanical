@@ -9,9 +9,11 @@ from xlb.experimental.thermo_mechanical.solid_stepper import SolidsStepper
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
+import xlb.experimental.thermo_mechanical.solid_bounceback as bc
 from xlb import DefaultConfig
 import math
 from typing import Any
+import sympy
 
 
 class Level:
@@ -57,6 +59,7 @@ class Level:
         self.set_population_to_zero = kernel_provider.set_population_to_zero
         self.l2_norm_squared = kernel_provider.l2_norm
 
+
         if self.level_num != 0:
             wp.launch(self.set_population_to_zero, inputs=[self.stepper.force, 2], dim=self.stepper.force.shape[1:])
 
@@ -66,12 +69,17 @@ class Level:
         wp.launch(self.l2_norm_squared, inputs=[residual, residual_norm_sq], dim=residual.shape[1:])
         return math.sqrt((1/(residual.shape[0]*residual.shape[1]*residual.shape[2]))*residual_norm_sq.numpy()[0])
 
+    def add_boundary_conditions(self, boundary_conditions, boundary_values):
+        self.stepper.add_boundary_conditions(boundary_conditions, boundary_values)
+
+
 
     def perform_smoothing(self):
         # for statistics
         benchmark_data = BenchmarkData()
         benchmark_data.wu += 0.25**self.level_num
         wp.launch(self.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
+        wp.launch(self.copy_populations, inputs=[self.f_1, self.f_2, 9], dim=self.f_1.shape[1:])
         self.stepper(self.f_1, self.f_2)
         wp.launch(self.relax, inputs=[self.f_2, self.f_3, self.defect_correction, self.f_1, self.gamma, self.velocity_set.q], dim=self.f_1.shape[1:])
 
@@ -115,7 +123,7 @@ class Level:
             #wp.launch(self.interpolate, inputs=[self.f_3, error_approx, 9], dim=self.f_3.shape[1:])
             wp.launch(self.interpolate, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y], dim=self.f_3.shape[1:])
             # add error_approx to current estimate
-            wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
+            #wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
 
         # do post_smoothing
         for i in range(self.v2):
@@ -136,7 +144,7 @@ class MultigridSolver:
     A class implementing a multigrid iterative solver for elliptic PDEs.
     """
 
-    def __init__(self, nodes_x, nodes_y, length_x, length_y, dt, force_load, gamma, v1, v2, max_levels=None, coarsest_level_iter=0):
+    def __init__(self, nodes_x, nodes_y, length_x, length_y, dt, force_load, gamma, v1, v2, max_levels=None, coarsest_level_iter=0, boundary_conditions=None, boundary_values=None, potential=None):
         precision_policy = DefaultConfig.default_precision_policy
         compute_backend = DefaultConfig.default_backend
         velocity_set = DefaultConfig.velocity_set
@@ -175,7 +183,16 @@ class MultigridSolver:
                 precision_policy=precision_policy,
                 coarsest_level_iter=coarsest_level_iter
             )
-
+            if boundary_conditions != None:
+                if (i == 0):
+                    level.add_boundary_conditions(boundary_conditions, boundary_values)
+                else:
+                    #create zero displacement boundary for coarser meshes
+                    x, y = sympy.symbols("x y")
+                    displacement = [0*x + 0*y, 0*x + 0*y] 
+                    indicator = lambda x, y: -1 
+                    boundary_conditions_level, boundary_values_level = bc.init_bc_from_lambda(potential, level.grid, dx, velocity_set, displacement, indicator, x, y, precision_policy) 
+                    level.add_boundary_conditions(boundary_conditions_level, boundary_values)
             self.levels.append(level)
 
     def get_next_level(self, level_num):

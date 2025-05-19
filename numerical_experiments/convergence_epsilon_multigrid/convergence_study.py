@@ -68,8 +68,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = 3 * sympy.cos(6 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
-    manufactured_v = 3 * sympy.cos(6 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
+    manufactured_u = x*x + y#3 * sympy.cos(6 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
+    manufactured_v = y*y + x#3 * sympy.cos(6 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -119,6 +119,9 @@ if __name__ == "__main__":
         v1=40,
         v2=40,
         max_levels=None,
+        boundary_conditions=boundary_array,
+        boundary_values=boundary_values,
+        potential=potential_sympy
     )
     finest_level = multigrid_solver.get_finest_level()
 

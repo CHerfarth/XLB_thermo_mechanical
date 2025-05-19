@@ -92,10 +92,13 @@ def get_initial_guess_from_white_noise(shape, precision_policy, dx, mean=0, seed
 
     rng = np.random.default_rng(seed)
 
-    #create whit noise array on host 
+    #create white noise array on host 
     host = rng.normal(loc=mean, scale=1.0, size=shape)
+
+    host[2:,:,:,:] = np.zeros_like(host[2:,:,:,:])
+    print(host)
     #manually set to expected mean
-    for l in range(host.shape[0]):
+    for l in range(2):
         host[l,:,:,0] = host[l,:,:,0] - np.full(shape=host[l,:,:,0].shape, fill_value=(np.sum(host[l,:,:,0])*dx*dx - mean))
         print(np.sum(host[l,:,:,0])*dx*dx)
 

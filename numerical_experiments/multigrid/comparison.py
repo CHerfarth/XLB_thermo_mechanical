@@ -87,7 +87,14 @@ if __name__ == "__main__":
         utils.get_function_on_grid(s_xy, x, y, dx, grid),
     ])
 
-    potential, boundary_array, boundary_values = None, None, None
+    # set boundary potential
+    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
+    potential = sympy.lambdify([x, y], potential_sympy)
+    indicator = lambda x, y: -1
+    boundary_array, boundary_values = bc.init_bc_from_lambda(
+        potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
+    )
+    boundary_array, boundary_values = None, None
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
@@ -108,7 +115,10 @@ if __name__ == "__main__":
         gamma=0.8,
         v1=3,
         v2=3,
-        max_levels=None,
+        max_levels=1,
+        boundary_conditions=boundary_array,
+        boundary_values=boundary_values,
+        potential=potential_sympy
     )
     finest_level = multigrid_solver.get_finest_level()
 
@@ -134,7 +144,7 @@ if __name__ == "__main__":
     solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
 
     # initialize stepper
-    stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
+    stepper = SolidsStepper(grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values)
 
     # startup grids
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
@@ -142,7 +152,7 @@ if __name__ == "__main__":
     f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     #set initial guess from white noise
-    f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=3, seed=31)
+    #f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=3, seed=31)
 
     data_over_wu = list()  # to track error over time
     residuals = list()

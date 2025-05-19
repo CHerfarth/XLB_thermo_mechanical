@@ -119,7 +119,7 @@ class SolidsDirichlet(Operator):
                     a_ijkl = wp.abs(k) * wp.abs(l) * (self.compute_dtype(1.0) + x_dir * n_x + y_dir * n_y) * c_1
                     a_ijkl += k * l * (x_dir * n_y + y_dir * n_x) * c_2
                     a_ijkl += (
-                        wp.abs(k) * (self.compute_dtype(1.0) - wp.abs(l)) * (wp.abs(x_dir) + x_dir * n_x) + wp.abs(l) * (self.compute_dtype(1.0) - wp.abs(k)) * (wp.abs(y_dir) + y_dir * n_y)
+                        wp.abs(k) * (self.compute_dtype(1.0) - wp.abs(l)) * (wp.abs(x_dir) + x_dir * n_x) + wp.abs(l) * (self.compute_dtype(1.0) - wp.abs(k)) * (wp.abs(y_dir) + y_dir * n_y) # type: ignore
                     ) * c_3
                     if wp.abs(x_dir + k) < 1e-3 and wp.abs(y_dir + l) < 1e-3:
                         a_ijkl += -self.compute_dtype(1.0)
@@ -180,7 +180,7 @@ class SolidsDirichlet(Operator):
             tau_t = self.compute_dtype(0.5)  # ToDo: as argument of fuction
             if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(q):
-                    f_post_stream[l, i, j, 0] = self.store_dtype(wp.nan)
+                    f_post_stream[l, i, j, 0] = self.store_dtype(0.0)
             elif boundary_array[0, i, j, 0] == wp.int8(2):  # for boundary nodes: check which directions need to be given by dirichlet BC
                 for l in range(q):
                     if boundary_array[l + 1, i, j, 0] == wp.int8(
