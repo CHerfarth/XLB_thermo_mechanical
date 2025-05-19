@@ -28,7 +28,7 @@ def write_results(norms_over_time, name):
 
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
-    precision_policy = PrecisionPolicy.FP32FP32
+    precision_policy = PrecisionPolicy.FP64FP64
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
 
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     dt = args.dt
 
     # get params
-    E = 0.085 * 2.5
+    E = 0.85 * 2.5
     nu = 0.8
 
     solid_simulation = SimulationParams()
@@ -67,10 +67,10 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    #manufactured_u = 3 * sympy.cos(6 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
-    #manufactured_v = 3 * sympy.cos(6 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
-    manufactured_u = (20*x)**2 + 10*y
-    manufactured_v = (20*y)**2 + 10*x
+    manufactured_u = 3 * sympy.cos(6 * sympy.pi * x) #* sympy.sin(4 * sympy.pi * y)
+    manufactured_v = 3 * sympy.cos(6 * sympy.pi * y)# * sympy.sin(4 * sympy.pi * x)
+    #manufactured_u = (2*x)**2 + 1*y
+    #manufactured_v = (2*y)**2 + 1*x
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     ])
 
     # set boundary potential
-    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
+    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25*100
     potential = sympy.lambdify([x, y], potential_sympy)
     indicator = lambda x, y: 1 * args.bc_indicator
     boundary_array, boundary_values = bc.init_bc_from_lambda(
