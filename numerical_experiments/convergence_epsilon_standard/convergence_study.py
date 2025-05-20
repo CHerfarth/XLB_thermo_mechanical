@@ -63,20 +63,18 @@ if __name__ == "__main__":
 
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
-    print("E scaled {}, nu {}".format(solid_simulation.E, solid_simulation.nu))
+    print("E_scaled {}, nu {}".format(solid_simulation.E, solid_simulation.nu))
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = 3 * sympy.cos(6 * sympy.pi * x) #* sympy.sin(4 * sympy.pi * y)
-    manufactured_v = 3 * sympy.cos(6 * sympy.pi * y)# * sympy.sin(4 * sympy.pi * x)
+    manufactured_u = 3 * sympy.cos(6 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
+    manufactured_v = 3 * sympy.cos(6 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
     #manufactured_u = (2*x)**2 + 1*y
     #manufactured_v = (2*y)**2 + 1*x
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
     ])
-    print("Mean exp u: {}".format(np.mean(expected_displacement[0,:,:])))
-    print("Mean exp v: {}".format(np.mean(expected_displacement[1,:,:])))
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y)
 
     # get expected stress
@@ -88,7 +86,7 @@ if __name__ == "__main__":
     ])
 
     # set boundary potential
-    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25*100
+    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
     potential = sympy.lambdify([x, y], potential_sympy)
     indicator = lambda x, y: 1 * args.bc_indicator
     boundary_array, boundary_values = bc.init_bc_from_lambda(
@@ -116,14 +114,10 @@ if __name__ == "__main__":
     norms_over_time = list()  # to track error over time
     tolerance = 1e-8
     macroscopics = stepper.get_macroscopics_host(f_1)
-    print(utils.process_error(macroscopics, expected_macroscopics, 0, dx, norms_over_time))
 
     for i in range(timesteps):
-        stepper(f_1, f_3)
-        f_1, f_2, f_3 = f_3, f_1, f_2
-        if (i%100 == 0):
-            macroscopics = stepper.get_macroscopics_host(f_1)
-            print(utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time))
+        stepper(f_1, f_2)
+        f_1, f_2 = f_2, f_1
 
 
     macroscopics = stepper.get_macroscopics_host(f_1)

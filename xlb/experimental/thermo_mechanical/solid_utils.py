@@ -96,11 +96,9 @@ def get_initial_guess_from_white_noise(shape, precision_policy, dx, mean=0, seed
     host = rng.normal(loc=mean, scale=1.0, size=shape)
 
     host[2:,:,:,:] = np.zeros_like(host[2:,:,:,:])
-    print(host)
     #manually set to expected mean
     for l in range(2):
         host[l,:,:,0] = host[l,:,:,0] - np.full(shape=host[l,:,:,0].shape, fill_value=(np.sum(host[l,:,:,0])*dx*dx - mean))
-        print(np.sum(host[l,:,:,0])*dx*dx)
 
     #load onto device
     device = wp.from_numpy(host, dtype=precision_policy.store_precision.wp_dtype)

@@ -58,6 +58,7 @@ class Level:
         self.multiply_populations = kernel_provider.multiply_populations
         self.set_population_to_zero = kernel_provider.set_population_to_zero
         self.l2_norm_squared = kernel_provider.l2_norm
+        self.set_zero_outside_boundary = kernel_provider.set_zero_outside_boundary
 
 
         if self.level_num != 0:
@@ -79,17 +80,19 @@ class Level:
         benchmark_data = BenchmarkData()
         benchmark_data.wu += 0.25**self.level_num
         wp.launch(self.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
-        wp.launch(self.copy_populations, inputs=[self.f_1, self.f_2, 9], dim=self.f_1.shape[1:])
-        self.stepper(self.f_1, self.f_2)
-        wp.launch(self.relax, inputs=[self.f_2, self.f_3, self.defect_correction, self.f_1, self.gamma, self.velocity_set.q], dim=self.f_1.shape[1:])
+        self.stepper(self.f_1, self.f_4)
+        wp.launch(self.relax, inputs=[self.f_4, self.f_3, self.defect_correction, self.f_4, self.gamma, self.velocity_set.q], dim=self.f_1.shape[1:])
+        self.f_1, self.f_4 = self.f_4, self.f_1
 
     def get_residual(self):
-        wp.launch(self.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
-        wp.launch(self.add_populations, inputs=[self.f_1, self.defect_correction, self.f_2, 9], dim=self.f_1.shape[1:])
-        self.stepper(self.f_3, self.f_4)
+        wp.launch(self.copy_populations, inputs=[self.f_1, self.f_2, 9], dim=self.f_1.shape[1:])
+        wp.launch(self.copy_populations, inputs=[self.f_4, self.f_3, 9], dim=self.f_1.shape[1:])
+        self.stepper(self.f_2, self.f_3)
         # rules for operator: A(f) = current - previous
         # --> residual = defect - A(f) = defect + previous - current
-        wp.launch(self.subtract_populations, inputs=[self.f_2, self.f_4, self.f_2, 9], dim=self.f_2.shape[1:])
+        wp.launch(self.add_populations, inputs=[self.f_1, self.defect_correction, self.f_2, 9], dim=self.f_1.shape[1:])
+        wp.launch(self.subtract_populations, inputs=[self.f_2, self.f_3, self.f_2, 9], dim=self.f_2.shape[1:])
+        #if simulating with boundary conditions, set residual to 0 outside potential
         return self.f_2
 
     def get_macroscopics(self):
@@ -105,13 +108,8 @@ class Level:
             # get residual
             residual = self.get_residual()
             # restrict residual to defect_corrrection on coarse grid
-            #wp.launch(
-            #    self.restrict, inputs=[coarse.defect_correction, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:]
-            #)
             wp.launch(self.restrict, inputs=[coarse.defect_correction, residual], dim=coarse.defect_correction.shape[1:])
             # set intial guess of coarse mesh to residual
-            #wp.launch(self.restrict, inputs=[coarse.f_1, residual, self.nodes_x, self.nodes_y, 9], dim=coarse.defect_correction.shape[1:])
-            #wp.launch(self.restrict, inputs=[coarse.f_1, residual], dim=coarse.f_1.shape[1:])
             wp.launch(self.set_population_to_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:])
             # scale defect correction?
             wp.launch(self.multiply_populations, inputs=[coarse.defect_correction, 4.0, 9], dim=coarse.defect_correction.shape[1:])
@@ -119,11 +117,14 @@ class Level:
             coarse.start_v_cycle()
             # get approximation of error
             error_approx = coarse.f_1
+            print(error_approx.numpy()[3,:,:,0])
             # interpolate error approx to fine grid
-            #wp.launch(self.interpolate, inputs=[self.f_3, error_approx, 9], dim=self.f_3.shape[1:])
             wp.launch(self.interpolate, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y], dim=self.f_3.shape[1:])
+            #if boundary conditions enabled, dont update solution based on ghost node values
+            if self.stepper.boundary_conditions != None:
+                wp.launch(self.set_zero_outside_boundary, inputs=[self.f_3, self.stepper.boundary_conditions], dim=self.f_3.shape[1:])
             # add error_approx to current estimate
-            #wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
+            wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
 
         # do post_smoothing
         for i in range(self.v2):

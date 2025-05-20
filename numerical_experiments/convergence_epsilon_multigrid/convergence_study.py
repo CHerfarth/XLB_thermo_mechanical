@@ -60,22 +60,21 @@ if __name__ == "__main__":
     dt = args.dt
 
     # get params
-    E = 0.085 * 2.5
+    E = 0.85 * 2.5
     nu = 0.8
 
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+    print("E_scaled {}, nu {}".format(solid_simulation.E, solid_simulation.nu))
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = x*x + y#3 * sympy.cos(6 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
-    manufactured_v = y*y + x#3 * sympy.cos(6 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
+    manufactured_u = 3 * sympy.cos(6 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
+    manufactured_v = 3 * sympy.cos(6 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
     ])
-    print("Mean exp u: {}".format(np.mean(expected_displacement[0,:,:])))
-    print("Mean exp v: {}".format(np.mean(expected_displacement[1,:,:])))
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y)
 
     # get expected stress
@@ -116,8 +115,8 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=40,
-        v2=40,
+        v1=4,
+        v2=4,
         max_levels=None,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,

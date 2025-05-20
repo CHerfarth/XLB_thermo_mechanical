@@ -69,14 +69,12 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2*sympy.pi*x)*sympy.sin(4*sympy.pi*x) + 3
-    manufactured_v = sympy.cos(2*sympy.pi*y)*sympy.sin(4*sympy.pi*x) + 3
+    manufactured_u = sympy.cos(2*sympy.pi*x)*sympy.sin(4*sympy.pi*x) 
+    manufactured_v = sympy.cos(2*sympy.pi*y)*sympy.sin(4*sympy.pi*x) 
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
     ])
-    print("Mean exp u: {}".format(np.sum(expected_displacement[0,:,:])*dx*dx))
-    print("Mean exp v: {}".format(np.sum(expected_displacement[1,:,:])*dx*dx))
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y)
 
     # get expected stress
@@ -123,7 +121,7 @@ if __name__ == "__main__":
     finest_level = multigrid_solver.get_finest_level()
 
     #set initial guess from white noise
-    finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=3, seed=31)
+    finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
 
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle(return_residual=True)
@@ -149,7 +147,6 @@ if __name__ == "__main__":
     # startup grids
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     #set initial guess from white noise
     #f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=3, seed=31)
@@ -167,9 +164,9 @@ if __name__ == "__main__":
     for i in range(timesteps):
         benchmark_data.wu += 1
         wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
-        stepper(f_1, f_3)
-        f_1, f_2, f_3 = f_3, f_1, f_2
-        wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_3.shape[1:])
+        stepper(f_1, f_2)
+        f_1, f_2 = f_2, f_1
+        wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:])
         residual_norm = np.linalg.norm(residual.numpy())
         residuals.append(residual_norm)
         macroscopics = stepper.get_macroscopics_host(f_1)

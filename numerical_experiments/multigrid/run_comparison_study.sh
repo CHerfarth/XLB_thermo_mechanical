@@ -3,7 +3,7 @@
 iterations=3
 nodes_x=16
 nodes_y=16
-timesteps=1000
+timesteps=100
 dt=0.01
 for ((i=0; i<iterations; i++))
 do

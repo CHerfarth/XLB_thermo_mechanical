@@ -71,10 +71,10 @@ class SolidsDirichlet(Operator):
             # bounceback with zero order correction
             f_current[new_direction, i, j, 0] = self.store_dtype(self.compute_dtype(f_previous[l, i, j, 0]) + self.compute_dtype(6.0) * weight * (x_dir * u_x + y_dir * u_y))
             # add first order correction
-            '''if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(1.0)) < 1e-3:
+            if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(1.0)) < 1e-3:
                 f_current[new_direction, i, j, 0] += self.store_dtype(self.compute_dtype(6.0) * weight * (q_ij - self.compute_dtype(0.5)) * (wp.abs(x_dir) * dx_u_x + wp.abs(y_dir) * dy_u_y))
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(2.0)) < 1e-3:
-                f_current[new_direction, i, j, 0] += self.store_dtype(self.compute_dtype(6.0) * weight * (q_ij - self.compute_dtype(0.5)) * (dx_u_x + dy_u_y + x_dir * y_dir * (cross_dev)))'''
+                f_current[new_direction, i, j, 0] += self.store_dtype(self.compute_dtype(6.0) * weight * (q_ij - self.compute_dtype(0.5)) * (dx_u_x + dy_u_y + x_dir * y_dir * (cross_dev)))
 
         @wp.func
         def vn_functional(
@@ -180,7 +180,7 @@ class SolidsDirichlet(Operator):
             tau_t = self.compute_dtype(0.5)  # ToDo: as argument of fuction
             if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(q):
-                    f_post_stream[l, i, j, 0] = self.store_dtype(0.0)
+                    f_post_stream[l, i, j, 0] = self.store_dtype(wp.nan)#self.store_dtype(0.0)
             elif boundary_array[0, i, j, 0] == wp.int8(2):  # for boundary nodes: check which directions need to be given by dirichlet BC
                 for l in range(q):
                     if boundary_array[l + 1, i, j, 0] == wp.int8(
@@ -315,7 +315,7 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                         bc_y = cur_y + 0.5 * dx * y_direction
                     elif host_boundary_info[0, (i + x_direction), (j + y_direction), 0] == 0:
                         boundary_node = True
-                        max_steps = 100
+                        max_steps = 1000
                         stepsize = dx / max_steps
                         counter = 0
                         while (

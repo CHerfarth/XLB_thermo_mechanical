@@ -309,6 +309,16 @@ class KernelProvider:
             m_local = read_local_population(m, i, j)
             f_local = calc_populations(m_local)
             write_population_to_global(f, f_local, i, j)
+        
+        @wp.kernel
+        def set_zero_outside_boundary(
+            f: wp.array4d(dtype=store_dtype),
+            boundary_array: wp.array4d(dtype=wp.int8),
+        ):
+            i, j, k = wp.tid()  # for 2d k will equal 1
+            if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
+                for l in range(velocity_set.q):
+                    f[l, i, j, 0] = store_dtype(0.0)
  
 
 
@@ -333,3 +343,4 @@ class KernelProvider:
         self.restrict_through_moments = restrict_through_moments
         self.l2_norm = l2_norm
         self.convert_moments_to_populations = convert_moments_to_populations
+        self.set_zero_outside_boundary = set_zero_outside_boundary

@@ -30,14 +30,14 @@ def write_results(norms_over_time, name):
 if __name__ == "__main__":
     wp.config.mode = "debug"
     compute_backend = ComputeBackend.WARP
-    precision_policy = PrecisionPolicy.FP64FP32
+    precision_policy = PrecisionPolicy.FP64FP64
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
 
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initiali1e grid
-    nodes_x = 64 * 2
-    nodes_y = 64 * 2
+    nodes_x = 16 
+    nodes_y = 16
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -46,8 +46,8 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 200
-    dt = 0.00025 / 4
+    timesteps = 10
+    dt = 0.01
 
     # params
     E = 0.085 * 2.5
@@ -104,10 +104,6 @@ if __name__ == "__main__":
         potential=potential_sympy
     )
     finest_level = multigrid_solver.get_finest_level()
-    """finest_level.stepper(finest_level.f_1, finest_level.f_2)
-    print(finest_level.stepper.force.shape)
-    wp.launch(utils.set_population_to_zero, inputs=[finest_level.stepper.force, 2], dim=finest_level.stepper.force.shape[1:]) 
-    wp.launch(utils.copy_populations, inputs=[finest_level.f_2, finest_level.defect_correction, 9], dim=finest_level.f_2.shape[1:])"""
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle()
         residual_over_time.append(residual_norm)

@@ -4,7 +4,7 @@ epsilon=1.0
 nodes_x=16
 nodes_y=16
 timesteps=1000
-dt=0.0005
+dt=0.001
 iterations=5
 
 #for bookkeeping
@@ -23,6 +23,14 @@ do
 
     python3 $1 $nodes_x $nodes_y $timesteps $dt $3 $4 >  tmp_1.txt 
     cat tmp_1.txt >> $log_file #write to log
+
+    cat tmp_1.txt | grep "E_scaled" > tmp_2.txt
+    E_scaled=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+
+    cat tmp_1.txt | grep "nu" > tmp_2.txt
+    nu=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+
+    echo "Simulated E_scaled $E_scaled and nu $nu"
 
     #get L2 disp error
     cat tmp_1.txt | grep "L2_disp" > tmp_2.txt
