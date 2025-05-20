@@ -1,4 +1,4 @@
 #!/bin/bash
 
-rm *.csv *.png 
+rm *.csv *.png nohup*
 rm -rf gamma_*

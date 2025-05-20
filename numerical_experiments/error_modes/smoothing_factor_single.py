@@ -31,8 +31,6 @@ xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_pre
 
 def get_LB_matrix(mu, theta, K, phi_x, phi_y):
 
-    #print("{}, {}, \n\n".format(phi_x, phi_y))
-
     I = np.eye(8)
 
     omega_11 = 1.0 / (mu / theta + 0.5)
@@ -117,23 +115,18 @@ def get_LB_matrix(mu, theta, K, phi_x, phi_y):
     M_eq[6, 1] = theta
 
     # for relaxation
-    gamma = 1.0#0.8
-    L_mat = gamma * (M_inv * D * M_eq * M + M_inv * (I - D) * M)
-
-    print("\n\n")
+    gamma = 0.8
+    L_mat = gamma * (M_inv @ D @ M_eq @ M + M_inv @ (I - D) @ M)
 
     for i in range(velocity_set.q - 1):
-        #print(cmath.exp(-1j * (phi_x * velocity_set.c[0, i + 1] + phi_y * velocity_set.c[1, i + 1])))
         L_mat[i, :] *= cmath.exp(-1j * (phi_x * velocity_set.c[0, i + 1] + phi_y * velocity_set.c[1, i + 1]))
 
     L_mat += (1 - gamma) * I
 
-    print(L_mat)
-
     return L_mat
 
 phi_y_val = -np.pi
-iterations = 3
+iterations = 100
 results = list()
 for i in range(iterations):
     dx = 1
@@ -141,7 +134,7 @@ for i in range(iterations):
     for j in range(iterations):
         K_val = E / (2 * (1 - nu))
         mu_val = E / (2 * (1 + nu))
-        L_evaluated = get_LB_matrix(mu_val, theta, K_val, phi_x_val, phi_y_val)
+        L_evaluated = get_LB_matrix(mu=mu_val, theta=theta, K=K_val, phi_x=phi_x_val, phi_y=phi_y_val)
         eigenvalues = np.linalg.eig(L_evaluated).eigenvalues
         spectral_radius = max(np.abs(ev) for ev in eigenvalues)
         # spectral_radius = np.linalg.norm(np.array(L_evaluated, dtype=np.complex128), ord=2)
