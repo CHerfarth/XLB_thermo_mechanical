@@ -1,4 +1,3 @@
-import sympy as sp
 import xlb
 from xlb.velocity_set import D2Q9
 from xlb.compute_backend import ComputeBackend
@@ -9,6 +8,7 @@ import numpy as np
 from matplotlib.ticker import FuncFormatter
 from scipy.interpolate import griddata
 import argparse
+import cmath
 
 parser = argparse.ArgumentParser("amplification_factor")
 parser.add_argument("E", type=float)
@@ -21,7 +21,6 @@ nu = args.nu
 
 # K = E / (2 * (1 - nu))
 # mu = E / (2 * (1 + nu))
-K, mu, k, phi = sp.symbols("K mu k ph")
 
 compute_backend = ComputeBackend.WARP
 precision_policy = PrecisionPolicy.FP32FP32
@@ -30,119 +29,126 @@ velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_
 xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
 
-I = sp.eye(8)
+def get_LB_matrix(mu, theta, K, phi_x, phi_y):
 
-omega_11 = 1.0 / (mu / theta + 0.5)
-omega_s = 1.0 / (2 * (1 / (1 + theta)) * K + 0.5)
-omega_d = 1.0 / (2 * (1 / (1 - theta)) * mu + 0.5)
-tau_12 = 0.5
-tau_21 = 0.5
-tau_f = 0.5
-omega_12 = 1 / (tau_12 + 0.5)
-omega_21 = 1 / (tau_21 + 0.5)
-omega_f = 1 / (tau_f + 0.5)
+    #print("{}, {}, \n\n".format(phi_x, phi_y))
 
-omega = [0, 0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_f]
-D = sp.diag(*omega)
+    I = np.eye(8)
 
-# Create the transformation matrix
-M = sp.zeros(8, 8)
+    omega_11 = 1.0 / (mu / theta + 0.5)
+    omega_s = 1.0 / (2 * (1 / (1 + theta)) * K + 0.5)
+    omega_d = 1.0 / (2 * (1 / (1 - theta)) * mu + 0.5)
+    tau_12 = 0.5
+    tau_21 = 0.5
+    tau_f = 0.5
+    omega_12 = 1 / (tau_12 + 0.5)
+    omega_21 = 1 / (tau_21 + 0.5)
+    omega_f = 1 / (tau_f + 0.5)
 
-# Fill in the matrix based on the given equations
-M[0, 3 - 1] = 1.0
-M[0, 6 - 1] = -1.0
-M[0, 7 - 1] = 1.0
-M[0, 4 - 1] = -1.0
-M[0, 8 - 1] = -1.0
-M[0, 5 - 1] = 1.0
+    omega = [0, 0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_f]
+    D = np.diag(omega)
 
-M[1, 1 - 1] = 1.0
-M[1, 2 - 1] = -1.0
-M[1, 7 - 1] = 1.0
-M[1, 4 - 1] = 1.0
-M[1, 8 - 1] = -1.0
-M[1, 5 - 1] = -1.0
+    # Create the transformation matrix
+    M = np.zeros(shape=(8, 8), dtype=np.complex128)
 
-M[2, 7 - 1] = 1.0
-M[2, 4 - 1] = -1.0
-M[2, 8 - 1] = 1.0
-M[2, 5 - 1] = -1.0
+    # Fill in the matrix based on the given equations
+    M[0, 3 - 1] = 1.0
+    M[0, 6 - 1] = -1.0
+    M[0, 7 - 1] = 1.0
+    M[0, 4 - 1] = -1.0
+    M[0, 8 - 1] = -1.0
+    M[0, 5 - 1] = 1.0
 
-M[3, 3 - 1] = 1.0
-M[3, 1 - 1] = 1.0
-M[3, 6 - 1] = 1.0
-M[3, 2 - 1] = 1.0
-M[3, 7 - 1] = 2.0
-M[3, 4 - 1] = 2.0
-M[3, 8 - 1] = 2.0
-M[3, 5 - 1] = 2.0
+    M[1, 1 - 1] = 1.0
+    M[1, 2 - 1] = -1.0
+    M[1, 7 - 1] = 1.0
+    M[1, 4 - 1] = 1.0
+    M[1, 8 - 1] = -1.0
+    M[1, 5 - 1] = -1.0
 
-M[4, 3 - 1] = 1.0
-M[4, 1 - 1] = -1.0
-M[4, 6 - 1] = 1.0
-M[4, 2 - 1] = -1.0
+    M[2, 7 - 1] = 1.0
+    M[2, 4 - 1] = -1.0
+    M[2, 8 - 1] = 1.0
+    M[2, 5 - 1] = -1.0
 
-M[5, 7 - 1] = 1.0
-M[5, 4 - 1] = -1.0
-M[5, 8 - 1] = -1.0
-M[5, 5 - 1] = 1.0
+    M[3, 3 - 1] = 1.0
+    M[3, 1 - 1] = 1.0
+    M[3, 6 - 1] = 1.0
+    M[3, 2 - 1] = 1.0
+    M[3, 7 - 1] = 2.0
+    M[3, 4 - 1] = 2.0
+    M[3, 8 - 1] = 2.0
+    M[3, 5 - 1] = 2.0
 
-M[6, 7 - 1] = 1.0
-M[6, 4 - 1] = 1.0
-M[6, 8 - 1] = -1.0
-M[6, 5 - 1] = -1.0
+    M[4, 3 - 1] = 1.0
+    M[4, 1 - 1] = -1.0
+    M[4, 6 - 1] = 1.0
+    M[4, 2 - 1] = -1.0
 
-M[7, 7 - 1] = 1.0
-M[7, 4 - 1] = 1.0
-M[7, 8 - 1] = 1.0
-M[7, 5 - 1] = 1.0
+    M[5, 7 - 1] = 1.0
+    M[5, 4 - 1] = -1.0
+    M[5, 8 - 1] = -1.0
+    M[5, 5 - 1] = 1.0
 
-# Compute the gamma factor and adjust M[7] (row 7)
-tau_s = 2.0 * K / (1.0 + theta)
-gamma = (theta * tau_f) / ((1.0 + theta) * (tau_s - tau_f))
+    M[6, 7 - 1] = 1.0
+    M[6, 4 - 1] = 1.0
+    M[6, 8 - 1] = -1.0
+    M[6, 5 - 1] = -1.0
 
-# Add gamma * row 3 to row 7
-M[7, :] += gamma * M[3, :]
+    M[7, 7 - 1] = 1.0
+    M[7, 4 - 1] = 1.0
+    M[7, 8 - 1] = 1.0
+    M[7, 5 - 1] = 1.0
 
-M_inv = M.inv()
+    # Compute the gamma factor and adjust M[7] (row 7)
+    tau_s = 2.0 * K / (1.0 + theta)
+    gamma = (theta * tau_f) / ((1.0 + theta) * (tau_s - tau_f))
 
-# Create the matrix M_eq
-M_eq = sp.zeros(8, 8)
-M_eq[0, 0] = 1
-M_eq[1, 1] = 1
-M_eq[5, 0] = theta
-M_eq[6, 1] = theta
+    # Add gamma * row 3 to row 7
+    M[7, :] += np.float64(gamma) * M[3, :]
 
-# for relaxation
-gamma = 0.8
+    M_inv = np.linalg.inv(M)
 
+    # Create the matrix M_eq
+    M_eq = np.zeros(shape=(8, 8), dtype=np.complex128)
+    M_eq[0, 0] = 1
+    M_eq[1, 1] = 1
+    M_eq[5, 0] = theta
+    M_eq[6, 1] = theta
 
-L_mat = gamma * (M_inv * D * M_eq * M + M_inv * (I - D) * M)
+    # for relaxation
+    gamma = 1.0#0.8
+    L_mat = gamma * (M_inv * D * M_eq * M + M_inv * (I - D) * M)
 
-phi_x, phi_y = sp.symbols("phi_x phi_y")
+    print("\n\n")
 
-for i in range(velocity_set.q - 1):
-    L_mat[i, :] *= sp.exp(-sp.I * (phi_x * velocity_set.c[0, i + 1] + phi_y * velocity_set.c[1, i + 1]))
+    for i in range(velocity_set.q - 1):
+        #print(cmath.exp(-1j * (phi_x * velocity_set.c[0, i + 1] + phi_y * velocity_set.c[1, i + 1])))
+        L_mat[i, :] *= cmath.exp(-1j * (phi_x * velocity_set.c[0, i + 1] + phi_y * velocity_set.c[1, i + 1]))
 
-L_mat += (1 - gamma) * I
+    L_mat += (1 - gamma) * I
 
-phi_y_val = -sp.pi
-iterations = 25
+    print(L_mat)
+
+    return L_mat
+
+phi_y_val = -np.pi
+iterations = 3
 results = list()
 for i in range(iterations):
     dx = 1
-    phi_x_val = -sp.pi
+    phi_x_val = -np.pi
     for j in range(iterations):
         K_val = E / (2 * (1 - nu))
         mu_val = E / (2 * (1 + nu))
-        L_evaluated = L_mat.subs({mu: mu_val, K: K_val, phi_x: phi_x_val, phi_y: phi_y_val})
-        eigenvalues = np.linalg.eig(np.array(L_evaluated, dtype=np.complex128)).eigenvalues
+        L_evaluated = get_LB_matrix(mu_val, theta, K_val, phi_x_val, phi_y_val)
+        eigenvalues = np.linalg.eig(L_evaluated).eigenvalues
         spectral_radius = max(np.abs(ev) for ev in eigenvalues)
         # spectral_radius = np.linalg.norm(np.array(L_evaluated, dtype=np.complex128), ord=2)
         results.append((phi_x_val, phi_y_val, spectral_radius))
-        phi_x_val += (2 * sp.pi) / iterations
+        phi_x_val += (2 * np.pi) / iterations
     print("{} % complete".format((i + 1) * 100 / iterations))
-    phi_y_val += (2 * sp.pi) / iterations
+    phi_y_val += (2 * np.pi) / iterations
 
 
 x = np.array([float(item[0]) for item in results])

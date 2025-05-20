@@ -72,8 +72,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * x)
-    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
+    manufactured_u = 0*x*y#sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * x)
+    manufactured_v = 0*x*y#sympy.cos(2 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -115,9 +115,7 @@ if __name__ == "__main__":
     finest_level = multigrid_solver.get_finest_level()
 
     # ------------set initial guess to white noise------------------------
-    initial_guess = np.zeros_like(finest_level.f_1.numpy())
-    utils.set_from_white_noise(initial_guess, mean=0, seed=31)
-    finest_level.f_1 = wp.from_numpy(initial_guess, dtype=precision_policy.store_precision.wp_dtype)
+    finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
 
     wp.synchronize()
     for i in range(timesteps_mg):
