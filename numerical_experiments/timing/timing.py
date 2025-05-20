@@ -67,8 +67,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2*sympy.pi*x)*sympy.sin(4*sympy.pi*x)
-    manufactured_v = sympy.cos(2*sympy.pi*y)*sympy.sin(4*sympy.pi*x) 
+    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * x)
+    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -110,13 +110,13 @@ if __name__ == "__main__":
         max_levels=None,
     )
     finest_level = multigrid_solver.get_finest_level()
-    #------------set initial guess to white noise------------------------
+    # ------------set initial guess to white noise------------------------
     initial_guess = np.zeros_like(finest_level.f_1.numpy())
     utils.set_from_white_noise(initial_guess, mean=0, seed=31)
     finest_level.f_1 = wp.from_numpy(initial_guess, dtype=precision_policy.store_precision.wp_dtype)
-    #--------------------------------------------------------------------
+    # --------------------------------------------------------------------
     wp.synchronize()
-    #-------------start timing-------------------------------------------
+    # -------------start timing-------------------------------------------
     start = time.time()
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle(return_residual=True)
@@ -126,7 +126,7 @@ if __name__ == "__main__":
             break
     end = time.time()
     runtime = end - start
-    
+
     print("Multigrid_Converged: {}".format(converged))
     print("Multigrid_Time: {}".format(runtime))
 
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    #set initial guess from white noise
+    # set initial guess from white noise
     initial_guess = np.zeros_like(f_2.numpy())
     utils.set_from_white_noise(initial_guess, mean=0, seed=31)
     f_1 = wp.from_numpy(initial_guess, dtype=precision_policy.store_precision.wp_dtype)
@@ -167,7 +167,7 @@ if __name__ == "__main__":
             wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_3.shape[1:])
             residual_norm_sq = wp.zeros(shape=1, dtype=precision_policy.compute_precision.wp_dtype)
             wp.launch(l2_norm_squared, inputs=[residual, residual_norm_sq], dim=residual.shape[1:])
-            residual_norm = math.sqrt((1/(residual.shape[0]*residual.shape[1]*residual.shape[2]))*residual_norm_sq.numpy()[0])
+            residual_norm = math.sqrt((1 / (residual.shape[0] * residual.shape[1] * residual.shape[2])) * residual_norm_sq.numpy()[0])
             print(residual_norm)
             if residual_norm < tol:
                 converged = 1
@@ -175,6 +175,6 @@ if __name__ == "__main__":
 
     end = time.time()
     runtime = end - start
-    
+
     print("Standard_Converged: {}".format(converged))
     print("Standard_Time: {}".format(runtime))

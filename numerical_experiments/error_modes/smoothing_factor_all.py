@@ -119,8 +119,8 @@ M_eq[1, 1] = 1
 M_eq[5, 0] = theta
 M_eq[6, 1] = theta
 
-#test matrix
-f =  np.zeros(8)
+# test matrix
+f = np.zeros(8)
 K_val = 1
 mu_val = 1
 
@@ -163,8 +163,8 @@ for k in range(outer_iterations):
                 mu_val = E / (2 * (1 + nu))
                 L_evaluated = L_mat.subs({mu: mu_val, K: K_val, phi_x: phi_x_val, phi_y: phi_y_val})
 
-                #check for normality
-                #assert(is_normal_matrix(np.array(L_evaluated, dtype=np.complex128)))
+                # check for normality
+                # assert(is_normal_matrix(np.array(L_evaluated, dtype=np.complex128)))
 
                 spectral_norm = np.linalg.norm(np.array(L_evaluated, dtype=np.complex128))
                 eigenvalues = np.linalg.eig(np.array(L_evaluated, dtype=np.complex128)).eigenvalues

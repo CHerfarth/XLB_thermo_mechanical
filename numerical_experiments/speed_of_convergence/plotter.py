@@ -49,7 +49,7 @@ plt.tight_layout()
 plt.savefig("residual_mg.png")
 
 
-#plot convergence residual per iteration for standard
+# plot convergence residual per iteration for standard
 title = "Residual over Iteration for Standard LB"
 x_label = "Iteration"
 y_label = "Residual"

@@ -69,8 +69,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2*sympy.pi*x)*sympy.sin(4*sympy.pi*x) 
-    manufactured_v = sympy.cos(2*sympy.pi*y)*sympy.sin(4*sympy.pi*x) 
+    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * x)
+    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -116,11 +116,11 @@ if __name__ == "__main__":
         max_levels=1,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
-        potential=potential_sympy
+        potential=potential_sympy,
     )
     finest_level = multigrid_solver.get_finest_level()
 
-    #set initial guess from white noise
+    # set initial guess from white noise
     finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
 
     for i in range(timesteps):
@@ -148,8 +148,8 @@ if __name__ == "__main__":
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    #set initial guess from white noise
-    #f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=3, seed=31)
+    # set initial guess from white noise
+    # f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=3, seed=31)
 
     data_over_wu = list()  # to track error over time
     residuals = list()

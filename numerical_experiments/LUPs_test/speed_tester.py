@@ -23,7 +23,6 @@ from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import argparse
 
 
-
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP32FP32
@@ -64,14 +63,14 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2*sympy.pi*x)*sympy.sin(4*sympy.pi*x) + 3
-    manufactured_v = sympy.cos(2*sympy.pi*y)*sympy.sin(4*sympy.pi*x) + 3
+    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * x) + 3
+    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x) + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
     ])
-    print("Mean exp u: {}".format(np.sum(expected_displacement[0,:,:])*dx*dx))
-    print("Mean exp v: {}".format(np.sum(expected_displacement[1,:,:])*dx*dx))
+    print("Mean exp u: {}".format(np.sum(expected_displacement[0, :, :]) * dx * dx))
+    print("Mean exp v: {}".format(np.sum(expected_displacement[1, :, :]) * dx * dx))
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y)
 
     # get expected stress
@@ -89,7 +88,7 @@ if __name__ == "__main__":
     boundary_array, boundary_values = bc.init_bc_from_lambda(
         potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
     )
-    #boundary_array, boundary_values = None, None
+    # boundary_array, boundary_values = None, None
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
@@ -107,8 +106,8 @@ if __name__ == "__main__":
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    #set initial guess from white noise
-    #f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=3, seed=31)
+    # set initial guess from white noise
+    # f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=3, seed=31)
 
     kernel_provider = KernelProvider()
     copy_populations = kernel_provider.copy_populations
@@ -122,7 +121,7 @@ if __name__ == "__main__":
     wp.synchronize()
     end = time.time()
 
-    LUP = f_1.shape[1]*f_1.shape[2]*timesteps
-    LUPs = LUP/(end-start)
+    LUP = f_1.shape[1] * f_1.shape[2] * timesteps
+    LUPs = LUP / (end - start)
     MLUPs = LUPs * (1e-6)
     print("MLUP/s: {}".format(MLUPs))

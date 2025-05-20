@@ -69,8 +69,8 @@ if __name__ == "__main__":
     x, y = sympy.symbols("x y")
     manufactured_u = 3 * sympy.cos(6 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
     manufactured_v = 3 * sympy.cos(6 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
-    #manufactured_u = (2*x)**2 + 1*y
-    #manufactured_v = (2*y)**2 + 1*x
+    # manufactured_u = (2*x)**2 + 1*y
+    # manufactured_v = (2*y)**2 + 1*x
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -108,8 +108,8 @@ if __name__ == "__main__":
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    #set initial guess from white noise
-    #f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=0, seed=31)
+    # set initial guess from white noise
+    # f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=0, seed=31)
 
     norms_over_time = list()  # to track error over time
     tolerance = 1e-8
@@ -118,7 +118,6 @@ if __name__ == "__main__":
     for i in range(timesteps):
         stepper(f_1, f_2)
         f_1, f_2 = f_2, f_1
-
 
     macroscopics = stepper.get_macroscopics_host(f_1)
     utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)

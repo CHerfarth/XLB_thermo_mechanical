@@ -36,18 +36,18 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initiali1e grid
-    nodes_x = 16*8 
-    nodes_y = 16*8
+    nodes_x = 16 * 8
+    nodes_y = 16 * 8
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
     length_x = 1.0
     length_y = 1.0
     dx = length_x / float(nodes_x)
-    dy = length_y/ float(nodes_y)
+    dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     timesteps = 1000
-    dt = 0.01/64
+    dt = 0.01 / 64
 
     # params
     E = 0.085 * 2.5
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     # set boundary potential
     potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
     potential = sympy.lambdify([x, y], potential_sympy)
-    indicator = lambda x, y: -1 
+    indicator = lambda x, y: -1
     boundary_array, boundary_values = bc.init_bc_from_lambda(
         potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
     )
@@ -101,7 +101,7 @@ if __name__ == "__main__":
         max_levels=2,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
-        potential=potential_sympy
+        potential=potential_sympy,
     )
     finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps):

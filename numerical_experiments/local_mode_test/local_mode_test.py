@@ -17,7 +17,6 @@ import warp as wp
 import argparse
 
 
-
 # vars:
 theta = 1 / 3
 # K = E / (2 * (1 - nu))
@@ -134,13 +133,13 @@ M_eq[5, 0] = theta
 M_eq[6, 1] = theta
 
 
-#test matrix
-f =  np.zeros(8)
+# test matrix
+f = np.zeros(8)
 for i in range(8):
-    f[i] = (i+1)**2
+    f[i] = (i + 1) ** 2
 K_val = solid_simulation.K
 mu_val = solid_simulation.mu
-L_mat = (M_inv * D * M_eq * M + M_inv * (I - D) * M)
+L_mat = M_inv * D * M_eq * M + M_inv * (I - D) * M
 L_evaluated = L_mat.subs({mu: mu_val, K: K_val})
 f_post = np.dot(np.array(L_evaluated).astype(np.float64), f)
 
@@ -165,16 +164,14 @@ omega_21 = 1 / (tau_21 + 0.5)
 omega_f = 1 / (tau_f + 0.5)
 omega = KernelProvider().solid_vec(0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_f, 0.0)
 
-f = np.zeros(shape=(9,1,1,1), dtype=np.float64)
-force = np.zeros(shape=(2,1,1,1), dtype=wp.float64)
+f = np.zeros(shape=(9, 1, 1, 1), dtype=np.float64)
+force = np.zeros(shape=(2, 1, 1, 1), dtype=wp.float64)
 for i in range(9):
-    f[i,0,0,0] = i**2
+    f[i, 0, 0, 0] = i**2
 f_device = wp.from_numpy(f, dtype=wp.float64)
 force_device = wp.from_numpy(force, dtype=wp.float64)
-collision = SolidsCollision(omega) 
+collision = SolidsCollision(omega)
 wp.launch(collision.warp_kernel, inputs=[f_device, force_device, omega, theta], dim=f_device.shape[1:])
 print("-------------------------------")
 print("With collision:")
-print(f_device.numpy()[1:,0,0,0])
-
-
+print(f_device.numpy()[1:, 0, 0, 0])

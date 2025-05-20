@@ -40,7 +40,7 @@ class KernelProvider:
 
         if precision_policy == None:
             precision_policy = DefaultConfig.default_precision_policy
-        
+
         velocity_set = DefaultConfig.velocity_set
 
         compute_dtype = precision_policy.compute_precision.wp_dtype
@@ -132,15 +132,18 @@ class KernelProvider:
                 c[l, i, j, 0] = store_dtype(compute_dtype(a[l, i, j, 0]) + compute_dtype(b[l, i, j, 0]))
 
         @wp.kernel
-        def add_populations_ignore_nans(a: wp.array4d(dtype=store_dtype), b: wp.array4d(dtype=store_dtype), c: wp.array4d(dtype=store_dtype), dim: wp.int32):
-            i,j,k = wp.tid()
+        def add_populations_ignore_nans(
+            a: wp.array4d(dtype=store_dtype), b: wp.array4d(dtype=store_dtype), c: wp.array4d(dtype=store_dtype), dim: wp.int32
+        ):
+            i, j, k = wp.tid()
             for l in range(dim):
-                a_val = compute_dtype(a[l,i,j,0])
-                b_val = compute_dtype(b[l,i,j,0])
-                if (a_val == compute_dtype(wp.nan)): a_val = compute_dtype(0.0)
-                if (b_val == compute_dtype(wp.nan)): b_val = compute_dtype(0.0)
-                c[l,i,j,0] = store_dtype(a_val + b_val)
-
+                a_val = compute_dtype(a[l, i, j, 0])
+                b_val = compute_dtype(b[l, i, j, 0])
+                if a_val == compute_dtype(wp.nan):
+                    a_val = compute_dtype(0.0)
+                if b_val == compute_dtype(wp.nan):
+                    b_val = compute_dtype(0.0)
+                c[l, i, j, 0] = store_dtype(a_val + b_val)
 
         @wp.func
         def calc_populations(m: solid_vec):
@@ -195,43 +198,45 @@ class KernelProvider:
                     gamma * (compute_dtype(f_after_stream[l, i, j, 0]) - compute_dtype(defect_correction[l, i, j, 0]))
                     + (compute_dtype(1.0) - gamma) * compute_dtype(f_previous[l, i, j, 0])
                 )
-        
+
         @wp.func
         def local_contains_nan(local: solid_vec):
             for l in range(velocity_set.q):
-                if (local[l] == compute_dtype(wp.nan)):
+                if local[l] == compute_dtype(wp.nan):
                     return True
             return False
 
         @wp.kernel
-        def interpolate_through_moments(fine: wp.array4d(dtype=store_dtype), coarse: wp.array4d(dtype=store_dtype), coarse_nodes_x: wp.int32, coarse_nodes_y: wp.int32):
+        def interpolate_through_moments(
+            fine: wp.array4d(dtype=store_dtype), coarse: wp.array4d(dtype=store_dtype), coarse_nodes_x: wp.int32, coarse_nodes_y: wp.int32
+        ):
             i, j, k = wp.tid()
 
             coarse_i = i / 2
-            coarse_j = j / 2 #rounds down
+            coarse_j = j / 2  # rounds down
 
-            res_i = i - coarse_i*2
-            res_j = j - coarse_j*2
+            res_i = i - coarse_i * 2
+            res_j = j - coarse_j * 2
 
-            f_a = read_local_population(coarse, coarse_i, coarse_j) 
+            f_a = read_local_population(coarse, coarse_i, coarse_j)
             f_b = f_a
             f_c = f_a
             f_d = f_a
 
-            #Coding: f_a closest coarsepoint to new fine point
+            # Coding: f_a closest coarsepoint to new fine point
             #  f_b, f_c along edges of coarse square
             #  f_d along diagonal
 
             shift_x = 0
             shift_y = 0
 
-            if (res_i == 0 and res_j == 0):
+            if res_i == 0 and res_j == 0:
                 shift_x = -1
                 shift_y = -1
-            elif (res_i == 0 and res_j == 1):
+            elif res_i == 0 and res_j == 1:
                 shift_x = -1
                 shift_y = 1
-            elif (res_i == 1 and res_j == 0):
+            elif res_i == 1 and res_j == 0:
                 shift_x = 1
                 shift_y = -1
             else:
@@ -239,16 +244,18 @@ class KernelProvider:
                 shift_y = 1
 
             f_b = read_local_population(coarse, wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x), coarse_j)
-            f_c = read_local_population(coarse, coarse_i, wp.mod(coarse_j+shift_y + coarse_nodes_y, coarse_nodes_y))
-            f_d = read_local_population(coarse, wp.mod(coarse_i+shift_x+coarse_nodes_x, coarse_nodes_x), wp.mod(coarse_j+shift_y+coarse_nodes_y, coarse_nodes_y))
+            f_c = read_local_population(coarse, coarse_i, wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y))
+            f_d = read_local_population(
+                coarse, wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x), wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y)
+            )
 
             m_a = calc_moments(f_a)
             m_b = calc_moments(f_b)
             m_c = calc_moments(f_c)
             m_d = calc_moments(f_d)
 
-            #check for nans
-            '''nan_a = local_contains_nan(m_a)
+            # check for nans
+            """nan_a = local_contains_nan(m_a)
             nan_b = local_contains_nan(m_b)
             nan_c = local_contains_nan(m_c)
             nan_d = local_contains_nan(m_d)
@@ -263,20 +270,22 @@ class KernelProvider:
                 elif not nan_c:
                     m_coarse = m_c
                 else:
-                    m_coarse = m_d'''
+                    m_coarse = m_d"""
 
-            m_coarse = compute_dtype(0.0625)*(compute_dtype(9.)*m_a + compute_dtype(3.)*m_b + compute_dtype(3.)*m_c + compute_dtype(1.)*m_d)
+            m_coarse = compute_dtype(0.0625) * (
+                compute_dtype(9.0) * m_a + compute_dtype(3.0) * m_b + compute_dtype(3.0) * m_c + compute_dtype(1.0) * m_d
+            )
             m_fine = m_coarse
 
-            #scale necessary components of m
-            m_fine[2] = compute_dtype(2.0)*m_fine[2]
-            m_fine[3] = compute_dtype(2.0)*m_fine[3]
-            m_fine[4] = compute_dtype(2.0)*m_fine[4]
-            m_fine[7] = compute_dtype(2.0)*m_fine[7]
+            # scale necessary components of m
+            m_fine[2] = compute_dtype(2.0) * m_fine[2]
+            m_fine[3] = compute_dtype(2.0) * m_fine[3]
+            m_fine[4] = compute_dtype(2.0) * m_fine[4]
+            m_fine[7] = compute_dtype(2.0) * m_fine[7]
 
             f_local_fine = calc_populations(m_fine)
             write_population_to_global(fine, f_local_fine, i, j)
-        
+
         @wp.kernel
         def interpolate(fine: wp.array4d(dtype=store_dtype), coarse: wp.array4d(dtype=store_dtype), dim: wp.int32):
             i, j, k = wp.tid()
@@ -285,8 +294,6 @@ class KernelProvider:
 
             for l in range(dim):
                 fine[l, i, j, 0] = coarse[l, coarse_i, coarse_j, 0]
-
-
 
         @wp.kernel
         def restrict(
@@ -303,41 +310,41 @@ class KernelProvider:
                 coarse[l, i, j, 0] = store_dtype(compute_dtype(0.25) * val)
 
         @wp.kernel
-        def restrict_through_moments(coarse: wp.array4d(dtype=store_dtype), fine:wp.array4d(dtype=store_dtype)):
+        def restrict_through_moments(coarse: wp.array4d(dtype=store_dtype), fine: wp.array4d(dtype=store_dtype)):
             i, j, k = wp.tid()
 
-            f_local_fine_a = read_local_population(fine, 2*i, 2*j)
-            f_local_fine_b = read_local_population(fine, 2*i+1, 2*j)
-            f_local_fine_c = read_local_population(fine, 2*i, 2*j+1)
-            f_local_fine_d = read_local_population(fine, 2*i+1, 2*j+1)
+            f_local_fine_a = read_local_population(fine, 2 * i, 2 * j)
+            f_local_fine_b = read_local_population(fine, 2 * i + 1, 2 * j)
+            f_local_fine_c = read_local_population(fine, 2 * i, 2 * j + 1)
+            f_local_fine_d = read_local_population(fine, 2 * i + 1, 2 * j + 1)
             m_fine_a = calc_moments(f_local_fine_a)
             m_fine_b = calc_moments(f_local_fine_b)
             m_fine_c = calc_moments(f_local_fine_c)
             m_fine_d = calc_moments(f_local_fine_d)
 
-            m_coarse = compute_dtype(0.25)*(m_fine_a+m_fine_b+m_fine_c+m_fine_d) 
+            m_coarse = compute_dtype(0.25) * (m_fine_a + m_fine_b + m_fine_c + m_fine_d)
 
-            #scale necessary components of m
-            m_coarse[2] = compute_dtype(0.5)*m_coarse[2]
-            m_coarse[3] = compute_dtype(0.5)*m_coarse[3]
-            m_coarse[4] = compute_dtype(0.5)*m_coarse[4]
-            m_coarse[7] = compute_dtype(0.5)*m_coarse[7]
+            # scale necessary components of m
+            m_coarse[2] = compute_dtype(0.5) * m_coarse[2]
+            m_coarse[3] = compute_dtype(0.5) * m_coarse[3]
+            m_coarse[4] = compute_dtype(0.5) * m_coarse[4]
+            m_coarse[7] = compute_dtype(0.5) * m_coarse[7]
 
             f_local_coarse = calc_populations(m_coarse)
             write_population_to_global(coarse, f_local_coarse, i, j)
-        
+
         @wp.kernel
         def l2_norm(f: wp.array4d(dtype=store_dtype), sq_norm: wp.array(dtype=compute_dtype)):
             i, j, k = wp.tid()
 
             f_local = read_local_population(f, i, j)
 
-            local_norm = compute_dtype(0.)
+            local_norm = compute_dtype(0.0)
             for l in range(velocity_set.q):
                 local_norm += compute_dtype(f_local[l]) * compute_dtype(f_local[l])
-            
+
             wp.atomic_add(sq_norm, 0, local_norm)
-        
+
         @wp.kernel
         def convert_moments_to_populations(m: wp.array4d(dtype=store_dtype), f: wp.array4d(dtype=store_dtype)):
             i, j, k = wp.tid()
@@ -345,7 +352,7 @@ class KernelProvider:
             m_local = read_local_population(m, i, j)
             f_local = calc_populations(m_local)
             write_population_to_global(f, f_local, i, j)
-        
+
         @wp.kernel
         def set_zero_outside_boundary(
             f: wp.array4d(dtype=store_dtype),
@@ -355,10 +362,6 @@ class KernelProvider:
             if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(velocity_set.q):
                     f[l, i, j, 0] = store_dtype(0.0)
- 
-
-
-
 
         # Set all declared functions as properties of the class
         self.read_local_population = read_local_population

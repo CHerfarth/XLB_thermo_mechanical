@@ -72,8 +72,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2*sympy.pi*x)*sympy.sin(4*sympy.pi*x)
-    manufactured_v = sympy.cos(2*sympy.pi*y)*sympy.sin(4*sympy.pi*x) 
+    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * x)
+    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -110,11 +110,11 @@ if __name__ == "__main__":
         v1=2,
         v2=2,
         max_levels=2,
-        coarsest_level_iter=args.coarsest_level_iter
+        coarsest_level_iter=args.coarsest_level_iter,
     )
     finest_level = multigrid_solver.get_finest_level()
 
-    #------------set initial guess to white noise------------------------
+    # ------------set initial guess to white noise------------------------
     initial_guess = np.zeros_like(finest_level.f_1.numpy())
     utils.set_from_white_noise(initial_guess, mean=0, seed=31)
     finest_level.f_1 = wp.from_numpy(initial_guess, dtype=precision_policy.store_precision.wp_dtype)
@@ -132,7 +132,6 @@ if __name__ == "__main__":
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)
     write_results(data_over_wu, "multigrid_results.csv")
-
 
     # ------------------------------------- collect data for normal LB ----------------------------------
 
@@ -175,4 +174,3 @@ if __name__ == "__main__":
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)
     write_results(data_over_wu, "normal_results.csv")
-

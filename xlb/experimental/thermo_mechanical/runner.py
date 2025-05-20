@@ -34,7 +34,7 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initialize grid
-    nodes_x =16 
+    nodes_x = 16
     nodes_y = 16
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
@@ -56,8 +56,8 @@ if __name__ == "__main__":
     print("E: {}, nu: {}".format(solid_simulation.lamb, solid_simulation.mu))
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = 0*x*y#sympy.cos(2 * sympy.pi * x)  # + 3
-    manufactured_v = 0*x*y#sympy.cos(2 * sympy.pi * y)  # + 3
+    manufactured_u = 0 * x * y  # sympy.cos(2 * sympy.pi * x)  # + 3
+    manufactured_v = 0 * x * y  # sympy.cos(2 * sympy.pi * y)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     boundary_array, boundary_values = bc.init_bc_from_lambda(
         potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
     )
-    #potential, boundary_array, boundary_values = None, None, None
+    # potential, boundary_array, boundary_values = None, None, None
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
@@ -89,10 +89,10 @@ if __name__ == "__main__":
     stepper = SolidsStepper(grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values)
 
     # startup grids
-    #f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    # f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    #set initial guess from white noise
+    # set initial guess from white noise
     f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=0, seed=29)
 
     norms_over_time = list()  # to track error over time
@@ -107,7 +107,7 @@ if __name__ == "__main__":
         if i % 10 == 0:
             macroscopics = stepper.get_macroscopics_host(f_1)
             l2_new, linf_new, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
-            #print(l2_new, linf_new, l2_stress, linf_stress)
+            # print(l2_new, linf_new, l2_stress, linf_stress)
             utils.output_image(macroscopics, i, "figure", potential, dx)
             if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:
                 print("Final timestep:{}".format(i))
@@ -126,4 +126,4 @@ if __name__ == "__main__":
     print("Final error Linf_stress: {}".format(last_norms[4]))
     print("in {} timesteps".format(last_norms[0]))
     # write_results(norms_over_time, "results.csv")
-    print(macroscopics[0,:,:,:])
+    print(macroscopics[0, :, :, :])

@@ -92,18 +92,18 @@ def get_initial_guess_from_white_noise(shape, precision_policy, dx, mean=0, seed
 
     rng = np.random.default_rng(seed)
 
-    #create white noise array on host 
+    # create white noise array on host
     host = rng.normal(loc=mean, scale=1.0, size=shape)
 
-    host[2:,:,:,:] = np.zeros_like(host[2:,:,:,:])
-    #manually set to expected mean
+    host[2:, :, :, :] = np.zeros_like(host[2:, :, :, :])
+    # manually set to expected mean
     for l in range(2):
-        host[l,:,:,0] = host[l,:,:,0] - np.full(shape=host[l,:,:,0].shape, fill_value=(np.sum(host[l,:,:,0])*dx*dx - mean))
+        host[l, :, :, 0] = host[l, :, :, 0] - np.full(shape=host[l, :, :, 0].shape, fill_value=(np.sum(host[l, :, :, 0]) * dx * dx - mean))
 
-    #load onto device
+    # load onto device
     device = wp.from_numpy(host, dtype=precision_policy.store_precision.wp_dtype)
 
-    #convert to populations
+    # convert to populations
     wp.launch(convert_moments_to_populations, inputs=[device, device], dim=device.shape[1:])
 
     return device
@@ -117,4 +117,3 @@ def last_n_avg(data, n):
         val += data[length - 1 - i]
     val = val * weight
     return val
-

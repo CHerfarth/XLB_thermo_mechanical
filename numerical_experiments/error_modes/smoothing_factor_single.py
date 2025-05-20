@@ -138,7 +138,7 @@ for i in range(iterations):
         L_evaluated = L_mat.subs({mu: mu_val, K: K_val, phi_x: phi_x_val, phi_y: phi_y_val})
         eigenvalues = np.linalg.eig(np.array(L_evaluated, dtype=np.complex128)).eigenvalues
         spectral_radius = max(np.abs(ev) for ev in eigenvalues)
-        #spectral_radius = np.linalg.norm(np.array(L_evaluated, dtype=np.complex128), ord=2)
+        # spectral_radius = np.linalg.norm(np.array(L_evaluated, dtype=np.complex128), ord=2)
         results.append((phi_x_val, phi_y_val, spectral_radius))
         phi_x_val += (2 * sp.pi) / iterations
     print("{} % complete".format((i + 1) * 100 / iterations))

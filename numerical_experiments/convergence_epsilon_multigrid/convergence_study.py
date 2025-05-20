@@ -121,11 +121,11 @@ if __name__ == "__main__":
         coarsest_level_iter=100,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
-        potential=potential_sympy
+        potential=potential_sympy,
     )
     finest_level = multigrid_solver.get_finest_level()
 
-    #set initial guess from white noise
+    # set initial guess from white noise
     finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
 
     for i in range(timesteps):
