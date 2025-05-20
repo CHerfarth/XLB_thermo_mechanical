@@ -180,7 +180,7 @@ class SolidsDirichlet(Operator):
             tau_t = self.compute_dtype(0.5)  # ToDo: as argument of fuction
             if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(q):
-                    f_post_stream[l, i, j, 0] = self.store_dtype(wp.nan)#self.store_dtype(0.0)
+                    f_post_stream[l, i, j, 0] = self.store_dtype(0.0)
             elif boundary_array[0, i, j, 0] == wp.int8(2):  # for boundary nodes: check which directions need to be given by dirichlet BC
                 for l in range(q):
                     if boundary_array[l + 1, i, j, 0] == wp.int8(

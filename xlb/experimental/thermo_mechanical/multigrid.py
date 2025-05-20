@@ -117,12 +117,12 @@ class Level:
             coarse.start_v_cycle()
             # get approximation of error
             error_approx = coarse.f_1
-            print(error_approx.numpy()[3,:,:,0])
             # interpolate error approx to fine grid
             wp.launch(self.interpolate, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y], dim=self.f_3.shape[1:])
             #if boundary conditions enabled, dont update solution based on ghost node values
             if self.stepper.boundary_conditions != None:
                 wp.launch(self.set_zero_outside_boundary, inputs=[self.f_3, self.stepper.boundary_conditions], dim=self.f_3.shape[1:])
+            print(self.f_3.numpy()[3,:,:,0])
             # add error_approx to current estimate
             wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
 

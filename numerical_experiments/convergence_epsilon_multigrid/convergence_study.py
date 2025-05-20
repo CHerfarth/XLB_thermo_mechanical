@@ -115,9 +115,10 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=4,
-        v2=4,
+        v1=40,
+        v2=40,
         max_levels=None,
+        coarsest_level_iter=100,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
         potential=potential_sympy

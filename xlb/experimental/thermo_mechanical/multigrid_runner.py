@@ -36,18 +36,18 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initiali1e grid
-    nodes_x = 16 
-    nodes_y = 16
+    nodes_x = 16*8 
+    nodes_y = 16*8
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
     length_x = 1.0
     length_y = 1.0
     dx = length_x / float(nodes_x)
-    dy = length_y / float(nodes_y)
+    dy = length_y/ float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 10
-    dt = 0.01
+    timesteps = 1000
+    dt = 0.01/64
 
     # params
     E = 0.085 * 2.5
@@ -59,8 +59,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = x*x + y*y#sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)  # + 3
-    manufactured_v = x*x + y*y#sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  # + 3
+    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)  # + 3
+    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -98,7 +98,7 @@ if __name__ == "__main__":
         gamma=0.8,
         v1=8,
         v2=8,
-        max_levels=None,
+        max_levels=2,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
         potential=potential_sympy
@@ -109,6 +109,7 @@ if __name__ == "__main__":
         residual_over_time.append(residual_norm)
         macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
+        utils.output_image(macroscopics, i, "image1")
 
         # write out error norms
         # print(finest_level.f_1.numpy()[1,:,:,0])

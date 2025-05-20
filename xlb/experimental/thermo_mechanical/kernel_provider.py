@@ -131,6 +131,17 @@ class KernelProvider:
             for l in range(dim):
                 c[l, i, j, 0] = store_dtype(compute_dtype(a[l, i, j, 0]) + compute_dtype(b[l, i, j, 0]))
 
+        @wp.kernel
+        def add_populations_ignore_nans(a: wp.array4d(dtype=store_dtype), b: wp.array4d(dtype=store_dtype), c: wp.array4d(dtype=store_dtype), dim: wp.int32):
+            i,j,k = wp.tid()
+            for l in range(dim):
+                a_val = compute_dtype(a[l,i,j,0])
+                b_val = compute_dtype(b[l,i,j,0])
+                if (a_val == compute_dtype(wp.nan)): a_val = compute_dtype(0.0)
+                if (b_val == compute_dtype(wp.nan)): b_val = compute_dtype(0.0)
+                c[l,i,j,0] = store_dtype(a_val + b_val)
+
+
         @wp.func
         def calc_populations(m: solid_vec):
             f = solid_vec()
@@ -184,6 +195,13 @@ class KernelProvider:
                     gamma * (compute_dtype(f_after_stream[l, i, j, 0]) - compute_dtype(defect_correction[l, i, j, 0]))
                     + (compute_dtype(1.0) - gamma) * compute_dtype(f_previous[l, i, j, 0])
                 )
+        
+        @wp.func
+        def local_contains_nan(local: solid_vec):
+            for l in range(velocity_set.q):
+                if (local[l] == compute_dtype(wp.nan)):
+                    return True
+            return False
 
         @wp.kernel
         def interpolate_through_moments(fine: wp.array4d(dtype=store_dtype), coarse: wp.array4d(dtype=store_dtype), coarse_nodes_x: wp.int32, coarse_nodes_y: wp.int32):
@@ -228,6 +246,24 @@ class KernelProvider:
             m_b = calc_moments(f_b)
             m_c = calc_moments(f_c)
             m_d = calc_moments(f_d)
+
+            #check for nans
+            '''nan_a = local_contains_nan(m_a)
+            nan_b = local_contains_nan(m_b)
+            nan_c = local_contains_nan(m_c)
+            nan_d = local_contains_nan(m_d)
+
+            if (not nan_a and not nan_b and not nan_c and not nan_d):
+                m_coarse = compute_dtype(0.0625)*(compute_dtype(9.)*m_a + compute_dtype(3.)*m_b + compute_dtype(3.)*m_c + compute_dtype(1.)*m_d)
+            else:
+                if not nan_a:
+                    m_coarse = m_a
+                elif not nan_b:
+                    m_coarse = m_b
+                elif not nan_c:
+                    m_coarse = m_c
+                else:
+                    m_coarse = m_d'''
 
             m_coarse = compute_dtype(0.0625)*(compute_dtype(9.)*m_a + compute_dtype(3.)*m_b + compute_dtype(3.)*m_c + compute_dtype(1.)*m_d)
             m_fine = m_coarse
