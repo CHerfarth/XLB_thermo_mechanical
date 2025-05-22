@@ -105,6 +105,8 @@ class Level:
         wp.launch(self.add_populations, inputs=[self.f_1, self.defect_correction, self.f_2, 9], dim=self.f_1.shape[1:])
         wp.launch(self.subtract_populations, inputs=[self.f_2, self.f_3, self.f_2, 9], dim=self.f_2.shape[1:])
         # if simulating with boundary conditions, set residual to 0 outside potential
+        if self.stepper.boundary_conditions != None:
+            wp.launch(self.set_zero_outside_boundary, inputs=[self.f_2, self.stepper.boundary_conditions], dim=self.f_2.shape[1:])
         return self.f_2
 
     def get_macroscopics(self):
@@ -214,7 +216,7 @@ class MultigridSolver:
             if boundary_conditions != None:
                 if i == 0:
                     level.add_boundary_conditions(boundary_conditions, boundary_values)
-                '''else:
+                else:
                     # create zero displacement boundary for coarser meshes
                     x, y = sympy.symbols("x y")
                     displacement = [0 * x + 0 * y, 0 * x + 0 * y]
@@ -222,7 +224,7 @@ class MultigridSolver:
                     boundary_conditions_level, boundary_values_level = bc.init_bc_from_lambda(
                         potential, level.grid, dx, velocity_set, displacement, indicator, x, y, precision_policy
                     )
-                    level.add_boundary_conditions(boundary_conditions_level, boundary_values)'''
+                    level.add_boundary_conditions(boundary_conditions_level, boundary_values)
             self.levels.append(level)
 
     def get_next_level(self, level_num):
