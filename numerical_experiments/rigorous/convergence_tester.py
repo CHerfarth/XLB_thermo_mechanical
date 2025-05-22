@@ -119,7 +119,7 @@ if __name__ == "__main__":
     # ------------set initial guess to white noise------------------------
     finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
 
-    converged = -1
+    converged = 2
 
     wp.synchronize()
     for i in range(timesteps):
@@ -139,3 +139,4 @@ if __name__ == "__main__":
     print(residual_norm)
     write_results(data_over_wu, "multigrid_results.csv")
     print("Converged: {}".format(converged))
+    print("Rate of Convergence: {}".format(0.0))

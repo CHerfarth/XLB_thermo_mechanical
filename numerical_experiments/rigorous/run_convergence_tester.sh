@@ -2,13 +2,18 @@
 
 nodes_x=128
 nodes_y=128
-timesteps=100
+timesteps=200
 coarsest_level_iter=100
 vals_nu=2
 vals_E=10
 
-vals_v=5
+vals_v=7
 
+current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
+log_file="log_"$current_date_time".txt"
+results_file="results_"$current_date_time".csv"
+
+echo "nodes_x,nodes_y,timesteps,coarsest_level_iter,nu,E,v1,v2,converged,rate" > $results_file
 for ((i=0; i<vals_nu; i++))
 do
     nu=$(echo "0.5 + 0.3*$i"|bc -l)
@@ -25,7 +30,20 @@ do
             v2=0
             for ((l=0; l<vals_v; l++))
             do
-                python3 convergence_tester.py $nodes_x $nodes_y $timesteps $E $nu $coarsest_level_iter $v1 $v2 > tmp_1.txt
+                python3 convergence_tester.py $nodes_x $nodes_y $timesteps $E $nu $coarsest_level_iter $v1 $v2 | tee tmp_1.txt
+                
+                echo tmp_1.txt >> $log_file
+
+                #get status of convergence
+                cat tmp_1.txt | grep "Converged" > tmp_2.txt
+                converged=$(cat tmp_2.txt | grep -oE '[0-9]')
+
+                #get convergence rate
+                cat tmp_1.txt | grep "Rate" > tmp_2.txt
+                rate=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+
+                echo "$nodes_x,$nodes_y,$timesteps,$coarsest_level_iter,$nu,$E,$v1,$v2,$converged,$rate" >> $results_file
+
                 v2=$((v2+1))
             done
             v1=$((v1+1))

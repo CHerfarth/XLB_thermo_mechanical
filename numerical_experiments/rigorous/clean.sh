@@ -1,0 +1,1 @@
+rm log* tmp* nohup* multigrid_results* results*

@@ -126,7 +126,7 @@ def get_LB_matrix(mu, theta, K, phi_x, phi_y):
     return L_mat
 
 phi_y_val = -np.pi
-iterations = 100
+iterations = 200
 results = list()
 for i in range(iterations):
     dx = 1

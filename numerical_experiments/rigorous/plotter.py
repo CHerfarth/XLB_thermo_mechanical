@@ -2,7 +2,7 @@ import sys
 
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
-import matplotlib
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import pandas as pd
 import argparse
@@ -10,63 +10,45 @@ from mpltools import annotation
 
 
 parser = argparse.ArgumentParser("plotter")
-parser.add_argument("amplification_factor", type=float)
-parser.add_argument("smoothing_steps_per_iteration", type=int)
-parser.add_argument("smoothing_factor", type=float)
+parser.add_argument("filename", type=str)
 args = parser.parse_args()
 
-amplification_factor = args.amplification_factor
-smoothing_steps_per_iteration = args.smoothing_steps_per_iteration
-smoothing_factor = args.smoothing_factor
+data = pd.read_csv(args.filename, skiprows=0, sep=",", engine="python", dtype=np.float64)
+
+df = data[data['nu'] == 0.5]
+print(df.head())
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+
+x = df['v1']
+y = df['v2']
+z = df['E']
+c = df['converged'].map({0: 'red', 1: 'green'})  # color by result
+
+ax.scatter(x, y, z, c=c)
+ax.set_xlabel('v1')
+ax.set_ylabel('v2')
+ax.set_zlabel('E')
+plt.title('Convergence for nu=0.5')
+plt.savefig('nu_5.png')
 
 
-multigrid_data = pd.read_csv("multigrid_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64)
-print(multigrid_data.head())
-normal_data = pd.read_csv("normal_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64)
-print(normal_data.head())
+df = data[data['nu'] == 0.8]
+print(df.head())
 
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
 
-# plot convergence residual per iteration for multigrid
-title = "Residual over Iteration for Multigrid LB"
-x_label = "Iteration"
-y_label = "Residual"
-fig, ax = plt.subplots()
-ax.plot(multigrid_data["iteration"], multigrid_data["residual_norm"], "-", color="green", label="Residual")
-ax.grid(True)
-plt.yscale("log")
-ax.set_title(title)
-# plot expected speed of convergence
-slope = amplification_factor**smoothing_steps_per_iteration
-multigrid_data["slope_power"] = slope ** multigrid_data["iteration"]
-ax.plot(multigrid_data["iteration"], multigrid_data["slope_power"], "--", color="black", label="Expected Speed of convergence")
-ax.set_ylim((1e-11, 1e2))
-# calculate actual speed of convergence
-end_residual = multigrid_data["residual_norm"].min()
-plt.xlabel(x_label, labelpad=20, fontsize=12)
-plt.ylabel(y_label, labelpad=20, fontsize=12)
-plt.legend(loc="upper right")
-plt.tight_layout()
-plt.savefig("residual_mg.png")
+x = df['v1']
+y = df['v2']
+z = df['E']
+c = df['converged'].map({0: 'red', 1: 'green', 2: 'grey'})  # color by result
 
+ax.scatter(x, y, z, c=c)
+ax.set_xlabel('v1')
+ax.set_ylabel('v2')
+ax.set_zlabel('E')
+plt.title('Convergence for nu=0.8')
+plt.savefig('nu_8.png')
 
-# plot convergence residual per iteration for standard
-title = "Residual over Iteration for Standard LB"
-x_label = "Iteration"
-y_label = "Residual"
-fig, ax = plt.subplots()
-ax.plot(normal_data["iteration"], normal_data["residual_norm"], "-", color="green", label="Residual")
-ax.grid(True)
-plt.yscale("log")
-ax.set_title(title)
-# plot expected speed of convergence
-slope = smoothing_factor
-normal_data["slope_power"] = slope ** (normal_data["iteration"])
-ax.plot(normal_data["iteration"], normal_data["slope_power"], "--", color="black", label="Expected Speed of convergence")
-ax.set_ylim((1e-11, 1e2))
-# calculate actual speed of convergence
-end_residual = normal_data["residual_norm"].min()
-plt.xlabel(x_label, labelpad=20, fontsize=12)
-plt.ylabel(y_label, labelpad=20, fontsize=12)
-plt.legend(loc="upper right")
-plt.tight_layout()
-plt.savefig("residual_standard.png")

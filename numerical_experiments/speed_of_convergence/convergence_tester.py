@@ -41,8 +41,9 @@ if __name__ == "__main__":
     parser.add_argument("nodes_y", type=int)
     parser.add_argument("timesteps_mg", type=int)
     parser.add_argument("timesteps_standard", type=int)
-    parser.add_argument("dt", type=float)
     parser.add_argument("coarsest_level_iter", type=int)
+    parser.add_argument("E", type=float)
+    parser.add_argument("nu", type=float)
     args = parser.parse_args()
 
     # initiali1e grid
@@ -58,12 +59,11 @@ if __name__ == "__main__":
     assert math.isclose(dx, dy)
     timesteps_mg = args.timesteps_mg
     timesteps_standard = args.timesteps_standard
-    dt = args.dt
-    # dt = dx*dx
+    dt = dx*dx
 
     # params
-    E = 0.085 * 2.5
-    nu = 0.8
+    E = args.E 
+    nu = args.nu
 
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1, theta=1.0 / 3.0)
@@ -109,7 +109,7 @@ if __name__ == "__main__":
         gamma=0.8,
         v1=2,
         v2=2,
-        max_levels=None,
+        max_levels=2,
         coarsest_level_iter=args.coarsest_level_iter,
     )
     finest_level = multigrid_solver.get_finest_level()
