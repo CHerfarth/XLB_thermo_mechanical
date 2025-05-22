@@ -7,7 +7,7 @@ timesteps_standard=10000
 coarsest_level_iter=5000
 iterations=4
 
-E=0.2
+E=0.8
 nu=0.5
 
 for ((i=0; i<iterations; i++))
