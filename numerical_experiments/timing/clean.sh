@@ -1,1 +1,1 @@
-rm log* results* tmp* nohup*
+rm log* results* tmp* nohup* runtimes*

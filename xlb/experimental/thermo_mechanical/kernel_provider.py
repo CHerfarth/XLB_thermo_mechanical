@@ -145,6 +145,7 @@ class KernelProvider:
                     b_val = compute_dtype(0.0)
                 c[l, i, j, 0] = store_dtype(a_val + b_val)
 
+
         @wp.func
         def calc_populations(m: solid_vec):
             f = solid_vec()
@@ -198,6 +199,23 @@ class KernelProvider:
                     gamma * (compute_dtype(f_after_stream[l, i, j, 0]) - compute_dtype(defect_correction[l, i, j, 0]))
                     + (compute_dtype(1.0) - gamma) * compute_dtype(f_previous[l, i, j, 0])
                 )
+
+        @wp.kernel
+        def relaxation_no_defect(
+            f_after_stream: wp.array4d(dtype=store_dtype),
+            f_previous: wp.array4d(dtype=store_dtype),
+            f_destination: wp.array4d(dtype=store_dtype),
+            gamma: compute_dtype,
+            dim: wp.int32,
+        ):
+            i, j, k = wp.tid()
+            for l in range(dim):
+                f_destination[l, i, j, 0] = store_dtype(
+                    gamma * (compute_dtype(f_after_stream[l, i, j, 0]))
+                    + (compute_dtype(1.0) - gamma) * compute_dtype(f_previous[l, i, j, 0])
+                )
+
+
 
         @wp.func
         def local_contains_nan(local: solid_vec):
@@ -376,6 +394,7 @@ class KernelProvider:
         self.calc_populations = calc_populations
         self.calc_equilibrium = calc_equilibrium
         self.relaxation = relaxation
+        self.relaxation_no_defect = relaxation_no_defect
         self.interpolate = interpolate
         self.interpolate_through_moments = interpolate_through_moments
         self.restrict = restrict

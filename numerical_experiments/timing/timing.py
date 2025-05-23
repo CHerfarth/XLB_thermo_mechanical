@@ -38,7 +38,11 @@ if __name__ == "__main__":
     parser.add_argument("nodes_y", type=int)
     parser.add_argument("max_timesteps_multi", type=int)
     parser.add_argument("max_timesteps_standard", type=int)
-    parser.add_argument("dt", type=float)
+    parser.add_argument("E", type=float)
+    parser.add_argument("nu", type=float)
+    parser.add_argument("test_multigrid", type=int)
+    parser.add_argument("test_standard", type=int)
+    parser.add_argument("test_relaxed", type=int)
     args = parser.parse_args()
 
     # initiali1e grid
@@ -52,17 +56,16 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    dt = args.dt
-    # dt = dx*dx
+    dt = dx*dx
 
     # params
-    E = 0.085 * 0.25
-    nu = 0.8
+    E = args.E 
+    nu = args.nu
 
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
 
-    print("Simulating with E {}".format(solid_simulation.E))
+    print("Simulating with E_scaled {}".format(solid_simulation.E))
     print("Simulating with nu {}".format(solid_simulation.nu))
 
     # get force load
@@ -90,10 +93,20 @@ if __name__ == "__main__":
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
 
     tol = 1e-10
+    gamma=0.8
+
+    kernel_provider = KernelProvider()
+    copy_populations = kernel_provider.copy_populations
+    multiply_populations = kernel_provider.multiply_populations
+    add_populations = kernel_provider.add_populations
+    subtract_populations = kernel_provider.subtract_populations
+    l2_norm_squared = kernel_provider.l2_norm
+    relaxation_no_defect = kernel_provider.relaxation_no_defect
 
     # -------------------------------------- collect data for multigrid----------------------------
     converged = 0
-    # run once to check how many timesteps needed for convergence
+    runtime=0.0
+    i =0
     timesteps = args.max_timesteps_multi
     benchmark_data = BenchmarkData()
     benchmark_data.wu = 0.0
@@ -104,77 +117,127 @@ if __name__ == "__main__":
         length_y=length_y,
         dt=dt,
         force_load=force_load,
-        gamma=0.8,
+        gamma=gamma,
         v1=3,
         v2=3,
         max_levels=None,
     )
     finest_level = multigrid_solver.get_finest_level()
     # ------------set initial guess to white noise------------------------
-    initial_guess = np.zeros_like(finest_level.f_1.numpy())
-    utils.set_from_white_noise(initial_guess, mean=0, seed=31)
-    finest_level.f_1 = wp.from_numpy(initial_guess, dtype=precision_policy.store_precision.wp_dtype)
+    #finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
     # --------------------------------------------------------------------
     wp.synchronize()
     # -------------start timing-------------------------------------------
-    start = time.time()
-    for i in range(timesteps):
-        residual_norm = finest_level.start_v_cycle(return_residual=True)
-        print(residual_norm)
-        if residual_norm < tol:
-            converged = 1
-            break
-    end = time.time()
-    runtime = end - start
+    if (args.test_multigrid):
+        start = time.time()
+        for i in range(timesteps):
+            residual_norm = finest_level.start_v_cycle(return_residual=True)
+            print(residual_norm)
+            if residual_norm/dt < tol:
+                converged = 1
+                break
+        end = time.time()
+        runtime = end - start
 
     print("Multigrid_Converged: {}".format(converged))
     print("Multigrid_Time: {}".format(runtime))
+    print("Multigrid_Iterations: {}".format(i))
+
+    del finest_level
+    del multigrid_solver
 
     # ------------------------------------- collect data for normal LB ----------------------------------
 
     timesteps = args.max_timesteps_standard
     converged = 0
-    # -----------run first time
+    runtime=0.0
+    i =0
     # initialize stepper
     stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
     # startup grids
+    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    # set initial guess from white noise
-    initial_guess = np.zeros_like(f_2.numpy())
-    utils.set_from_white_noise(initial_guess, mean=0, seed=31)
-    f_1 = wp.from_numpy(initial_guess, dtype=precision_policy.store_precision.wp_dtype)
 
     benchmark_data = BenchmarkData()
     benchmark_data.wu = 0.0
 
-    kernel_provider = KernelProvider()
-    copy_populations = kernel_provider.copy_populations
-    subtract_populations = kernel_provider.subtract_populations
-    l2_norm_squared = kernel_provider.l2_norm
+    if args.test_standard:
+        wp.synchronize()
+        start = time.time()
 
-    wp.synchronize()
-    start = time.time()
+        for i in range(timesteps):
+            benchmark_data.wu += 1
+            if i % 100 == 0:
+                wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
+            stepper(f_1, f_2)
+            f_1, f_2 = f_2, f_1 
+            if i % 100 == 0:
+                wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:])
+                residual_norm_sq = wp.zeros(shape=1, dtype=precision_policy.compute_precision.wp_dtype)
+                wp.launch(l2_norm_squared, inputs=[residual, residual_norm_sq], dim=residual.shape[1:])
+                residual_norm = math.sqrt((1 / (residual.shape[0] * residual.shape[1] * residual.shape[2])) * residual_norm_sq.numpy()[0])
+                print(residual_norm)
+                if residual_norm/dt < tol:
+                    converged = 1
+                    break
 
-    for i in range(timesteps):
-        benchmark_data.wu += 1
-        if i % 100 == 0:
-            wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
-        stepper(f_1, f_3)
-        f_1, f_2, f_3 = f_3, f_1, f_2
-        if i % 100 == 0:
-            wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_3.shape[1:])
-            residual_norm_sq = wp.zeros(shape=1, dtype=precision_policy.compute_precision.wp_dtype)
-            wp.launch(l2_norm_squared, inputs=[residual, residual_norm_sq], dim=residual.shape[1:])
-            residual_norm = math.sqrt((1 / (residual.shape[0] * residual.shape[1] * residual.shape[2])) * residual_norm_sq.numpy()[0])
-            print(residual_norm)
-            if residual_norm < tol:
-                converged = 1
-                break
-
-    end = time.time()
-    runtime = end - start
+        end = time.time()
+        runtime = end - start
 
     print("Standard_Converged: {}".format(converged))
     print("Standard_Time: {}".format(runtime))
+    print("Standard_Iterations: {}".format(i))
+
+    del f_1
+    del f_2
+    del residual
+
+
+    # ------------------------------------- collect data for relaxed LB ----------------------------------
+
+    timesteps = args.max_timesteps_standard
+    converged = 0
+    runtime=0.0
+    i =0
+    # initialize stepper
+    stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
+    # startup grids
+    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    # set initial guess from white noise
+    #f_1 = utils.get_initial_guess_from_white_noise(f_1.shape, precision_policy, dx, mean=0, seed=31)
+
+    benchmark_data = BenchmarkData()
+    benchmark_data.wu = 0.0
+
+    if args.test_relaxed:
+        wp.synchronize()
+        start = time.time()
+
+        for i in range(timesteps):
+            benchmark_data.wu += 1
+            wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
+            stepper(f_1, f_2)
+            wp.launch(relaxation_no_defect, inputs=[f_2, residual, f_1, gamma, 9], dim=f_2.shape[1:])
+            if i % 100 == 0:
+                wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:])
+                residual_norm_sq = wp.zeros(shape=1, dtype=precision_policy.compute_precision.wp_dtype)
+                wp.launch(l2_norm_squared, inputs=[residual, residual_norm_sq], dim=residual.shape[1:])
+                residual_norm = math.sqrt((1 / (residual.shape[0] * residual.shape[1] * residual.shape[2])) * residual_norm_sq.numpy()[0])
+                print(residual_norm)
+                if residual_norm/dt < tol:
+                    converged = 1
+                    break
+
+        end = time.time()
+        runtime = end - start
+
+    print("Relaxed_Converged: {}".format(converged))
+    print("Relaxed_Time: {}".format(runtime))
+    print("Relaxed_Iterations: {}".format(i))
+
+    del f_1
+    del f_2
+    del residual

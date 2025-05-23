@@ -1,51 +1,105 @@
 #!/bin/bash
 
-nodes_x=16
-nodes_y=16
-dt=0.01
+base_nodes_x=16
+base_nodes_y=16
 max_multi=5000
 max_standard=500000
 
-iterations=5
+base_E=0.2
+base_nu=0.3
+
+d_E=0.2
+num_E=3
+d_nu=0.1
+num_nu=4
+
+iterations=8
 current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
 log_file="log_"$current_date_time".txt"
 results_file="results_"$current_date_time".csv"
 
-echo "dim,multigrid_converged,multigrid_time,standard_converged,standard_time" > $results_file
+repeat_iterations=1
 
-for ((i=0; i<iterations; i++))
+timing_cutoff=15
+
+test_multigrid=1
+test_standard=1
+test_relaxed=1
+
+nu=$base_nu
+for ((l=0; l<num_nu; l++))
 do
-    python3 timing.py $nodes_x $nodes_y $max_multi $start_multi $interval_multi $max_standard $start_standard $intervals_standard $dt > tmp_1.txt 
-    cat tmp_1.txt >> $log_file #write to log
+    E=$base_E
+    for ((k=0; k<num_E; k++))
+    do
+        echo "dim,multigrid_converged,multigrid_time,multigrid_iterations,standard_converged,standard_time,standard_iterations,relaxed_converged,relaxed_time,relaxed_iterations" > $results_file
+        for ((j=0; j<repeat_iterations; j++))
+        do
+            nodes_x=$base_nodes_x
+            nodes_y=$base_nodes_y
+            for ((i=0; i<iterations; i++))
+            do
+                python3 timing.py $nodes_x $nodes_y $max_multi $start_multi $interval_multi $max_standard $start_standard $intervals_standard $E $nu $test_multigrid $test_standard $test_relaxed >  tmp_1.txt 
+                cat tmp_1.txt >> $log_file #write to log
+
+                #get convergence of multigrid 
+                cat tmp_1.txt | grep "Multigrid_Converged" > tmp_2.txt
+                multigrid_converged=$(cat tmp_2.txt | grep -oE '[0-9]')
+                #get runtime of multigrid 
+                cat tmp_1.txt | grep "Multigrid_Time" > tmp_2.txt
+                multigrid_time=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                #get iterations of multigrid 
+                cat tmp_1.txt | grep "Multigrid_Iterations" > tmp_2.txt
+                multigrid_iterations=$(cat tmp_2.txt | grep -oE '[0-9]+')
+                #dont test multigrid if running too long
+                if (( $(echo "$multigrid_time > $timing_cutoff" | bc -l) )); then
+                    test_multigrid=0
+                fi
+
+                #get convergence of standard 
+                cat tmp_1.txt | grep "Standard_Converged" > tmp_2.txt
+                standard_converged=$(cat tmp_2.txt | grep -oE '[0-9]')
+                #get runtime of standard 
+                cat tmp_1.txt | grep "Standard_Time" > tmp_2.txt
+                standard_time=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                #get iterations of standard 
+                cat tmp_1.txt | grep "Standard_Iterations" > tmp_2.txt
+                standard_iterations=$(cat tmp_2.txt | grep -oE '[0-9]+')
+                #dont test standard if running too long
+                if (( $(echo "$standard_time > $timing_cutoff" | bc -l) )); then
+                    test_standard=0
+                fi
+                
+                #get convergence of relaxed 
+                cat tmp_1.txt | grep "Relaxed_Converged" > tmp_2.txt
+                relaxed_converged=$(cat tmp_2.txt | grep -oE '[0-9]')
+                #get runtime of relaxed 
+                cat tmp_1.txt | grep "Relaxed_Time" > tmp_2.txt
+                relaxed_time=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                #get iterations of relaxed 
+                cat tmp_1.txt | grep "Relaxed_Iterations" > tmp_2.txt
+                relaxed_iterations=$(cat tmp_2.txt | grep -oE '[0-9]+')
+                #dont test relaxed if running too long
+                if (( $(echo "$relaxed_time > $timing_cutoff" | bc -l) )); then
+                    test_relaxed=0
+                fi
+
+                echo "$nodes_x,$multigrid_converged,$multigrid_time,$multigrid_iterations,$standard_converged,$standard_time,$standard_iterations,$relaxed_converged,$relaxed_time,$relaxed_iterations" >> $results_file
 
 
-    cat tmp_1.txt | grep "E_scaled" > tmp_2.txt
-    E_scaled=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                nodes_x=$((nodes_x*2))
+                nodes_y=$((nodes_y*2))
 
-    cat tmp_1.txt | grep "nu" > tmp_2.txt
-    nu=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                rm tmp*
+            done
+            python3 plotter.py $results_file $E $nu
 
-    echo "Simulated with E $E_scaled and nu $nu"
+            mkdir plots 
+            mv runtimes.png plots/runtimes_E_"$E"_nu_"$nu".png
 
-    #get convergence of multigrid 
-    cat tmp_1.txt | grep "Multigrid_Converged" > tmp_2.txt
-    multigrid_converged=$(cat tmp_2.txt | grep -oE '[0-9]')
-    #get runtime of multigrid 
-    cat tmp_1.txt | grep "Multigrid_Time" > tmp_2.txt
-    multigrid_time=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
-    #get convergence of standard 
-    cat tmp_1.txt | grep "Standard_Converged" > tmp_2.txt
-    standard_converged=$(cat tmp_2.txt | grep -oE '[0-9]')
-    #get runtime of standard 
-    cat tmp_1.txt | grep "Standard_Time" > tmp_2.txt
-    standard_time=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
-
-    echo "$nodes_x,$multigrid_converged,$multigrid_time,$standard_converged,$standard_time" >> $results_file
-
-
-    nodes_x=$((nodes_x*2))
-    nodes_y=$((nodes_y*2))
-    dt=$(echo "$dt*0.25"|bc -l)
+            echo "Simulated with E $E and nu $nu"
+        done
+        E=$(echo "$E+$d_E" | bc -l)
+    done
+    nu=$(echo "$nu+$d_nu" | bc -l)
 done
-
-python3 plotter.py $results_file

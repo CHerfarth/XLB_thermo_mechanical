@@ -40,6 +40,11 @@ def get_error_norms(current_macroscopics, expected_macroscopics, dx, timestep=0)
     # save_fields_vtk(fields, timestep=timestep, prefix="error")
     return l2_disp, linf_disp, l2_stress, linf_stress
 
+def rmsd(array):
+    vector = array.flatten
+    n = vector.size()
+    return math.sqrt((1/n)*np.linalg.norm(vector))
+
 
 def get_expected_stress(manufactured_displacement, x, y):
     params = SimulationParams()
