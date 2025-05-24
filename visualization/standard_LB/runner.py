@@ -138,6 +138,7 @@ if __name__ == "__main__":
             utils.output_image(macroscopics, i, "standard", potential)
         #wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
         stepper(f_1, f_2)
+        f_1, f_2 = f_2, f_1
         #wp.launch(relaxation_no_defect, inputs=[f_2, residual, f_1, gamma, 9], dim=f_2.shape[1:])
 
 
