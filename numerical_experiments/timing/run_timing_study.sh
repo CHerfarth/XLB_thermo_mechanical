@@ -22,9 +22,6 @@ repeat_iterations=1
 
 timing_cutoff=15
 
-test_multigrid=1
-test_standard=1
-test_relaxed=1
 
 nu=$base_nu
 for ((l=0; l<num_nu; l++))
@@ -37,6 +34,9 @@ do
         do
             nodes_x=$base_nodes_x
             nodes_y=$base_nodes_y
+            test_multigrid=1
+            test_standard=1
+            test_relaxed=1
             for ((i=0; i<iterations; i++))
             do
                 python3 timing.py $nodes_x $nodes_y $max_multi $start_multi $interval_multi $max_standard $start_standard $intervals_standard $E $nu $test_multigrid $test_standard $test_relaxed >  tmp_1.txt 

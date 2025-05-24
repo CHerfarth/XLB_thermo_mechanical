@@ -3,24 +3,20 @@ import sys
 from xlb.compute_backend import ComputeBackend
 from xlb.precision_policy import PrecisionPolicy
 from xlb.grid import grid_factory
-import xlb.experimental
 from xlb.experimental.thermo_mechanical.solid_stepper import SolidsStepper
 import xlb.velocity_set
 import warp as wp
 import numpy as np
-from typing import Any
 import sympy
 import csv
 import math
 import xlb.experimental.thermo_mechanical.solid_utils as utils
-import xlb.experimental.thermo_mechanical.solid_bounceback as bc
-from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
 from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import argparse
-
+import time
 
 
 def write_results(data_over_wu, name):
@@ -28,7 +24,6 @@ def write_results(data_over_wu, name):
         writer = csv.writer(file)
         writer.writerow(["wu", "iteration", "residual_norm", "l2_disp", "linf_disp", "l2_stress", "linf_stress"])
         writer.writerows(data_over_wu)
-
 
 
 if __name__ == "__main__":
@@ -41,12 +36,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("convergence_study")
     parser.add_argument("nodes_x", type=int)
     parser.add_argument("nodes_y", type=int)
-    parser.add_argument("timesteps", type=int)
+    parser.add_argument("max_timesteps_standard", type=int)
     parser.add_argument("E", type=float)
     parser.add_argument("nu", type=float)
-    parser.add_argument("coarsest_level_iter", type=int)
-    parser.add_argument("v1", type=int)
-    parser.add_argument("v2", type=int)
     args = parser.parse_args()
 
     # initiali1e grid
@@ -61,21 +53,21 @@ if __name__ == "__main__":
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     dt = dx*dx
-    timesteps= args.timesteps
 
     # params
     E = args.E 
     nu = args.nu
 
     solid_simulation = SimulationParams()
-    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1, theta=1.0 / 3.0)
+    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+
     print("Simulating with E_scaled {}".format(solid_simulation.E))
     print("Simulating with nu {}".format(solid_simulation.nu))
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = 0*y #sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * x)
-    manufactured_v = 0*x #sympy.cos(2 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
+    manufactured_u = 0*x #sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * x)
+    manufactured_v = 0*y #sympy.cos(2 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -96,47 +88,68 @@ if __name__ == "__main__":
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
 
-    # -------------------------------------- collect data for multigrid----------------------------
-    data_over_wu = list()
-    residuals = list()
+    tol = 1e-7
+    gamma=0.8
+
+    kernel_provider = KernelProvider()
+    copy_populations = kernel_provider.copy_populations
+    multiply_populations = kernel_provider.multiply_populations
+    add_populations = kernel_provider.add_populations
+    subtract_populations = kernel_provider.subtract_populations
+    l2_norm_squared = kernel_provider.l2_norm
+    relaxation_no_defect = kernel_provider.relaxation_no_defect
+
+
+    # ------------------------------------- collect data for normal LB ----------------------------------
+    timesteps = args.max_timesteps_standard
+    # initialize stepper
+    stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
+    # startup grids
+    #f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx)
+
     benchmark_data = BenchmarkData()
     benchmark_data.wu = 0.0
-    multigrid_solver = MultigridSolver(
-        nodes_x=nodes_x,
-        nodes_y=nodes_y,
-        length_x=length_x,
-        length_y=length_y,
-        dt=dt,
-        force_load=force_load,
-        gamma=0.8,
-        v1=args.v1,
-        v2=args.v2,
-        max_levels=None,
-        coarsest_level_iter=args.coarsest_level_iter,
-    )
-    finest_level = multigrid_solver.get_finest_level()
 
-    # ------------set initial guess to white noise------------------------
-    finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
-
-    converged = 2
-
-    wp.synchronize()
+    zmin=-1
+    zmax=1
     for i in range(timesteps):
-        residual_norm = np.linalg.norm(finest_level.start_v_cycle(return_residual=True))
-        residuals.append(residual_norm)
-        macroscopics = finest_level.get_macroscopics()
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
-        data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
-        if residual_norm < 1e-11:
-            converged = 1
-            break
-        if residual_norm > 1e10:
-            converged = 0
-            break
+        macroscopics = stepper.get_macroscopics_host(f_1)
+        if i==0:
+            zmin=np.min(macroscopics[0,:,:,0])
+            zmax=np.max(macroscopics[0,:,:,0])
+            print(zmin, zmax)
+        utils.plot_x_slice(macroscopics[0,:,:,0], dx, (zmin,zmax), name='standard', timestep=i)
+        benchmark_data.wu += 1
+        stepper(f_1, f_2)
+        f_1, f_2 = f_2, f_1 
+            
 
-    print(l2_disp, linf_disp, l2_stress, linf_stress)
-    print(residual_norm)
-    write_results(data_over_wu, "multigrid_results.csv")
-    print("Converged: {}".format(converged))
-    print("Rate of Convergence: {}".format(0.0))
+    # ------------------------------------- collect data for relaxed LB ----------------------------------
+
+    timesteps = args.max_timesteps_standard
+    # initialize stepper
+    stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
+    # startup grids
+    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    # set initial guess from white noise
+    f_1 = utils.get_initial_guess_from_white_noise(f_1.shape, precision_policy, dx, mean=0, seed=39)
+
+    benchmark_data = BenchmarkData()
+    benchmark_data.wu = 0.0
+
+
+    for i in range(timesteps):
+        macroscopics = stepper.get_macroscopics_host(f_1)
+        if i==0:
+            zmin=np.min(macroscopics[0,:,:,0])
+            zmax=np.max(macroscopics[0,:,:,0])
+            print(zmin, zmax)
+        utils.plot_x_slice(macroscopics[0,:,:,0], dx, (zmin,zmax), name='relaxed', timestep=i)
+        wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
+        stepper(f_1, f_2)
+        wp.launch(relaxation_no_defect, inputs=[f_2, residual, f_1, gamma, 9], dim=f_2.shape[1:])
+            

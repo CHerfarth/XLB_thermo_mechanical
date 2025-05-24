@@ -13,22 +13,18 @@ import sympy
 import csv
 import math
 import xlb.experimental.thermo_mechanical.solid_utils as utils
+from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import xlb.experimental.thermo_mechanical.solid_bounceback as bc
 from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
-from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
-from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
-import argparse
 
 
-
-def write_results(data_over_wu, name):
+def write_results(norms_over_time, name):
     with open(name, "w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["wu", "iteration", "residual_norm", "l2_disp", "linf_disp", "l2_stress", "linf_stress"])
-        writer.writerows(data_over_wu)
-
+        writer.writerow(["timestep", "l2_disp", "linf_disp", "l2_stress", "linf_stress"])
+        writer.writerows(norms_over_time)
 
 
 if __name__ == "__main__":
@@ -38,20 +34,9 @@ if __name__ == "__main__":
 
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
-    parser = argparse.ArgumentParser("convergence_study")
-    parser.add_argument("nodes_x", type=int)
-    parser.add_argument("nodes_y", type=int)
-    parser.add_argument("timesteps", type=int)
-    parser.add_argument("E", type=float)
-    parser.add_argument("nu", type=float)
-    parser.add_argument("coarsest_level_iter", type=int)
-    parser.add_argument("v1", type=int)
-    parser.add_argument("v2", type=int)
-    args = parser.parse_args()
-
     # initiali1e grid
-    nodes_x = args.nodes_x
-    nodes_y = args.nodes_y
+    nodes_x = 16 * 8
+    nodes_y = 16 * 8
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -60,22 +45,21 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
+    timesteps = 1
     dt = dx*dx
-    timesteps= args.timesteps
 
     # params
-    E = args.E 
-    nu = args.nu
+    E = 0.6
+    nu = 0.8
 
     solid_simulation = SimulationParams()
-    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1, theta=1.0 / 3.0)
-    print("Simulating with E_scaled {}".format(solid_simulation.E))
-    print("Simulating with nu {}".format(solid_simulation.nu))
+    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+    print("E: {}        nu: {}".format(solid_simulation.E, solid_simulation.nu))
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = 0*y #sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * x)
-    manufactured_v = 0*x #sympy.cos(2 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
+    manufactured_u = 0*y #sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)  # + 3
+    manufactured_v = 0*x #sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -90,17 +74,20 @@ if __name__ == "__main__":
         utils.get_function_on_grid(s_xy, x, y, dx, grid),
     ])
 
+    # set boundary potential
+    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
+    potential = sympy.lambdify([x, y], potential_sympy)
+    indicator = lambda x, y: -1
+    boundary_array, boundary_values = bc.init_bc_from_lambda(
+        potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
+    )
     potential, boundary_array, boundary_values = None, None, None
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
-
-    # -------------------------------------- collect data for multigrid----------------------------
-    data_over_wu = list()
-    residuals = list()
-    benchmark_data = BenchmarkData()
-    benchmark_data.wu = 0.0
+    norms_over_time = list()
+    residual_over_time = list()
     multigrid_solver = MultigridSolver(
         nodes_x=nodes_x,
         nodes_y=nodes_y,
@@ -109,34 +96,24 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=args.v1,
-        v2=args.v2,
+        v1=2,
+        v2=0,
         max_levels=None,
-        coarsest_level_iter=args.coarsest_level_iter,
+        boundary_conditions=boundary_array,
+        boundary_values=boundary_values,
+        potential=potential_sympy,
     )
     finest_level = multigrid_solver.get_finest_level()
-
-    # ------------set initial guess to white noise------------------------
     finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
-
-    converged = 2
-
-    wp.synchronize()
     for i in range(timesteps):
-        residual_norm = np.linalg.norm(finest_level.start_v_cycle(return_residual=True))
-        residuals.append(residual_norm)
+        residual_norm = finest_level.start_v_cycle()
+        residual_over_time.append(residual_norm)
         macroscopics = finest_level.get_macroscopics()
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
-        data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
-        if residual_norm < 1e-11:
-            converged = 1
-            break
-        if residual_norm > 1e10:
-            converged = 0
-            break
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
+        # write out error norms
+        # print(finest_level.f_1.numpy()[1,:,:,0])
+        # print("-----------------------------------------------------------")
 
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)
-    write_results(data_over_wu, "multigrid_results.csv")
-    print("Converged: {}".format(converged))
-    print("Rate of Convergence: {}".format(0.0))
+    write_results(norms_over_time, "results.csv")

@@ -6,6 +6,7 @@ import numpy as np
 from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
+import matplotlib.pyplot as plt
 
 
 def get_force_load(manufactured_displacement, x, y):
@@ -71,7 +72,7 @@ def restrict_solution_to_domain(array, potential, dx):  # ToDo: make more effici
     return array
 
 
-def output_image(macroscopics, timestep, name, potential=None, dx=None):
+def output_image(macroscopics, timestep, name, potential=None):
     dis_x = macroscopics[0, :, :, 0]
     dis_y = macroscopics[1, :, :, 0]
     s_xx = macroscopics[2, :, :, 0]
@@ -122,3 +123,74 @@ def last_n_avg(data, n):
         val += data[length - 1 - i]
     val = val * weight
     return val
+
+def plot_3d_wireframe(data, name='wireframe', timestep=0, stride=5, zlim=(-1,1)):
+    """Create 3D wireframe plot"""
+    output_file = name+'_'+str(timestep)+'.png'
+    fig = plt.figure(figsize=(12, 9))
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # Create coordinate arrays
+    x = np.arange(data.shape[1])
+    y = np.arange(data.shape[0])
+    X, Y = np.meshgrid(x, y)
+    
+    # Create wireframe plot
+    ax.plot_wireframe(X, Y, data, rstride=stride, cstride=stride, alpha=0.7)
+    ax.set_zlim(zlim)
+    
+    ax.set_xlabel('X Index')
+    ax.set_ylabel('Y Index')
+    ax.set_zlabel('Value')
+    ax.set_title('3D Wireframe Plot')
+    
+    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"Saved: {output_file}")
+
+def plot_3d_surface(data, name='surface', timestep=0, colormap='viridis', zlim=(-1,1)):
+    """Create 3D surface plot"""
+    output_file = name+'_'+str(timestep)+'.png'
+    fig = plt.figure(figsize=(12, 9))
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # Create coordinate arrays
+    x = np.arange(data.shape[1])
+    y = np.arange(data.shape[0])
+    X, Y = np.meshgrid(x, y)
+    
+    # Create surface plot
+    surf = ax.plot_surface(X, Y, data, cmap=colormap, vmin=zlim[0], vmax=zlim[1], 
+                          alpha=0.9, linewidth=0, antialiased=True)
+    
+    ax.set_zlim(zlim)
+    
+    # Add color bar
+    fig.colorbar(surf, shrink=0.5, aspect=20)
+    
+    ax.set_xlabel('X Index')
+    ax.set_ylabel('Y Index')
+    ax.set_zlabel('Value')
+    ax.set_title('3D Surface Plot')
+    
+    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"Saved: {output_file}")
+
+def plot_x_slice(array, dx, zlim=(-1,1), name='slice', timestep=0, y_index=None, xlabel='x', ylabel='Error', title='Slice along X-axis'):
+    """
+    Plots a slice of a 2D array along the x-axis at a given y_index.
+    If y_index is None, uses the middle row.
+    """
+    output_file = name+'_'+str(timestep)+'.png'
+    if y_index is None:
+        y_index = array.shape[0] // 2  # Middle row
+    x = np.arange(array.shape[1])
+    plt.figure()
+    plt.plot(x, array[y_index, :])
+    plt.ylim(zlim)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(f"{title} (y={y_index})")
+    plt.grid(True)
+    plt.savefig(output_file, dpi=150, bbox_inches='tight')
