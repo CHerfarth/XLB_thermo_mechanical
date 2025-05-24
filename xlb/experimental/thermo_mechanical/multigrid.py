@@ -115,6 +115,8 @@ class Level:
     def start_v_cycle(self, return_residual=False):
         macroscopics = self.get_macroscopics()
         utils.output_image(macroscopics=macroscopics, timestep=0, name='level_'+str(self.level_num)+'_before_pre')
+        defect_correction_macroscopics = self.stepper.get_macroscopics_host(self.defect_correction)
+        utils.output_image(macroscopics=defect_correction_macroscopics, timestep=0, name='level_'+str(self.level_num)+'_defect')
         # do pre-smoothing
         for i in range(self.v1):
             self.perform_smoothing()
@@ -125,6 +127,8 @@ class Level:
         if coarse != None:
             # get residual
             residual = self.get_residual()
+            residual_macroscopics = self.stepper.get_macroscopics_host(residual)
+            utils.output_image(macroscopics=residual_macroscopics, timestep=0, name='level_'+str(self.level_num)+'_residual')
             # restrict residual to defect_corrrection on coarse grid
             wp.launch(self.restrict, inputs=[coarse.defect_correction, residual], dim=coarse.defect_correction.shape[1:])
             # set intial guess of coarse mesh to residual
