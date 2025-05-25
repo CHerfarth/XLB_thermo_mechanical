@@ -24,7 +24,7 @@ ax = fig.add_subplot(111, projection='3d')
 x = df['v1']
 y = df['v2']
 z = df['E']
-c = df['converged'].map({0: 'red', 1: 'green'})  # color by result
+c = df['converged'].map({0: 'red', 1: 'green', 2: 'grey'})  # color by result
 
 ax.scatter(x, y, z, c=c)
 ax.set_xlabel('v1')

@@ -93,7 +93,7 @@ if __name__ == "__main__":
     boundary_array, boundary_values = bc.init_bc_from_lambda(
         potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
     )
-    boundary_array, boundary_values = None, None
+    potential, boundary_array, boundary_values = None, None, None
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
@@ -112,8 +112,8 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=3,
-        v2=3,
+        v1=2,
+        v2=0,
         max_levels=None,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
