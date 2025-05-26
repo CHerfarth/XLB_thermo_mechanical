@@ -50,9 +50,11 @@ class SimulationParams:
         self._E = self._E * self._T / (self._L * self._L * self._kappa)
 
     def set_dx_dt(self, dx, dt):
-        assert np.isclose(dx / (dt * dt), self._dx / (self._dt * self._dt))
+        assert np.isclose(dx*dx / (dt), self._dx*self._dx / (self._dt))
         self._dx = dx
         self._dt = dt
+        self._T = dt
+        self._L = dx
 
     @property
     def K_unscaled(self):

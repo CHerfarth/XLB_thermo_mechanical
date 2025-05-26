@@ -18,11 +18,57 @@ from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import argparse
 import time
 
+def visualize_smoothing_of_error(expected_macroscopics, timesteps, grid, force_load, precision_policy, name='test_', interval=1):
+        gamma = 0.8
+        kernel_provider = KernelProvider()
+        copy_populations = kernel_provider.copy_populations
+        multiply_populations = kernel_provider.multiply_populations
+        add_populations = kernel_provider.add_populations
+        subtract_populations = kernel_provider.subtract_populations
+        l2_norm_squared = kernel_provider.l2_norm
+        relaxation_no_defect = kernel_provider.relaxation_no_defect
+
+        stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
+        # startup grids
+        f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+
+        benchmark_data = BenchmarkData()
+        benchmark_data.wu = 0.0
+
+        for i in range(timesteps):
+            if (i%interval) == 0:
+                f_host = f_1.numpy()
+                error = expected_macroscopics[0:2, :, :] - f_host[0:2, :, :, 0]
+                if i==0:
+                    zmin=np.min(error[0,:,:])
+                    zmax=np.max(error[0,:,:])
+                utils.plot_3d_surface(error[0,:,:], timestep=i, name=name+'_standard', zlim=(zmin,zmax))
+            benchmark_data.wu += 1
+            stepper(f_1, f_2)
+            f_1, f_2 = f_2, f_1
+        
+        f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        
+        for i in range(timesteps):
+            if (i%interval) == 0:
+                f_host = f_1.numpy()
+                error = expected_macroscopics[0:2, :, :] - f_host[0:2, :, :, 0]
+                if i==0:
+                    zmin=np.min(error[0,:,:])
+                    zmax=np.max(error[0,:,:])
+                    print(zmin, zmax)
+                utils.plot_3d_surface(error[0,:,:], timestep=i, name=name+'_relaxed', zlim=(zmin,zmax))
+            wp.launch(copy_populations, inputs=[f_1, f_3, 9], dim=f_1.shape[1:])
+            stepper(f_1, f_2)
+            wp.launch(relaxation_no_defect, inputs=[f_2, f_3, f_1, gamma, 9], dim=f_2.shape[1:])
 
 def write_results(data_over_wu, name):
     with open(name, "w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["wu", "iteration", "residual_norm", "l2_disp", "linf_disp", "l2_stress", "linf_stress"])
+        writer.writerow(["wu", "iteration", "f_3_norm", "l2_disp", "linf_disp", "l2_stress", "linf_stress"])
         writer.writerows(data_over_wu)
 
 
@@ -64,10 +110,10 @@ if __name__ == "__main__":
     print("Simulating with E_scaled {}".format(solid_simulation.E))
     print("Simulating with nu {}".format(solid_simulation.nu))
 
-    # get force load
+    # get force load for slow wave
     x, y = sympy.symbols("x y")
-    manufactured_u = 0*x #sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * x)
-    manufactured_v = 0*y #sympy.cos(2 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
+    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)
+    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -83,73 +129,30 @@ if __name__ == "__main__":
     ])
 
     potential, boundary_array, boundary_values = None, None, None
-
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
-    expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
+    visualize_smoothing_of_error(expected_macroscopics=expected_macroscopics, timesteps=args.max_timesteps_standard, grid=grid, force_load=force_load, precision_policy=precision_policy, name='slow', interval=300)
 
-    tol = 1e-7
-    gamma=0.8
+    # get force load for fast wave
+    x, y = sympy.symbols("x y")
+    manufactured_u = sympy.cos(32 * sympy.pi * x) * sympy.sin(32 * sympy.pi * y)
+    manufactured_v = sympy.cos(32 * sympy.pi * y) * sympy.sin(32 * sympy.pi * x)
+    expected_displacement = np.array([
+        utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
+        utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
+    ])
+    force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y)
 
-    kernel_provider = KernelProvider()
-    copy_populations = kernel_provider.copy_populations
-    multiply_populations = kernel_provider.multiply_populations
-    add_populations = kernel_provider.add_populations
-    subtract_populations = kernel_provider.subtract_populations
-    l2_norm_squared = kernel_provider.l2_norm
-    relaxation_no_defect = kernel_provider.relaxation_no_defect
+    # get expected stress
+    s_xx, s_yy, s_xy = utils.get_expected_stress((manufactured_u, manufactured_v), x, y)
+    expected_stress = np.array([
+        utils.get_function_on_grid(s_xx, x, y, dx, grid),
+        utils.get_function_on_grid(s_yy, x, y, dx, grid),
+        utils.get_function_on_grid(s_xy, x, y, dx, grid),
+    ])
 
+    potential, boundary_array, boundary_values = None, None, None
+    # adjust expected solution
+    expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
+    visualize_smoothing_of_error(expected_macroscopics=expected_macroscopics, timesteps=args.max_timesteps_standard, grid=grid, force_load=force_load, precision_policy=precision_policy, name='fast', interval=300)
 
-    # ------------------------------------- collect data for normal LB ----------------------------------
-    timesteps = args.max_timesteps_standard
-    # initialize stepper
-    stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
-    # startup grids
-    #f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx)
-
-    benchmark_data = BenchmarkData()
-    benchmark_data.wu = 0.0
-
-    zmin=-1
-    zmax=1
-    for i in range(timesteps):
-        macroscopics = stepper.get_macroscopics_host(f_1)
-        if i==0:
-            zmin=np.min(macroscopics[0,:,:,0])
-            zmax=np.max(macroscopics[0,:,:,0])
-            print(zmin, zmax)
-        utils.plot_x_slice(macroscopics[0,:,:,0], dx, (zmin,zmax), name='standard', timestep=i)
-        benchmark_data.wu += 1
-        stepper(f_1, f_2)
-        f_1, f_2 = f_2, f_1 
-            
-
-    # ------------------------------------- collect data for relaxed LB ----------------------------------
-
-    timesteps = args.max_timesteps_standard
-    # initialize stepper
-    stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
-    # startup grids
-    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    # set initial guess from white noise
-    f_1 = utils.get_initial_guess_from_white_noise(f_1.shape, precision_policy, dx, mean=0, seed=39)
-
-    benchmark_data = BenchmarkData()
-    benchmark_data.wu = 0.0
-
-
-    for i in range(timesteps):
-        macroscopics = stepper.get_macroscopics_host(f_1)
-        if i==0:
-            zmin=np.min(macroscopics[0,:,:,0])
-            zmax=np.max(macroscopics[0,:,:,0])
-            print(zmin, zmax)
-        utils.plot_x_slice(macroscopics[0,:,:,0], dx, (zmin,zmax), name='relaxed', timestep=i)
-        wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
-        stepper(f_1, f_2)
-        wp.launch(relaxation_no_defect, inputs=[f_2, residual, f_1, gamma, 9], dim=f_2.shape[1:])
-            

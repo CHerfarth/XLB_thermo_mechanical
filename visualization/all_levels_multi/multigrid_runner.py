@@ -35,8 +35,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initiali1e grid
-    nodes_x = 16 * 8
-    nodes_y = 16 * 8
+    nodes_x = 16*8
+    nodes_y = 16*8
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -58,8 +58,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = 0*y #sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)  # + 3
-    manufactured_v = 0*x #sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  # + 3
+    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)
+    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x) 
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -96,7 +96,7 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=2,
+        v1=90,
         v2=0,
         max_levels=None,
         boundary_conditions=boundary_array,
@@ -104,9 +104,9 @@ if __name__ == "__main__":
         potential=potential_sympy,
     )
     finest_level = multigrid_solver.get_finest_level()
-    finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=39)
+    #finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=39)
     for i in range(timesteps):
-        residual_norm = finest_level.start_v_cycle()
+        residual_norm = finest_level.start_v_cycle(timestep=i)
         residual_over_time.append(residual_norm)
         macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
