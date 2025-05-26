@@ -148,7 +148,7 @@ def plot_3d_wireframe(data, name='wireframe', timestep=0, stride=5, zlim=(-1,1))
     plt.close()
     print(f"Saved: {output_file}")
 
-def plot_3d_surface(data, name='surface', timestep=0, colormap='viridis', zlim=(-1,1)):
+def plot_3d_surface(data, name='surface', timestep=0, colormap='viridis', zlim=None):
     """Create 3D surface plot"""
     output_file = name+'_'+str(timestep)+'.png'
     fig = plt.figure(figsize=(12, 9))
@@ -160,10 +160,14 @@ def plot_3d_surface(data, name='surface', timestep=0, colormap='viridis', zlim=(
     X, Y = np.meshgrid(x, y)
     
     # Create surface plot
-    surf = ax.plot_surface(X, Y, data, cmap=colormap, vmin=zlim[0], vmax=zlim[1], 
-                          alpha=0.9, linewidth=0, antialiased=True)
-    
-    ax.set_zlim(zlim)
+    if zlim != None:
+        surf = ax.plot_surface(X, Y, data, cmap=colormap, vmin=zlim[0], vmax=zlim[1], 
+                            alpha=0.9, linewidth=0, antialiased=True)
+        ax.set_zlim(zlim)
+    else:
+        surf = ax.plot_surface(X, Y, data, cmap=colormap, 
+                            alpha=0.9, linewidth=0, antialiased=True)
+
     
     # Add color bar
     fig.colorbar(surf, shrink=0.5, aspect=20)

@@ -343,14 +343,14 @@ class KernelProvider:
             m_coarse = compute_dtype(0.25) * (m_fine_a + m_fine_b + m_fine_c + m_fine_d)
 
             # scale necessary components of m
-            m_coarse[2] = compute_dtype(8.0) * m_coarse[2]
-            m_coarse[3] = compute_dtype(8.0) * m_coarse[3]
-            m_coarse[4] = compute_dtype(8.0) * m_coarse[4]
-            m_coarse[7] = compute_dtype(2.0) * m_coarse[7]
-            m_coarse[0] = compute_dtype(4) * m_coarse[0]
-            m_coarse[1] = compute_dtype(4) * m_coarse[1]
-            m_coarse[5] = compute_dtype(4) * m_coarse[5]
-            m_coarse[6] = compute_dtype(4) * m_coarse[6]
+            m_coarse[2] = compute_dtype(0.5) * m_coarse[2]
+            m_coarse[3] = compute_dtype(0.5) * m_coarse[3]
+            m_coarse[4] = compute_dtype(0.5) * m_coarse[4]
+            m_coarse[7] = compute_dtype(0.5) * m_coarse[7]
+            m_coarse[0] = compute_dtype(1) * m_coarse[0]
+            m_coarse[1] = compute_dtype(1) * m_coarse[1]
+            m_coarse[5] = compute_dtype(1) * m_coarse[5]
+            m_coarse[6] = compute_dtype(1) * m_coarse[6]
 
             f_local_coarse = calc_populations(m_coarse)
             write_population_to_global(coarse, f_local_coarse, i, j)
