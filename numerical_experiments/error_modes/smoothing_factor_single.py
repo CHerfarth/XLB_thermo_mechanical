@@ -115,7 +115,7 @@ def get_LB_matrix(mu, theta, K, phi_x, phi_y):
     M_eq[6, 1] = theta
 
     # for relaxation
-    gamma = 0.8
+    gamma = 1.0 #0.8
     L_mat = gamma * (M_inv @ D @ M_eq @ M + M_inv @ (I - D) @ M)
 
     for i in range(velocity_set.q - 1):

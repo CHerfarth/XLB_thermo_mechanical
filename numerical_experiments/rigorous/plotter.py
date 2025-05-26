@@ -15,40 +15,25 @@ args = parser.parse_args()
 
 data = pd.read_csv(args.filename, skiprows=0, sep=",", engine="python", dtype=np.float64)
 
-df = data[data['nu'] == 0.5]
-print(df.head())
+def plot_for_nu(nu):
+    df = data[data['nu'] == nu]
+    print(df.head())
 
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
 
-x = df['v1']
-y = df['v2']
-z = df['E']
-c = df['converged'].map({0: 'red', 1: 'green', 2: 'grey'})  # color by result
+    x = df['v1']
+    y = df['v2']
+    z = df['E']
+    c = df['converged'].map({0: 'red', 1: 'green', 2: 'grey'})  # color by result
 
-ax.scatter(x, y, z, c=c)
-ax.set_xlabel('v1')
-ax.set_ylabel('v2')
-ax.set_zlabel('E')
-plt.title('Convergence for nu=0.5')
-plt.savefig('nu_5.png')
+    ax.scatter(x, y, z, c=c)
+    ax.set_xlabel('v1')
+    ax.set_ylabel('v2')
+    ax.set_zlabel('E')
+    plt.title('Convergence for nu={}'.format(nu))
+    plt.savefig('nu_{}.png'.format(nu))
 
-
-df = data[data['nu'] == 0.8]
-print(df.head())
-
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-
-x = df['v1']
-y = df['v2']
-z = df['E']
-c = df['converged'].map({0: 'red', 1: 'green', 2: 'grey'})  # color by result
-
-ax.scatter(x, y, z, c=c)
-ax.set_xlabel('v1')
-ax.set_ylabel('v2')
-ax.set_zlabel('E')
-plt.title('Convergence for nu=0.8')
-plt.savefig('nu_8.png')
+for nu in data['nu'].unique():
+    plot_for_nu(nu)
 
