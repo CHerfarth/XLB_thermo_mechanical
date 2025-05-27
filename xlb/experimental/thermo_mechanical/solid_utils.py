@@ -7,6 +7,7 @@ from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import matplotlib.pyplot as plt
+import statistics
 
 
 def get_force_load(manufactured_displacement, x, y):
@@ -101,9 +102,9 @@ def get_initial_guess_from_white_noise(shape, precision_policy, dx, mean=0, seed
     # create white noise array on host
     host = rng.normal(loc=mean, scale=1.0, size=shape)
 
-    host[2:, :, :, :] = np.zeros_like(host[2:, :, :, :])
+    #host[2:, :, :, :] = np.zeros_like(host[2:, :, :, :])
     # manually set to expected mean
-    for l in range(2):
+    for l in range(9):
         host[l, :, :, 0] = host[l, :, :, 0] - np.full(shape=host[l, :, :, 0].shape, fill_value=(np.sum(host[l, :, :, 0]) * dx * dx - mean))
 
     # load onto device
@@ -198,3 +199,18 @@ def plot_x_slice(array, dx, zlim=(-1,1), name='slice', timestep=0, y_index=None,
     plt.title(f"{title} (y={y_index})")
     plt.grid(True)
     plt.savefig(output_file, dpi=150, bbox_inches='tight')
+
+def rate_of_convergence(data, column_header, min=None, max=None):
+    if min is not None and max is not None:
+        filtered = [row for row in data[column_header] if row > min and row < max]
+    elif min is not None:
+        filtered = [row for row in data[column_header] if row > min]
+    elif max is not None:
+        filtered = [row for row in data[column_header] if row < max]
+    else:
+        filtered = [row for row in data[column_header]]
+    
+    rates = list()
+    for i in range(len(filtered) - 1):
+        rates.append(filtered[i+1]/filtered[i])
+    return statistics.median(rates) 

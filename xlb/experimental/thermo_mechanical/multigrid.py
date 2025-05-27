@@ -119,23 +119,23 @@ class Level:
 
     def start_v_cycle(self, return_residual=False,timestep=0):
         self.set_params()
-        macroscopics = self.get_macroscopics()
-        utils.output_image(macroscopics=macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_before_pre')
-        defect_correction_macroscopics = self.stepper.get_macroscopics_host(self.defect_correction)
-        utils.output_image(macroscopics=defect_correction_macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_defect')
+        #macroscopics = self.get_macroscopics()
+        #utils.output_image(macroscopics=macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_before_pre')
+        #defect_correction_macroscopics = self.stepper.get_macroscopics_host(self.defect_correction)
+        #utils.output_image(macroscopics=defect_correction_macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_defect')
         # do pre-smoothing
         for i in range(self.v1):
             if (self.level_num == 0):
                 self.perform_smoothing()
-        macroscopics = self.get_macroscopics()
-        utils.output_image(macroscopics=macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_after_pre')
+        #macroscopics = self.get_macroscopics()
+        #utils.output_image(macroscopics=macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_after_pre')
 
         coarse = self.multigrid.get_next_level(self.level_num)
         if coarse != None:
             # get residual
-            '''residual = self.get_residual()
-            residual_macroscopics = self.stepper.get_macroscopics_host(residual)
-            utils.output_image(macroscopics=residual_macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_residual')
+            residual = self.get_residual()
+            #residual_macroscopics = self.stepper.get_macroscopics_host(residual)
+            #utils.output_image(macroscopics=residual_macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_residual')
             # restrict residual to defect_corrrection on coarse grid
             wp.launch(self.restrict, inputs=[coarse.defect_correction, residual], dim=coarse.defect_correction.shape[1:])
             # set intial guess of coarse mesh to residual
@@ -152,13 +152,10 @@ class Level:
             if self.stepper.boundary_conditions != None:
                 wp.launch(self.set_zero_outside_boundary, inputs=[self.f_3, self.stepper.boundary_conditions], dim=self.f_3.shape[1:])
             # add error_approx to current estimate
-            wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])'''
-            wp.launch(self.restrict, inputs=[coarse.f_1, self.f_1], dim=coarse.f_1.shape[1:])
-            wp.launch(self.interpolate, inputs=[self.f_1, coarse.f_1, coarse.nodes_x, coarse.nodes_y], dim=self.f_1.shape[1:])
-            coarse.start_v_cycle()
+            wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
 
-        macroscopics = self.get_macroscopics()
-        utils.output_image(macroscopics=macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_after_correction')
+        #macroscopics = self.get_macroscopics()
+        #utils.output_image(macroscopics=macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_after_correction')
 
         # do post_smoothing
         for i in range(self.v2):
@@ -168,8 +165,8 @@ class Level:
             for i in range(self.coarsest_level_iter):
                 self.perform_smoothing()
 
-        macroscopics = self.get_macroscopics()
-        utils.output_image(macroscopics=macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_after_post')
+        #macroscopics = self.get_macroscopics()
+        #utils.output_image(macroscopics=macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_after_post')
 
         if return_residual:
             return self.get_residual_norm(self.get_residual())

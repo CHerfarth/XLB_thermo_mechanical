@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import argparse
 from mpltools import annotation
-
+import xlb.experimental.thermo_mechanical.solid_utils as utils
 
 parser = argparse.ArgumentParser("plotter")
 parser.add_argument("amplification_factor", type=float)
@@ -38,7 +38,13 @@ ax.set_title(title)
 # plot expected speed of convergence
 slope = amplification_factor**smoothing_steps_per_iteration
 multigrid_data["slope_power"] = slope ** multigrid_data["iteration"]
-ax.plot(multigrid_data["iteration"], multigrid_data["slope_power"], "--", color="black", label="Expected Speed of convergence")
+ax.plot(multigrid_data["iteration"], multigrid_data["slope_power"], "--", color="black", label="Expected Speed of Convergence {}".format(amplification_factor))
+#Actual rate of convergence
+slope = utils.rate_of_convergence(multigrid_data, "residual_norm")
+multigrid_data["slope_power"] = slope ** multigrid_data["iteration"]
+ax.plot(multigrid_data["iteration"], multigrid_data["slope_power"], "--", color="red", label="Actual Speed of Convergence {}".format(slope**(1/smoothing_steps_per_iteration)))
+print("Actual rate of Convergence: {}".format(slope**(1/smoothing_steps_per_iteration)))
+
 ax.set_ylim((1e-11, 1e2))
 # calculate actual speed of convergence
 end_residual = multigrid_data["residual_norm"].min()
@@ -49,7 +55,9 @@ plt.tight_layout()
 plt.savefig("residual_mg.png")
 
 
-# plot convergence residual per iteration for standard
+
+
+'''# plot convergence residual per iteration for standard
 title = "Residual over Iteration for Standard LB"
 x_label = "Iteration"
 y_label = "Residual"
@@ -69,4 +77,4 @@ plt.xlabel(x_label, labelpad=20, fontsize=12)
 plt.ylabel(y_label, labelpad=20, fontsize=12)
 plt.legend(loc="upper right")
 plt.tight_layout()
-plt.savefig("residual_standard.png")
+plt.savefig("residual_standard.png")'''

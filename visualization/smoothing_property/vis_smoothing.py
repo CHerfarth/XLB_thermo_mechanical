@@ -38,12 +38,12 @@ def visualize_smoothing_of_error(expected_macroscopics, timesteps, grid, force_l
 
         for i in range(timesteps):
             if (i%interval) == 0:
-                f_host = f_1.numpy()
-                error = expected_macroscopics[0:2, :, :] - f_host[0:2, :, :, 0]
+                macroscopics = stepper.get_macroscopics_host(f_1)
+                error_x = expected_macroscopics[0, :, :] - macroscopics[0, :, :, 0]
                 if i==0:
-                    zmin=np.min(error[0,:,:])
-                    zmax=np.max(error[0,:,:])
-                utils.plot_3d_surface(error[0,:,:], timestep=i, name=name+'_standard', zlim=(zmin,zmax))
+                    zmin=np.min(error_x)
+                    zmax=np.max(error_x)
+                utils.plot_3d_surface(error_x, timestep=i, name=name+'_standard', zlim=(zmin,zmax))
             benchmark_data.wu += 1
             stepper(f_1, f_2)
             f_1, f_2 = f_2, f_1
@@ -54,13 +54,13 @@ def visualize_smoothing_of_error(expected_macroscopics, timesteps, grid, force_l
         
         for i in range(timesteps):
             if (i%interval) == 0:
-                f_host = f_1.numpy()
-                error = expected_macroscopics[0:2, :, :] - f_host[0:2, :, :, 0]
+                macroscopics = stepper.get_macroscopics_host(f_1)
+                error_x = expected_macroscopics[0, :, :] - macroscopics[0, :, :, 0]
                 if i==0:
-                    zmin=np.min(error[0,:,:])
-                    zmax=np.max(error[0,:,:])
+                    zmin=np.min(error_x)
+                    zmax=np.max(error_x)
                     print(zmin, zmax)
-                utils.plot_3d_surface(error[0,:,:], timestep=i, name=name+'_relaxed', zlim=(zmin,zmax))
+                utils.plot_3d_surface(error_x, timestep=i, name=name+'_relaxed', zlim=(zmin,zmax))
             wp.launch(copy_populations, inputs=[f_1, f_3, 9], dim=f_1.shape[1:])
             stepper(f_1, f_2)
             wp.launch(relaxation_no_defect, inputs=[f_2, f_3, f_1, gamma, 9], dim=f_2.shape[1:])
@@ -131,12 +131,12 @@ if __name__ == "__main__":
     potential, boundary_array, boundary_values = None, None, None
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
-    visualize_smoothing_of_error(expected_macroscopics=expected_macroscopics, timesteps=args.max_timesteps_standard, grid=grid, force_load=force_load, precision_policy=precision_policy, name='slow', interval=300)
+    visualize_smoothing_of_error(expected_macroscopics=expected_macroscopics, timesteps=args.max_timesteps_standard, grid=grid, force_load=force_load, precision_policy=precision_policy, name='slow', interval=3)
 
     # get force load for fast wave
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(32 * sympy.pi * x) * sympy.sin(32 * sympy.pi * y)
-    manufactured_v = sympy.cos(32 * sympy.pi * y) * sympy.sin(32 * sympy.pi * x)
+    manufactured_u = sympy.cos(64 * sympy.pi * x) * sympy.sin(64 * sympy.pi * y)
+    manufactured_v = sympy.cos(64 * sympy.pi * y) * sympy.sin(64 * sympy.pi * x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -154,5 +154,5 @@ if __name__ == "__main__":
     potential, boundary_array, boundary_values = None, None, None
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
-    visualize_smoothing_of_error(expected_macroscopics=expected_macroscopics, timesteps=args.max_timesteps_standard, grid=grid, force_load=force_load, precision_policy=precision_policy, name='fast', interval=300)
+    visualize_smoothing_of_error(expected_macroscopics=expected_macroscopics, timesteps=args.max_timesteps_standard, grid=grid, force_load=force_load, precision_policy=precision_policy, name='fast', interval=3)
 
