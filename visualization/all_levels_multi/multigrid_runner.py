@@ -35,8 +35,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initiali1e grid
-    nodes_x = 16*8
-    nodes_y = 16*8
+    nodes_x = 32
+    nodes_y = 32
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -45,11 +45,11 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 1
+    timesteps = 10
     dt = dx*dx
 
     # params
-    E = 0.6
+    E = 0.3
     nu = 0.8
 
     solid_simulation = SimulationParams()
@@ -58,8 +58,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)
-    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x) 
+    manufactured_u = sympy.sin(2*sympy.pi*y)#sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)
+    manufactured_v =sympy.sin(2*sympy.pi*y)#sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -96,17 +96,38 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=90,
+        v1=1,
         v2=0,
-        max_levels=None,
+        max_levels=2,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
         potential=potential_sympy,
+        coarsest_level_iter=50,
     )
     finest_level = multigrid_solver.get_finest_level()
     #finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=39)
+    '''simulation_params = SimulationParams()
+    mu = simulation_params.mu
+    K = simulation_params.K
+    theta = simulation_params.theta
+    x, y = sympy.symbols("x y")
+    f = sympy.sin(2*sympy.pi*y)
+    df_dx = sympy.diff(f, x)*dt/dx
+    df_dy = sympy.diff(f, y)*dt/dx
+    mu_11 = -(1+1/(2*mu/theta))*mu*()
+    zero = x*0
+
+    f_1_host = utils.get_function_on_grid(f, x, y, dx, grid)
+    zero_host = utils.get_function_on_grid(zero, x, y, dx, grid)
+    f_1_total = np.array([[f_1_host, f_1_host, f_1_host, f_1_host,f_1_host,f_1_host,f_1_host,f_1_host,f_1_host]])
+    host_f_1 = np.transpose(f_1_total, (1, 2, 3, 0))  # swap dims to make array compatible with what grid_factory would have produced
+    finest_level.f_1 = wp.from_numpy(host_f_1, dtype=precision_policy.store_precision.wp_dtype)  # ...and move to device'''
+    kernel_provider = KernelProvider()
+    wp.launch(kernel_provider.convert_moments_to_populations, inputs=[finest_level.f_1, finest_level.f_1], dim=finest_level.f_1.shape[1:])
+
+
     for i in range(timesteps):
-        residual_norm = finest_level.start_v_cycle(timestep=i)
+        residual_norm = finest_level.start_v_cycle(timestep=i, return_residual=True)
         residual_over_time.append(residual_norm)
         macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)

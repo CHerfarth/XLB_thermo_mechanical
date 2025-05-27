@@ -182,18 +182,25 @@ def plot_3d_surface(data, name='surface', timestep=0, colormap='viridis', zlim=N
     plt.close()
     print(f"Saved: {output_file}")
 
-def plot_x_slice(array, dx, zlim=(-1,1), name='slice', timestep=0, y_index=None, xlabel='x', ylabel='Error', title='Slice along X-axis'):
+def plot_x_slice(array, array2, dx1, dx2, zlim=None, name='slice', timestep=0, y_index=None, xlabel='x', ylabel='Error', title='Slice along X-axis'):
     """
     Plots a slice of a 2D array along the x-axis at a given y_index.
     If y_index is None, uses the middle row.
     """
     output_file = name+'_'+str(timestep)+'.png'
     if y_index is None:
-        y_index = array.shape[0] // 2  # Middle row
-    x = np.arange(array.shape[1])
+        y_index_1 = array.shape[0] // 2  # Middle row
+        y_index_2 = array2.shape[0] // 2  # Middle row
+
+    x = np.arange(array.shape[1])*dx1 +0.5*dx1
     plt.figure()
-    plt.plot(x, array[y_index, :])
-    plt.ylim(zlim)
+    plt.plot(x, array[y_index_1, :])
+
+    x2 = np.arange(array2.shape[1])*dx2 +0.5*dx2
+    plt.plot(x2, array2[y_index_2, :])
+
+    if zlim!=None:
+        plt.ylim(zlim)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(f"{title} (y={y_index})")
