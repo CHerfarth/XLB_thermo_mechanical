@@ -62,6 +62,7 @@ class KernelProvider:
                 f_local[i] = compute_dtype(f[i, x, y, 0])
             return f_local
 
+
         @wp.func
         def write_population_to_global(f: wp.array4d(dtype=store_dtype), f_local: solid_vec, x: wp.int32, y: wp.int32):
             for i in range(9):
@@ -223,6 +224,102 @@ class KernelProvider:
                 if local[l] == compute_dtype(wp.nan):
                     return True
             return False
+
+        @wp.kernel
+        def interpolate_through_macroscopics(
+            fine: wp.array4d(dtype=store_dtype), macroscopics_coarse: wp.array4d(dtype=store_dtype), coarse_nodes_x: wp.int32, coarse_nodes_y: wp.int32, L: compute_dtype, T: compute_dtype
+        ):
+            i, j, k = wp.tid()
+
+            coarse_i = i / 2
+            coarse_j = j / 2  # rounds down
+
+            res_i = i - coarse_i * 2
+            res_j = j - coarse_j * 2
+
+            macr_a = read_local_population(macroscopics_coarse, coarse_i, coarse_j)
+            macr_b = macr_a
+            macr_c = macr_a
+            macr_d = macr_a
+
+            # Coding: f_a closest coarsepoint to new fine point
+            #  f_b, f_c along edges of coarse square
+            #  f_d along diagonal
+
+            shift_x = 0
+            shift_y = 0
+
+            if res_i == 0 and res_j == 0:
+                shift_x = -1
+                shift_y = -1
+            elif res_i == 0 and res_j == 1:
+                shift_x = -1
+                shift_y = 1
+            elif res_i == 1 and res_j == 0:
+                shift_x = 1
+                shift_y = -1
+            else:
+                shift_x = 1
+                shift_y = 1
+            
+
+            macr_b = read_local_population(macroscopics_coarse, wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x), coarse_j)
+            macr_c = read_local_population(macroscopics_coarse, coarse_i, wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y))
+            macr_d = read_local_population(
+                macroscopics_coarse, wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x), wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y)
+            )
+
+
+            # check for nans
+            """nan_a = local_contains_nan(m_a)
+            nan_b = local_contains_nan(m_b)
+            nan_c = local_contains_nan(m_c)
+            nan_d = local_contains_nan(m_d)
+
+            if (not nan_a and not nan_b and not nan_c and not nan_d):
+                m_coarse = compute_dtype(0.0625)*(compute_dtype(9.)*m_a + compute_dtype(3.)*m_b + compute_dtype(3.)*m_c + compute_dtype(1.)*m_d)
+            else:
+                if not nan_a:
+                    m_coarse = m_a
+                elif not nan_b:
+                    m_coarse = m_b
+                elif not nan_c:
+                    m_coarse = m_c
+                else:
+                    m_coarse = m_d"""
+
+            macr  = compute_dtype(0.0625) * (
+                compute_dtype(9.0) * macr_a + compute_dtype(3.0) * macr_b + compute_dtype(3.0) * macr_c + compute_dtype(1.0) * macr_d
+            )
+
+            u_x = macr[0]
+            u_y = macr[1]
+            s_xx = macr[2] * T / L
+            s_yy = macr[3] * T / L
+            s_xy = macr[4] * T / L
+            s_s = s_xx + s_yy
+            s_d = s_xx - s_yy
+            tau_11 = compute_dtype(0.5)
+            tau_s = compute_dtype(0.5)
+            tau_d = compute_dtype(0.5)
+            tau_f = compute_dtype(0.5)
+            theta = compute_dtype(1./3.)
+            one = compute_dtype(1)
+            two = compute_dtype(2)
+            
+            m_fine = solid_vec()
+            m_fine[0] = u_x *compute_dtype(0)
+            m_fine[1] = u_y *compute_dtype(0)
+            m_fine[2] = -(one + one/(two*tau_11))*s_xy*compute_dtype(0)
+            m_fine[3] = -(one + one/(two*tau_s))*s_s*compute_dtype(0)
+            m_fine[4] = -(one + one/(two*tau_d))*s_d*compute_dtype(0)
+            m_fine[5] = theta*u_x*compute_dtype(0)
+            m_fine[6] = theta*u_y*compute_dtype(0)
+            m_fine[7] = (-theta*(one+two*tau_f))/((one+theta)*(tau_s-tau_f))*s_s*compute_dtype(0)
+            m_fine[8] = compute_dtype(0.)*compute_dtype(0)
+
+            f_local_fine = calc_populations(m_fine)
+            write_population_to_global(fine, f_local_fine, i, j)
 
         @wp.kernel
         def interpolate_through_moments(
@@ -409,6 +506,7 @@ class KernelProvider:
         self.relaxation_no_defect = relaxation_no_defect
         self.interpolate = interpolate
         self.interpolate_through_moments = interpolate_through_moments
+        self.interpolate_through_macroscopics = interpolate_through_macroscopics
         self.restrict = restrict
         self.restrict_through_moments = restrict_through_moments
         self.l2_norm = l2_norm

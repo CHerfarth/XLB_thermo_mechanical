@@ -64,7 +64,8 @@ class Level:
         # get all necessary kernels
         kernel_provider = KernelProvider()
         self.relax = kernel_provider.relaxation
-        self.interpolate = kernel_provider.interpolate_through_moments
+        #self.interpolate = kernel_provider.interpolate_through_moments
+        self.interpolate = kernel_provider.interpolate_through_macroscopics
         # self.interpolate = kernel_provider.interpolate
         # self.restrict = kernel_provider.restrict
         self.restrict = kernel_provider.restrict_through_moments
@@ -110,10 +111,12 @@ class Level:
             wp.launch(self.set_zero_outside_boundary, inputs=[self.f_2, self.stepper.boundary_conditions], dim=self.f_2.shape[1:])
         return self.f_2
 
-    def get_macroscopics(self, population=None):
+    def get_macroscopics(self, population=None, device=False):
         self.set_params()
         if population == None:
             population = self.f_1
+        if device:
+            return self.stepper.get_macroscopics_device(population)
         return self.stepper.get_macroscopics_host(population)
 
     def set_params(self):
@@ -142,12 +145,20 @@ class Level:
             coarse.start_v_cycle(timestep=timestep)
             # get approximation of error
             error_approx = coarse.f_1
+            print(error_approx.numpy()[1,:,:,0])
+            error_macros = coarse.get_macroscopics(error_approx, device=True)
+            #print(error_macros.numpy()[1,:,:,0])
             # interpolate error approx to fine grid
-            wp.launch(self.interpolate, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y], dim=self.f_3.shape[1:])
+            #wp.launch(self.interpolate, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y], dim=self.f_3.shape[1:])
+            print(self.f_3.numpy()[1,:,:,0])
+            wp.launch(self.interpolate,
+                inputs=[self.f_3, error_macros, coarse.nodes_x, coarse.nodes_y, 1, 1], dim=self.f_3.shape[1:])
+            print(self.f_3.numpy()[1,:,:,0])
+            print(self.f_1.numpy()[1,:,:,0])
             # if boundary conditions enabled, dont update solution based on ghost node values
             if self.stepper.boundary_conditions != None:
                 wp.launch(self.set_zero_outside_boundary, inputs=[self.f_3, self.stepper.boundary_conditions], dim=self.f_3.shape[1:])
-            if (self.level_num == 0 and False):
+            if (self.level_num == 0):
                 macroscopics = self.get_macroscopics(self.f_1)
                 error_macroscopics = self.get_macroscopics(self.f_3)
                 wp.launch(self.convert_populations_to_moments, inputs=[residual, residual], dim=residual.shape[1:])
@@ -164,6 +175,7 @@ class Level:
                 utils.plot_x_slice(array1=m_res[7,:,:,0], dx1=self.dx, timestep=timestep, name='mf')
             # add error_approx to current estimate
             wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
+            print(self.f_1.numpy()[1,:,:,0])
 
         
 

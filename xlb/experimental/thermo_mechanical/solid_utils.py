@@ -199,7 +199,7 @@ def plot_x_slice(array1, dx1, array2=None, dx2=None, zlim=None, name='slice', ti
 
     if dx2 != None:
         x2 = np.arange(array2.shape[1])*dx2 +0.5*dx2
-        plt.plot(x2, array2[y_index_2, :], label=label2)
+        plt.plot(x2, array2[y_index_2, :], '-s', label=label2)
 
     if zlim!=None:
         plt.ylim(zlim)
