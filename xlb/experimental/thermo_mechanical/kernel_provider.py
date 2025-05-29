@@ -300,6 +300,10 @@ class KernelProvider:
             m_fine[3] = compute_dtype(0.5) * m_fine[3]
             m_fine[4] = compute_dtype(0.5) * m_fine[4]
             m_fine[7] = compute_dtype(0.5) * m_fine[7]
+            #m_fine[0] = compute_dtype(2) * m_fine[0]
+            #m_fine[1] = compute_dtype(2) * m_fine[1]
+            m_fine[5] = compute_dtype(0.125) * m_fine[5]
+            m_fine[6] = compute_dtype(0.125) * m_fine[6]
 
             f_local_fine = calc_populations(m_fine)
             write_population_to_global(fine, f_local_fine, i, j)
@@ -343,10 +347,10 @@ class KernelProvider:
             m_coarse = compute_dtype(0.25) * (m_fine_a + m_fine_b + m_fine_c + m_fine_d)
 
             # scale necessary components of m
-            m_coarse[2] = compute_dtype(2.0) * m_coarse[2]
-            m_coarse[3] = compute_dtype(2) * m_coarse[3]
-            m_coarse[4] = compute_dtype(2) * m_coarse[4]
-            m_coarse[7] = compute_dtype(2) * m_coarse[7]
+            #m_coarse[2] = compute_dtype(0.125) * m_coarse[2]
+            #m_coarse[3] = compute_dtype(0.125) * m_coarse[3]
+            #m_coarse[4] = compute_dtype(0.125) * m_coarse[4]
+            #m_coarse[7] = compute_dtype(0.125) * m_coarse[7]
             
             f_local_coarse = calc_populations(m_coarse)
             write_population_to_global(coarse, f_local_coarse, i, j)
@@ -370,6 +374,14 @@ class KernelProvider:
             m_local = read_local_population(m, i, j)
             f_local = calc_populations(m_local)
             write_population_to_global(f, f_local, i, j)
+
+        @wp.kernel
+        def convert_populations_to_moments(f: wp.array4d(dtype=store_dtype), m: wp.array4d(dtype=store_dtype)):
+            i, j, k = wp.tid()
+
+            f_local = read_local_population(f, i, j)
+            m_local = calc_moments(f_local)
+            write_population_to_global(m, m_local, i, j)
 
         @wp.kernel
         def set_zero_outside_boundary(
@@ -401,4 +413,5 @@ class KernelProvider:
         self.restrict_through_moments = restrict_through_moments
         self.l2_norm = l2_norm
         self.convert_moments_to_populations = convert_moments_to_populations
+        self.convert_populations_to_moments = convert_populations_to_moments
         self.set_zero_outside_boundary = set_zero_outside_boundary

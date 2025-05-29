@@ -45,7 +45,7 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 10
+    timesteps = 40
     dt = dx*dx
 
     # params
@@ -96,13 +96,13 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=1,
-        v2=0,
-        max_levels=2,
+        v1=0,
+        v2=1,
+        max_levels=None,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
         potential=potential_sympy,
-        coarsest_level_iter=50,
+        coarsest_level_iter=5000,
     )
     finest_level = multigrid_solver.get_finest_level()
     #finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=39)

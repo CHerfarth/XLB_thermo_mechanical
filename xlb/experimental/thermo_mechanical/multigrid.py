@@ -75,6 +75,7 @@ class Level:
         self.set_population_to_zero = kernel_provider.set_population_to_zero
         self.l2_norm_squared = kernel_provider.l2_norm
         self.set_zero_outside_boundary = kernel_provider.set_zero_outside_boundary
+        self.convert_populations_to_moments = kernel_provider.convert_populations_to_moments
 
         if self.level_num != 0:
             wp.launch(self.set_population_to_zero, inputs=[self.stepper.force, 2], dim=self.stepper.force.shape[1:])
@@ -109,8 +110,11 @@ class Level:
             wp.launch(self.set_zero_outside_boundary, inputs=[self.f_2, self.stepper.boundary_conditions], dim=self.f_2.shape[1:])
         return self.f_2
 
-    def get_macroscopics(self):
-        return self.stepper.get_macroscopics_host(self.f_1)
+    def get_macroscopics(self, population=None):
+        self.set_params()
+        if population == None:
+            population = self.f_1
+        return self.stepper.get_macroscopics_host(population)
 
     def set_params(self):
         simulation_params = SimulationParams()
@@ -119,23 +123,15 @@ class Level:
 
     def start_v_cycle(self, return_residual=False,timestep=0):
         self.set_params()
-        macroscopics = self.get_macroscopics()
-        utils.output_image(macroscopics=macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_before_pre')
-        defect_correction_macroscopics = self.stepper.get_macroscopics_host(self.defect_correction)
-        utils.output_image(macroscopics=defect_correction_macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_defect')
         # do pre-smoothing
         for i in range(self.v1):
             if (self.level_num == 0):
                 self.perform_smoothing()
-        macroscopics = self.get_macroscopics()
-        utils.output_image(macroscopics=macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_after_pre')
 
         coarse = self.multigrid.get_next_level(self.level_num)
         if coarse != None:
             # get residual
             residual = self.get_residual()
-            residual_macroscopics = self.stepper.get_macroscopics_host(residual)/self.dt
-            utils.output_image(macroscopics=residual_macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_residual')
             #restrict residual to defect_corrrection on coarse grid
             wp.launch(self.restrict, inputs=[coarse.defect_correction, residual], dim=coarse.defect_correction.shape[1:])
             # set intial guess of coarse mesh to residual
@@ -151,14 +147,25 @@ class Level:
             # if boundary conditions enabled, dont update solution based on ghost node values
             if self.stepper.boundary_conditions != None:
                 wp.launch(self.set_zero_outside_boundary, inputs=[self.f_3, self.stepper.boundary_conditions], dim=self.f_3.shape[1:])
+            if (self.level_num == 0 and False):
+                macroscopics = self.get_macroscopics(self.f_1)
+                error_macroscopics = self.get_macroscopics(self.f_3)
+                wp.launch(self.convert_populations_to_moments, inputs=[residual, residual], dim=residual.shape[1:])
+                m_res = residual.numpy() 
+                utils.plot_x_slice(array1=macroscopics[2,:,:,0], array2=error_macroscopics[2,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='stress')
+                utils.plot_x_slice(array1=macroscopics[1,:,:,0], array2=error_macroscopics[1,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='displ')
+                utils.plot_x_slice(array1=m_res[0,:,:,0], dx1=self.dx, timestep=timestep, name='m10')
+                utils.plot_x_slice(array1=m_res[1,:,:,0], dx1=self.dx, timestep=timestep, name='m01')
+                utils.plot_x_slice(array1=m_res[2,:,:,0], dx1=self.dx, timestep=timestep, name='m11')
+                utils.plot_x_slice(array1=m_res[3,:,:,0], dx1=self.dx, timestep=timestep, name='ms')
+                utils.plot_x_slice(array1=m_res[4,:,:,0], dx1=self.dx, timestep=timestep, name='md')
+                utils.plot_x_slice(array1=m_res[5,:,:,0], dx1=self.dx, timestep=timestep, name='m12')
+                utils.plot_x_slice(array1=m_res[6,:,:,0], dx1=self.dx, timestep=timestep, name='m21')
+                utils.plot_x_slice(array1=m_res[7,:,:,0], dx1=self.dx, timestep=timestep, name='mf')
             # add error_approx to current estimate
             wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
-        
-            defect_correction_macroscopics = coarse.stepper.get_macroscopics_host(coarse.defect_correction)/coarse.dt
-            utils.plot_x_slice(residual_macroscopics[0,:,:,0], defect_correction_macroscopics[0,:,:,0], self.dx, coarse.dx, timestep=timestep)
 
-        macroscopics = self.get_macroscopics()
-        utils.output_image(macroscopics=macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_after_correction')
+        
 
         # do post_smoothing
         for i in range(self.v2):
@@ -167,9 +174,6 @@ class Level:
         if coarse == None:
             for i in range(self.coarsest_level_iter):
                 self.perform_smoothing()
-
-        macroscopics = self.get_macroscopics()
-        utils.output_image(macroscopics=macroscopics, timestep=timestep, name='level_'+str(self.level_num)+'_after_post')
 
         if return_residual:
             return self.get_residual_norm(self.get_residual())
