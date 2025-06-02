@@ -2,7 +2,7 @@
 
 nodes_x=128
 nodes_y=128
-timesteps=200
+timesteps=500
 coarsest_level_iter=100
 vals_nu=1
 vals_E=10
@@ -32,7 +32,7 @@ do
             do
                 python3 convergence_tester.py $nodes_x $nodes_y $timesteps $E $nu $coarsest_level_iter $v1 $v2 | tee tmp_1.txt
                 
-                echo tmp_1.txt >> $log_file
+                more tmp_1.txt >> $log_file
 
                 #get status of convergence
                 cat tmp_1.txt | grep "Converged" > tmp_2.txt

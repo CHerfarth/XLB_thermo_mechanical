@@ -391,16 +391,18 @@ class KernelProvider:
                 compute_dtype(9.0) * m_a + compute_dtype(3.0) * m_b + compute_dtype(3.0) * m_c + compute_dtype(1.0) * m_d
             )
             m_fine = m_coarse
+            theta = compute_dtype(1./3.)
 
             # scale necessary components of m
-            m_fine[2] = compute_dtype(0.5) * m_fine[2]
-            m_fine[3] = compute_dtype(0.5) * m_fine[3]
-            m_fine[4] = compute_dtype(0.5) * m_fine[4]
-            m_fine[7] = compute_dtype(0.5) * m_fine[7]
-            #m_fine[0] = compute_dtype(2) * m_fine[0]
-            #m_fine[1] = compute_dtype(2) * m_fine[1]
-            m_fine[5] = compute_dtype(0.125) * m_fine[5]
-            m_fine[6] = compute_dtype(0.125) * m_fine[6]
+            m_fine[0] = compute_dtype(1)*m_fine[0] 
+            m_fine[1] = compute_dtype(1)*m_fine[1] 
+            m_fine[2] = compute_dtype(0.5)*m_fine[2] 
+            m_fine[3] = compute_dtype(0.5)*m_fine[3] 
+            m_fine[4] = compute_dtype(0.5)*m_fine[4] 
+            m_fine[5] = compute_dtype(1)*m_fine[5] 
+            m_fine[6] = compute_dtype(1)*m_fine[6] 
+            m_fine[7] = compute_dtype(0.5)*m_fine[7] 
+            m_fine[8] = compute_dtype(1)*m_fine[8] 
 
             f_local_fine = calc_populations(m_fine)
             write_population_to_global(fine, f_local_fine, i, j)

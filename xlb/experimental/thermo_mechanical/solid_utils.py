@@ -209,6 +209,7 @@ def plot_x_slice(array1, dx1, array2=None, dx2=None, zlim=None, name='slice', ti
     plt.legend()
     plt.grid(True)
     plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    plt.close()
 
 def rate_of_convergence(data, column_header, min=None, max=None):
     if min is not None and max is not None:

@@ -35,8 +35,8 @@ if __name__ == "__main__":
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
 
     # initiali1e grid
-    nodes_x = 4
-    nodes_y = 4
+    nodes_x = 128
+    nodes_y = 128
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 1
+    timesteps = 10
     dt = dx*dx
 
     # params
@@ -96,8 +96,8 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=0,
-        v2=1,
+        v1=10,
+        v2=10,
         max_levels=2,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
