@@ -446,8 +446,8 @@ class KernelProvider:
                     count += compute_dtype(1)
                 
                 coarse[l, i, j, 0] = store_dtype(val/count)
-                if count == compute_dtype(0):
-                    coarse[l, i, j, 0] = store_dtype(0)
+                #if count == compute_dtype(0):
+                #    coarse[l, i, j, 0] = store_dtype(0)
 
         @wp.kernel
         def restrict_through_moments(coarse: wp.array4d(dtype=store_dtype), fine: wp.array4d(dtype=store_dtype)):

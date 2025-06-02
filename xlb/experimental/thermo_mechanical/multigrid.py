@@ -133,11 +133,20 @@ class Level:
         if self.stepper.boundary_conditions != None:
             wp.launch(self.set_zero_outside_boundary, inputs=[self.defect_correction, self.stepper.boundary_conditions], dim=self.defect_correction.shape[1:])
         # do pre-smoothing
-        for i in range(self.v1):
+        for i in range(self.v1*20):
             self.perform_smoothing()
 
         coarse = self.multigrid.get_next_level(self.level_num)
-        if coarse != None:
+
+        utils.output_image(self.get_macroscopics(self.f_1), timestep, "before_restrict")
+
+        wp.launch(self.restrict, inputs=[coarse.f_1, self.f_1, self.boundary_conditions], dim=coarse.defect_correction.shape[1:])
+        utils.output_image(coarse.get_macroscopics(coarse.f_1), timestep, "after_restrict")
+
+        wp.launch(self.interpolate, inputs=[self.f_1, coarse.f_1, coarse.nodes_x, coarse.nodes_y, coarse.boundary_conditions], dim=self.f_3.shape[1:])
+        wp.launch(self.set_zero_outside_boundary, inputs=[self.f_1, self.stepper.boundary_conditions], dim=self.f_1.shape[1:])
+        utils.output_image(self.get_macroscopics(self.f_1), timestep, "after_interpolate")
+        '''if coarse != None:
             # get residual
             residual = self.get_residual()
             #restrict residual to defect_corrrection on coarse grid
@@ -194,7 +203,7 @@ class Level:
         if return_residual:
             return self.get_residual_norm(self.get_residual())
         else:
-            return None
+            return None'''
 
 
 class MultigridSolver:
@@ -266,9 +275,7 @@ class MultigridSolver:
                     x, y = sympy.symbols("x y")
                     displacement = [0 * x + 0 * y, 0 * x + 0 * y]
                     indicator = lambda x, y: -1
-                    boundary_conditions_level, boundary_values_level = bc.init_bc_from_lambda(
-                        potential, level.grid, dx, velocity_set, displacement, indicator, x, y, precision_policy
-                    )
+                    boundary_conditions_level, boundary_values_level = bc.init_bc_from_lambda(potential_sympy=potential, grid=level.grid, dx=dx, velocity_set=velocity_set, manufactured_displacement=displacement, indicator=indicator, x=x, y=y, precision_policy=precision_policy)
                     level.add_boundary_conditions(boundary_conditions_level, boundary_values)
             self.levels.append(level)
 
