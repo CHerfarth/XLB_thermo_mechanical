@@ -46,7 +46,7 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 1000
+    timesteps = 10
     dt = 0.01 / 64
 
     # params

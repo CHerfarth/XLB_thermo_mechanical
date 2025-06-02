@@ -221,7 +221,7 @@ class KernelProvider:
         @wp.func
         def local_contains_nan(local: solid_vec):
             for l in range(velocity_set.q):
-                if local[l] == compute_dtype(wp.nan):
+                if wp.isnan(local[l]):
                     return True
             return False
 
@@ -320,10 +320,11 @@ class KernelProvider:
 
             f_local_fine = calc_populations(m_fine)
             write_population_to_global(fine, f_local_fine, i, j)
+        
 
         @wp.kernel
         def interpolate_through_moments(
-            fine: wp.array4d(dtype=store_dtype), coarse: wp.array4d(dtype=store_dtype), coarse_nodes_x: wp.int32, coarse_nodes_y: wp.int32
+            fine: wp.array4d(dtype=store_dtype), coarse: wp.array4d(dtype=store_dtype), coarse_nodes_x: wp.int32, coarse_nodes_y: wp.int32, coarse_boundary_array: wp.array4d(dtype=wp.int8)
         ):
             i, j, k = wp.tid()
 
@@ -369,29 +370,30 @@ class KernelProvider:
             m_c = calc_moments(f_c)
             m_d = calc_moments(f_d)
 
-            # check for nans
-            """nan_a = local_contains_nan(m_a)
-            nan_b = local_contains_nan(m_b)
-            nan_c = local_contains_nan(m_c)
-            nan_d = local_contains_nan(m_d)
+            domain_a, domain_b, domain_c, domain_d = True, True, True, True
 
-            if (not nan_a and not nan_b and not nan_c and not nan_d):
-                m_coarse = compute_dtype(0.0625)*(compute_dtype(9.)*m_a + compute_dtype(3.)*m_b + compute_dtype(3.)*m_c + compute_dtype(1.)*m_d)
+            # check for boundary 
+            if (coarse_boundary_array[0, coarse_i, coarse_j, 0] == wp.int8(0)):
+                domain_a = False  
+            if (coarse_boundary_array[0, wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x), coarse_j, 0] == wp.int8(0)):
+                domain_b = False
+            if (coarse_boundary_array[0, coarse_i, wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y), 0] == wp.int8(0)):
+                domain_c = False  
+            if (coarse_boundary_array[0, wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x), wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y), 0] == wp.int8(0)):
+                domain_d = False  
+          
+
+            if (domain_a and domain_b and domain_c and domain_d):
+                m_fine = compute_dtype(0.0625)*(compute_dtype(9.)*m_a + compute_dtype(3.)*m_b + compute_dtype(3.)*m_c + compute_dtype(1.)*m_d)
+            elif domain_a:
+                m_fine = m_a
+            elif domain_c:
+                m_fine = m_b
+            elif domain_c:
+                m_fine = m_c
             else:
-                if not nan_a:
-                    m_coarse = m_a
-                elif not nan_b:
-                    m_coarse = m_b
-                elif not nan_c:
-                    m_coarse = m_c
-                else:
-                    m_coarse = m_d"""
+                m_fine = m_d
 
-            m_coarse = compute_dtype(0.0625) * (
-                compute_dtype(9.0) * m_a + compute_dtype(3.0) * m_b + compute_dtype(3.0) * m_c + compute_dtype(1.0) * m_d
-            )
-            m_fine = m_coarse
-            theta = compute_dtype(1./3.)
 
             # scale necessary components of m
             m_fine[0] = compute_dtype(1)*m_fine[0] 
@@ -418,17 +420,34 @@ class KernelProvider:
 
         @wp.kernel
         def restrict(
-            coarse: wp.array4d(dtype=store_dtype), fine: wp.array4d(dtype=store_dtype), fine_nodes_x: wp.int32, fine_nodes_y: wp.int32, dim: wp.int32
+            coarse: wp.array4d(dtype=store_dtype), fine: wp.array4d(dtype=store_dtype), fine_boundary_array: wp.array4d(dtype=wp.int8)
         ):
             i, j, k = wp.tid()
 
-            for l in range(dim):
+
+            for l in range(velocity_set.q):
                 val = compute_dtype(0.0)
-                val += compute_dtype(fine[l, 2 * i, 2 * j, 0])
-                val += compute_dtype(fine[l, 2 * i + 1, 2 * j, 0])
-                val += compute_dtype(fine[l, 2 * i, 2 * j + 1, 0])
-                val += compute_dtype(fine[l, 2 * i + 1, 2 * j + 1, 0])
-                coarse[l, i, j, 0] = store_dtype(compute_dtype(0.25) * val)
+                count = compute_dtype(0)
+                f = compute_dtype(fine[l, 2*i, 2*j, 0])
+                if not fine_boundary_array[0, 2*i, 2*j, 0] == wp.int8(0):
+                    val += f
+                    count += compute_dtype(1)
+                f = compute_dtype(fine[l, 2*i+1, 2*j, 0])
+                if not fine_boundary_array[0, 2*i+1, 2*j, 0] == wp.int8(0):
+                    val += f
+                    count += compute_dtype(1)
+                f = compute_dtype(fine[l, 2*i, 2*j+1, 0])
+                if not fine_boundary_array[0, 2*i, 2*j+1, 0] == wp.int8(0):
+                    val += f
+                    count += compute_dtype(1)
+                f = compute_dtype(fine[l, 2*i+1, 2*j+1, 0])
+                if not fine_boundary_array[0, 2*i+1, 2*j+1, 0] == wp.int8(0):
+                    val += f
+                    count += compute_dtype(1)
+                
+                coarse[l, i, j, 0] = store_dtype(val/count)
+                if count == compute_dtype(0):
+                    coarse[l, i, j, 0] = store_dtype(0)
 
         @wp.kernel
         def restrict_through_moments(coarse: wp.array4d(dtype=store_dtype), fine: wp.array4d(dtype=store_dtype)):
@@ -490,7 +509,7 @@ class KernelProvider:
             i, j, k = wp.tid()  # for 2d k will equal 1
             if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(velocity_set.q):
-                    f[l, i, j, 0] = store_dtype(0.0)
+                    f[l, i, j, 0] = store_dtype(wp.nan)
 
         # Set all declared functions as properties of the class
         self.read_local_population = read_local_population

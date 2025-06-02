@@ -67,8 +67,8 @@ class Level:
         self.interpolate = kernel_provider.interpolate_through_moments
         #self.interpolate = kernel_provider.interpolate_through_macroscopics
         # self.interpolate = kernel_provider.interpolate
-        # self.restrict = kernel_provider.restrict
-        self.restrict = kernel_provider.restrict_through_moments
+        self.restrict = kernel_provider.restrict
+        #self.restrict = kernel_provider.restrict_through_moments
         self.copy_populations = kernel_provider.copy_populations
         self.add_populations = kernel_provider.add_populations
         self.subtract_populations = kernel_provider.subtract_populations
@@ -78,6 +78,7 @@ class Level:
         self.set_zero_outside_boundary = kernel_provider.set_zero_outside_boundary
         self.convert_populations_to_moments = kernel_provider.convert_populations_to_moments
         self.convert_moments_to_populations = kernel_provider.convert_moments_to_populations
+        self.boundary_conditions=None
 
         if self.level_num != 0:
             wp.launch(self.set_population_to_zero, inputs=[self.stepper.force, 2], dim=self.stepper.force.shape[1:])
@@ -88,6 +89,7 @@ class Level:
         return math.sqrt((1 / (residual.shape[0] * residual.shape[1] * residual.shape[2])) * residual_norm_sq.numpy()[0])
 
     def add_boundary_conditions(self, boundary_conditions, boundary_values):
+        self.boundary_conditions = boundary_conditions
         self.stepper.add_boundary_conditions(boundary_conditions, boundary_values)
 
     def perform_smoothing(self):
@@ -127,6 +129,9 @@ class Level:
 
     def start_v_cycle(self, return_residual=False,timestep=0):
         self.set_params()
+
+        if self.stepper.boundary_conditions != None:
+            wp.launch(self.set_zero_outside_boundary, inputs=[self.defect_correction, self.stepper.boundary_conditions], dim=self.defect_correction.shape[1:])
         # do pre-smoothing
         for i in range(self.v1):
             self.perform_smoothing()
@@ -136,7 +141,7 @@ class Level:
             # get residual
             residual = self.get_residual()
             #restrict residual to defect_corrrection on coarse grid
-            wp.launch(self.restrict, inputs=[coarse.defect_correction, residual], dim=coarse.defect_correction.shape[1:])
+            wp.launch(self.restrict, inputs=[coarse.defect_correction, residual, self.boundary_conditions], dim=coarse.defect_correction.shape[1:])
             # set intial guess of coarse mesh to residual
             wp.launch(self.set_population_to_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:])
             # scale defect correction?
@@ -145,20 +150,13 @@ class Level:
             coarse.start_v_cycle(timestep=timestep)
             # get approximation of error
             error_approx = coarse.f_1
-            #print(error_approx.numpy()[1,:,:,0])
-            #error_macros = coarse.get_macroscopics(error_approx, device=True)
-            #print(error_macros.numpy()[1,:,:,0])
             # interpolate error approx to fine grid
-            wp.launch(self.interpolate, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y], dim=self.f_3.shape[1:])
-            #print(self.f_3.numpy()[1,:,:,0])
-            #wp.launch(self.interpolate,
-            #    inputs=[self.f_3, error_macros, coarse.nodes_x, coarse.nodes_y, 1, 1], dim=self.f_3.shape[1:])
-            #print(self.f_3.numpy()[1,:,:,0])
-            #print(self.f_1.numpy()[1,:,:,0])
+            wp.launch(self.interpolate, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y, coarse.boundary_conditions], dim=self.f_3.shape[1:])
             # if boundary conditions enabled, dont update solution based on ghost node values
             if self.stepper.boundary_conditions != None:
                 wp.launch(self.set_zero_outside_boundary, inputs=[self.f_3, self.stepper.boundary_conditions], dim=self.f_3.shape[1:])
-            if (self.level_num == 0 and True):
+
+            if (self.level_num == 0 and False):
                 macroscopics = self.get_macroscopics(self.f_1)
                 error_macroscopics = self.get_macroscopics(self.f_3)
                 wp.launch(self.convert_populations_to_moments, inputs=[residual, residual], dim=residual.shape[1:])

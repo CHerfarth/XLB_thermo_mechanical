@@ -3,7 +3,7 @@
 epsilon=1.0
 nodes_x=16
 nodes_y=16
-timesteps=100
+timesteps=200
 dt=0.001
 iterations=5
 
