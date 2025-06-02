@@ -129,8 +129,7 @@ class Level:
         self.set_params()
         # do pre-smoothing
         for i in range(self.v1):
-            if (self.level_num == 0 or True):
-                self.perform_smoothing()
+            self.perform_smoothing()
 
         coarse = self.multigrid.get_next_level(self.level_num)
         if coarse != None:
@@ -159,42 +158,24 @@ class Level:
             # if boundary conditions enabled, dont update solution based on ghost node values
             if self.stepper.boundary_conditions != None:
                 wp.launch(self.set_zero_outside_boundary, inputs=[self.f_3, self.stepper.boundary_conditions], dim=self.f_3.shape[1:])
-            if (self.level_num == 0 and False):
+            if (self.level_num == 0 and True):
                 macroscopics = self.get_macroscopics(self.f_1)
                 error_macroscopics = self.get_macroscopics(self.f_3)
                 wp.launch(self.convert_populations_to_moments, inputs=[residual, residual], dim=residual.shape[1:])
                 m_res = residual.numpy() 
-                #utils.plot_x_slice(array1=macroscopics[8,:,:,0], array2=error_macroscopics[8,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='dx_sxy', label1='current', label2='error')
-                #utils.plot_x_slice(array1=macroscopics[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='dy_sxy', label1='current', label2='error')
-                #utils.plot_x_slice(array1=macroscopics[6,:,:,0], array2=error_macroscopics[6,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='dy_syy', label1='current', label2='error')
-                #utils.plot_x_slice(array1=macroscopics[5,:,:,0], array2=error_macroscopics[5,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='dx_sxx', label1='current', label2='error')
-                #utils.plot_x_slice(array1=macroscopics[4,:,:,0], array2=error_macroscopics[4,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='stress_3', label1='current', label2='error')
-                #utils.plot_x_slice(array1=macroscopics[3,:,:,0], array2=error_macroscopics[3,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='stress_2', label1='current', label2='error')
-                #utils.plot_x_slice(array1=macroscopics[2,:,:,0], array2=error_macroscopics[2,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='stress_1', label1='current', label2='error')
-                #utils.plot_x_slice(array1=macroscopics[1,:,:,0], array2=error_macroscopics[1,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='displ_y', label1='current', label2='error')
-                #utils.plot_x_slice(array1=macroscopics[0,:,:,0], array2=error_macroscopics[0,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='displ_x', label1='current', label2='error')
-                #utils.plot_x_slice(array1=m_res[0,:,:,0], dx1=self.dx, timestep=timestep, name='m10')
-                #utils.plot_x_slice(array1=m_res[1,:,:,0], dx1=self.dx, timestep=timestep, name='m01')
-                #utils.plot_x_slice(array1=m_res[2,:,:,0], dx1=self.dx, timestep=timestep, name='m11')
-                #utils.plot_x_slice(array1=m_res[3,:,:,0], dx1=self.dx, timestep=timestep, name='ms')
-                #utils.plot_x_slice(array1=m_res[4,:,:,0], dx1=self.dx, timestep=timestep, name='md')
-                #utils.plot_x_slice(array1=m_res[5,:,:,0], dx1=self.dx, timestep=timestep, name='m12')
-                #utils.plot_x_slice(array1=m_res[6,:,:,0], dx1=self.dx, timestep=timestep, name='m21')
-                #utils.plot_x_slice(array1=m_res[7,:,:,0], dx1=self.dx, timestep=timestep, name='mf')
                 #convert current and error approx to moments
                 wp.launch(self.convert_populations_to_moments, inputs=[self.f_1, self.f_1], dim=self.f_1.shape[1:])
                 wp.launch(self.convert_populations_to_moments, inputs=[self.f_3, self.f_3], dim=self.f_3.shape[1:])
                 macroscopics = self.f_1.numpy()
                 error_macroscopics = self.f_3.numpy()
-                utils.plot_x_slice(array1=macroscopics[8,:,:,0], array2=error_macroscopics[8,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='dx_sxy', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='dy_sxy', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[6,:,:,0], array2=error_macroscopics[6,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='dy_syy', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[5,:,:,0], array2=error_macroscopics[5,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='dx_sxx', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[4,:,:,0], array2=error_macroscopics[4,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='stress_3', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[3,:,:,0], array2=error_macroscopics[3,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='stress_2', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[2,:,:,0], array2=error_macroscopics[2,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='stress_1', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[1,:,:,0], array2=error_macroscopics[1,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='displ_y', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[0,:,:,0], array2=error_macroscopics[0,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='displ_x', label1='current', label2='error')
+                utils.plot_x_slice(array1=macroscopics[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_f', label1='current', label2='error')
+                utils.plot_x_slice(array1=macroscopics[6,:,:,0], array2=error_macroscopics[6,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_21', label1='current', label2='error')
+                utils.plot_x_slice(array1=macroscopics[5,:,:,0], array2=error_macroscopics[5,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_12', label1='current', label2='error')
+                utils.plot_x_slice(array1=macroscopics[4,:,:,0], array2=error_macroscopics[4,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_d', label1='current', label2='error')
+                utils.plot_x_slice(array1=macroscopics[3,:,:,0], array2=error_macroscopics[3,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_s', label1='current', label2='error')
+                utils.plot_x_slice(array1=macroscopics[2,:,:,0], array2=error_macroscopics[2,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_11', label1='current', label2='error')
+                utils.plot_x_slice(array1=macroscopics[1,:,:,0], array2=error_macroscopics[1,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_01', label1='current', label2='error')
+                utils.plot_x_slice(array1=macroscopics[0,:,:,0], array2=error_macroscopics[0,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_10', label1='current', label2='error')
 
                 wp.launch(self.convert_moments_to_populations, inputs=[self.f_1, self.f_1], dim=self.f_1.shape[1:])
                 wp.launch(self.convert_moments_to_populations, inputs=[self.f_3, self.f_3], dim=self.f_3.shape[1:])
