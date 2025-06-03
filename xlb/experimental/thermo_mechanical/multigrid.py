@@ -132,8 +132,8 @@ class Level:
         #print("............On level {}.........".format(self.level_num))
         self.set_params()
 
-        if self.stepper.boundary_conditions != None:
-            wp.launch(self.set_zero_outside_boundary, inputs=[self.defect_correction, self.stepper.boundary_conditions], dim=self.defect_correction.shape[1:])
+        #if self.stepper.boundary_conditions != None:
+        #    wp.launch(self.set_zero_outside_boundary, inputs=[self.defect_correction, self.stepper.boundary_conditions], dim=self.defect_correction.shape[1:])
         # do pre-smoothing
         for i in range(self.v1):
             self.perform_smoothing()
@@ -175,8 +175,8 @@ class Level:
             wp.launch(self.check_for_nans, inputs=[self.f_1, self.boundary_conditions], dim=self.f_1.shape[1:])
             print("                 Checked f_1 {}".format(self.level_num))'''
             # if boundary conditions enabled, dont update solution based on ghost node values
-            if self.stepper.boundary_conditions != None:
-                wp.launch(self.set_zero_outside_boundary, inputs=[self.f_3, self.stepper.boundary_conditions], dim=self.f_3.shape[1:])
+            #if self.stepper.boundary_conditions != None:
+            #    wp.launch(self.set_zero_outside_boundary, inputs=[self.f_3, self.stepper.boundary_conditions], dim=self.f_3.shape[1:])
 
             if (self.level_num == 0 and False):
                 macroscopics = self.get_macroscopics(self.f_1)
@@ -200,7 +200,7 @@ class Level:
                 wp.launch(self.convert_moments_to_populations, inputs=[self.f_1, self.f_1], dim=self.f_1.shape[1:])
                 wp.launch(self.convert_moments_to_populations, inputs=[self.f_3, self.f_3], dim=self.f_3.shape[1:])
             # add error_approx to current estimate
-            wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
+            #wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
             #print(self.f_1.numpy()[1,:,:,0])
 
         '''wp.launch(self.check_for_nans, inputs=[self.f_1, self.boundary_conditions], dim=self.f_1.shape[1:])
