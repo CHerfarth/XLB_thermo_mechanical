@@ -138,15 +138,15 @@ class Level:
 
         coarse = self.multigrid.get_next_level(self.level_num)
 
-        utils.output_image(self.get_macroscopics(self.f_1), timestep, "before_restrict")
+        #utils.output_image(self.get_macroscopics(self.f_1), timestep, "before_restrict")
 
-        wp.launch(self.restrict, inputs=[coarse.f_1, self.f_1, self.boundary_conditions], dim=coarse.defect_correction.shape[1:])
-        utils.output_image(coarse.get_macroscopics(coarse.f_1), timestep, "after_restrict")
+        #wp.launch(self.restrict, inputs=[coarse.f_1, self.f_1, self.boundary_conditions], dim=coarse.defect_correction.shape[1:])
+        #utils.output_image(coarse.get_macroscopics(coarse.f_1), timestep, "after_restrict")
 
-        wp.launch(self.interpolate, inputs=[self.f_1, coarse.f_1, coarse.nodes_x, coarse.nodes_y, coarse.boundary_conditions], dim=self.f_3.shape[1:])
-        wp.launch(self.set_zero_outside_boundary, inputs=[self.f_1, self.stepper.boundary_conditions], dim=self.f_1.shape[1:])
-        utils.output_image(self.get_macroscopics(self.f_1), timestep, "after_interpolate")
-        '''if coarse != None:
+        #wp.launch(self.interpolate, inputs=[self.f_1, coarse.f_1, coarse.nodes_x, coarse.nodes_y, coarse.boundary_conditions], dim=self.f_3.shape[1:])
+        #wp.launch(self.set_zero_outside_boundary, inputs=[self.f_1, self.stepper.boundary_conditions], dim=self.f_1.shape[1:])
+        #utils.output_image(self.get_macroscopics(self.f_1), timestep, "after_interpolate")
+        if coarse != None:
             # get residual
             residual = self.get_residual()
             #restrict residual to defect_corrrection on coarse grid
@@ -203,7 +203,7 @@ class Level:
         if return_residual:
             return self.get_residual_norm(self.get_residual())
         else:
-            return None'''
+            return None
 
 
 class MultigridSolver:
