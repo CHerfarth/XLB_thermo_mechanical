@@ -270,24 +270,6 @@ class KernelProvider:
             )
 
 
-            # check for nans
-            """nan_a = local_contains_nan(m_a)
-            nan_b = local_contains_nan(m_b)
-            nan_c = local_contains_nan(m_c)
-            nan_d = local_contains_nan(m_d)
-
-            if (not nan_a and not nan_b and not nan_c and not nan_d):
-                m_coarse = compute_dtype(0.0625)*(compute_dtype(9.)*m_a + compute_dtype(3.)*m_b + compute_dtype(3.)*m_c + compute_dtype(1.)*m_d)
-            else:
-                if not nan_a:
-                    m_coarse = m_a
-                elif not nan_b:
-                    m_coarse = m_b
-                elif not nan_c:
-                    m_coarse = m_c
-                else:
-                    m_coarse = m_d"""
-
             macr  = compute_dtype(0.0625) * (
                 compute_dtype(9.0) * macr_a + compute_dtype(3.0) * macr_b + compute_dtype(3.0) * macr_c + compute_dtype(1.0) * macr_d
             )
@@ -391,8 +373,12 @@ class KernelProvider:
                 m_fine = m_b
             elif domain_c:
                 m_fine = m_c
-            else:
+            elif domain_d:
                 m_fine = m_d
+            else:
+                m_fine = solid_vec()
+                for l in range(velocity_set.q):
+                    m_fine[l] = compute_dtype(0.0)
 
 
             # scale necessary components of m
@@ -424,30 +410,48 @@ class KernelProvider:
         ):
             i, j, k = wp.tid()
 
+            f_a = read_local_population(fine, 2 * i, 2 * j)
+            f_b = read_local_population(fine, 2 * i + 1, 2 * j)
+            f_c = read_local_population(fine, 2 * i, 2 * j + 1)
+            f_d = read_local_population(fine, 2 * i + 1, 2 * j + 1)
 
+            domain_a = True
+            domain_b = True
+            domain_c = True
+            domain_d = True
+
+            if fine_boundary_array[0, 2 * i, 2 * j, 0] == wp.int8(0):
+                domain_a = False
+            if fine_boundary_array[0, 2 * i + 1, 2 * j, 0] == wp.int8(0):
+                domain_b = False
+            if fine_boundary_array[0, 2 * i, 2 * j + 1, 0] == wp.int8(0):
+                domain_c = False
+            if fine_boundary_array[0, 2 * i + 1, 2 * j + 1, 0] == wp.int8(0):
+                domain_d = False
+            
+            coarse_f = solid_vec()
             for l in range(velocity_set.q):
-                val = compute_dtype(0.0)
-                count = compute_dtype(0)
-                f = compute_dtype(fine[l, 2*i, 2*j, 0])
-                if not fine_boundary_array[0, 2*i, 2*j, 0] == wp.int8(0):
-                    val += f
-                    count += compute_dtype(1)
-                f = compute_dtype(fine[l, 2*i+1, 2*j, 0])
-                if not fine_boundary_array[0, 2*i+1, 2*j, 0] == wp.int8(0):
-                    val += f
-                    count += compute_dtype(1)
-                f = compute_dtype(fine[l, 2*i, 2*j+1, 0])
-                if not fine_boundary_array[0, 2*i, 2*j+1, 0] == wp.int8(0):
-                    val += f
-                    count += compute_dtype(1)
-                f = compute_dtype(fine[l, 2*i+1, 2*j+1, 0])
-                if not fine_boundary_array[0, 2*i+1, 2*j+1, 0] == wp.int8(0):
-                    val += f
-                    count += compute_dtype(1)
-                
-                coarse[l, i, j, 0] = store_dtype(val/count)
-                #if count == compute_dtype(0):
-                #    coarse[l, i, j, 0] = store_dtype(0)
+                coarse_f[l] = compute_dtype(0.0)
+            
+            count = compute_dtype(0)
+            if domain_a:
+                coarse_f += f_a
+                count += compute_dtype(1)
+            if domain_b:
+                coarse_f += f_b
+                count += compute_dtype(1)
+            if domain_c:
+                coarse_f += f_c
+                count += compute_dtype(1)
+            if domain_d:
+                coarse_f += f_d
+                count += compute_dtype(1)
+            
+            if not (count < compute_dtype(1e-6)):
+                coarse_f /= count
+            
+            write_population_to_global(coarse, coarse_f, i, j)
+
 
         @wp.kernel
         def restrict_through_moments(coarse: wp.array4d(dtype=store_dtype), fine: wp.array4d(dtype=store_dtype)):
