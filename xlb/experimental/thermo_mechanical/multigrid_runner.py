@@ -28,12 +28,14 @@ def write_results(norms_over_time, name):
 
 
 if __name__ == "__main__":
-    wp.config.mode = "debug"
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP64FP64
     velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
 
     xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
+    wp.config.mode = "debug"
+    wp.config.verify_cuda = True  # Add this early in your script
+    #wp.config.verbose = True
 
     # initiali1e grid
     nodes_x = 64
@@ -46,7 +48,7 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 1
+    timesteps = 20
     dt = 0.01
 
     # params
@@ -98,18 +100,20 @@ if __name__ == "__main__":
         gamma=0.8,
         v1=8,
         v2=8,
-        max_levels=2,
+        max_levels=None,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
         potential=potential_sympy,
     )
     finest_level = multigrid_solver.get_finest_level()
     for i in range(timesteps):
+        print("-------Timestep {}---------".format(i))
         residual_norm = finest_level.start_v_cycle()
         residual_over_time.append(residual_norm)
         macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
         utils.output_image(macroscopics, i, "image1")
+        print("-------Timestep {} done---------".format(i))
 
         # write out error norms
         # print(finest_level.f_1.numpy()[1,:,:,0])

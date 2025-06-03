@@ -77,6 +77,8 @@ class Level:
         self.set_zero_outside_boundary = kernel_provider.set_zero_outside_boundary
         self.convert_populations_to_moments = kernel_provider.convert_populations_to_moments
         self.convert_moments_to_populations = kernel_provider.convert_moments_to_populations
+        self.check_for_nans = kernel_provider.check_for_nans
+
         self.boundary_conditions=None
 
         if self.level_num != 0:
@@ -127,25 +129,31 @@ class Level:
 
 
     def start_v_cycle(self, return_residual=False,timestep=0):
+        #print("............On level {}.........".format(self.level_num))
         self.set_params()
 
         if self.stepper.boundary_conditions != None:
             wp.launch(self.set_zero_outside_boundary, inputs=[self.defect_correction, self.stepper.boundary_conditions], dim=self.defect_correction.shape[1:])
         # do pre-smoothing
-        for i in range(self.v1*20):
+        for i in range(self.v1):
             self.perform_smoothing()
 
         coarse = self.multigrid.get_next_level(self.level_num)
 
-        utils.output_image(self.get_macroscopics(self.f_1), timestep, "before_restrict")
+        '''wp.launch(self.check_for_nans, inputs=[self.f_1, self.boundary_conditions], dim=self.f_1.shape[1:])
+        print("       checked f_1 ")
+        wp.launch(self.check_for_nans, inputs=[self.defect_correction, self.boundary_conditions], dim=self.defect_correction.shape[1:])
+        print("       checked defect_correction ")'''
 
-        wp.launch(self.restrict, inputs=[coarse.f_1, self.f_1, self.boundary_conditions], dim=coarse.defect_correction.shape[1:])
-        utils.output_image(coarse.get_macroscopics(coarse.f_1), timestep, "after_restrict")
+        #utils.output_image(self.get_macroscopics(self.f_1), timestep, "before_restrict")
 
-        wp.launch(self.interpolate, inputs=[self.f_1, coarse.f_1, coarse.nodes_x, coarse.nodes_y, coarse.boundary_conditions], dim=self.f_3.shape[1:])
-        wp.launch(self.set_zero_outside_boundary, inputs=[self.f_1, self.stepper.boundary_conditions], dim=self.f_1.shape[1:])
-        utils.output_image(self.get_macroscopics(self.f_1), timestep, "after_interpolate")
-        '''if coarse != None:
+        #wp.launch(self.restrict, inputs=[coarse.f_1, self.f_1, self.boundary_conditions], dim=coarse.defect_correction.shape[1:])
+        #utils.output_image(coarse.get_macroscopics(coarse.f_1), timestep, "after_restrict")
+
+        #wp.launch(self.interpolate, inputs=[self.f_1, coarse.f_1, coarse.nodes_x, coarse.nodes_y, coarse.boundary_conditions], dim=self.f_3.shape[1:])
+        #wp.launch(self.set_zero_outside_boundary, inputs=[self.f_1, self.stepper.boundary_conditions], dim=self.f_1.shape[1:])
+        #utils.output_image(self.get_macroscopics(self.f_1), timestep, "after_interpolate")
+        if coarse != None:
             # get residual
             residual = self.get_residual()
             #restrict residual to defect_corrrection on coarse grid
@@ -159,7 +167,13 @@ class Level:
             # get approximation of error
             error_approx = coarse.f_1
             # interpolate error approx to fine grid
+            '''wp.launch(self.check_for_nans, inputs=[error_approx, coarse.boundary_conditions], dim=error_approx.shape[1:])
+            print("          Checked error approx {}".format(self.level_num))
             wp.launch(self.interpolate, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y, coarse.boundary_conditions], dim=self.f_3.shape[1:])
+            wp.launch(self.check_for_nans, inputs=[self.f_3, self.boundary_conditions], dim=self.f_3.shape[1:])
+            print("                 Checked error approx {}".format(self.level_num))
+            wp.launch(self.check_for_nans, inputs=[self.f_1, self.boundary_conditions], dim=self.f_1.shape[1:])
+            print("                 Checked f_1 {}".format(self.level_num))'''
             # if boundary conditions enabled, dont update solution based on ghost node values
             if self.stepper.boundary_conditions != None:
                 wp.launch(self.set_zero_outside_boundary, inputs=[self.f_3, self.stepper.boundary_conditions], dim=self.f_3.shape[1:])
@@ -189,6 +203,10 @@ class Level:
             wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
             #print(self.f_1.numpy()[1,:,:,0])
 
+        '''wp.launch(self.check_for_nans, inputs=[self.f_1, self.boundary_conditions], dim=self.f_1.shape[1:])
+        print("       checked f_1 ")
+        wp.launch(self.check_for_nans, inputs=[self.defect_correction, self.boundary_conditions], dim=self.defect_correction.shape[1:])
+        print("       checked defect_correction ")'''
         
 
         # do post_smoothing
@@ -199,10 +217,15 @@ class Level:
             for i in range(self.coarsest_level_iter):
                 self.perform_smoothing()
 
+        '''wp.launch(self.check_for_nans, inputs=[self.f_1, self.boundary_conditions], dim=self.f_1.shape[1:])
+        print("       checked f_1 ")
+        wp.launch(self.check_for_nans, inputs=[self.defect_correction, self.boundary_conditions], dim=self.defect_correction.shape[1:])
+        print("       checked defect_correction ")'''
+
         if return_residual:
             return self.get_residual_norm(self.get_residual())
         else:
-            return None'''
+            return None
 
 
 class MultigridSolver:

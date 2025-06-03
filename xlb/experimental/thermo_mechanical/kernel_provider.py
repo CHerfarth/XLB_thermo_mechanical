@@ -369,7 +369,7 @@ class KernelProvider:
                 m_fine = compute_dtype(0.0625)*(compute_dtype(9.)*m_a + compute_dtype(3.)*m_b + compute_dtype(3.)*m_c + compute_dtype(1.)*m_d)
             elif domain_a:
                 m_fine = m_a
-            elif domain_c:
+            elif domain_b:
                 m_fine = m_b
             elif domain_c:
                 m_fine = m_c
@@ -404,6 +404,14 @@ class KernelProvider:
             for l in range(dim):
                 fine[l, i, j, 0] = coarse[l, coarse_i, coarse_j, 0]
 
+        @wp.kernel
+        def check_for_nans(f: wp.array4d(dtype=store_dtype), boundary_array: wp.array4d(dtype=wp.int8)):
+            i, j, k = wp.tid()
+            f_local = read_local_population(f, i, j)
+            if boundary_array[0, i, j, 0] != wp.int8(0):
+                for l in range(velocity_set.q):
+                    assert not wp.isnan(f_local[l])
+                
         @wp.kernel
         def restrict(
             coarse: wp.array4d(dtype=store_dtype), fine: wp.array4d(dtype=store_dtype), fine_boundary_array: wp.array4d(dtype=wp.int8)
@@ -538,3 +546,4 @@ class KernelProvider:
         self.convert_moments_to_populations = convert_moments_to_populations
         self.convert_populations_to_moments = convert_populations_to_moments
         self.set_zero_outside_boundary = set_zero_outside_boundary
+        self.check_for_nans = check_for_nans
