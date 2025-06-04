@@ -303,9 +303,72 @@ class KernelProvider:
             f_local_fine = calc_populations(m_fine)
             write_population_to_global(fine, f_local_fine, i, j)
         
+        @wp.kernel
+        def interpolate_through_moments_no_boundaries(
+            fine: wp.array4d(dtype=store_dtype), coarse: wp.array4d(dtype=store_dtype), coarse_nodes_x: wp.int32, coarse_nodes_y: wp.int32
+        ):
+            i, j, k = wp.tid()
+
+            coarse_i = i / 2
+            coarse_j = j / 2  # rounds down
+
+            res_i = i - coarse_i * 2
+            res_j = j - coarse_j * 2
+
+            f_a = read_local_population(coarse, coarse_i, coarse_j)
+            f_b = f_a
+            f_c = f_a
+            f_d = f_a
+
+            # Coding: f_a closest coarsepoint to new fine point
+            #  f_b, f_c along edges of coarse square
+            #  f_d along diagonal
+
+            shift_x = 0
+            shift_y = 0
+
+            if res_i == 0 and res_j == 0:
+                shift_x = -1
+                shift_y = -1
+            elif res_i == 0 and res_j == 1:
+                shift_x = -1
+                shift_y = 1
+            elif res_i == 1 and res_j == 0:
+                shift_x = 1
+                shift_y = -1
+            else:
+                shift_x = 1
+                shift_y = 1
+
+            f_b = read_local_population(coarse, wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x), coarse_j)
+            f_c = read_local_population(coarse, coarse_i, wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y))
+            f_d = read_local_population(
+                coarse, wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x), wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y)
+            )
+
+            m_a = calc_moments(f_a)
+            m_b = calc_moments(f_b)
+            m_c = calc_moments(f_c)
+            m_d = calc_moments(f_d)
+
+            m_fine = compute_dtype(0.0625)*(compute_dtype(9.)*m_a + compute_dtype(3.)*m_b + compute_dtype(3.)*m_c + compute_dtype(1.)*m_d)
+
+            # scale necessary components of m
+            '''m_fine[0] = compute_dtype(1)*m_fine[0] 
+            m_fine[1] = compute_dtype(1)*m_fine[1] 
+            m_fine[2] = compute_dtype(0.5)*m_fine[2] 
+            m_fine[3] = compute_dtype(0.5)*m_fine[3] 
+            m_fine[4] = compute_dtype(0.5)*m_fine[4] 
+            m_fine[5] = compute_dtype(1)*m_fine[5] 
+            m_fine[6] = compute_dtype(1)*m_fine[6] 
+            m_fine[7] = compute_dtype(0.5)*m_fine[7] 
+            m_fine[8] = compute_dtype(1)*m_fine[8]''' 
+
+            f_local_fine = calc_populations(m_fine)
+            write_population_to_global(fine, f_local_fine, i, j)
 
         @wp.kernel
-        def interpolate_through_moments(
+        def interpolate_through_moments_with_boundaries(
             fine: wp.array4d(dtype=store_dtype), coarse: wp.array4d(dtype=store_dtype), coarse_nodes_x: wp.int32, coarse_nodes_y: wp.int32, coarse_boundary_array: wp.array4d(dtype=wp.int8)
         ):
             i, j, k = wp.tid()
@@ -365,7 +428,7 @@ class KernelProvider:
                 domain_d = False  
           
 
-            if (domain_a and domain_b and domain_c and domain_d):
+            if (domain_a and domain_b and domain_c and domain_d) or False:
                 m_fine = compute_dtype(0.0625)*(compute_dtype(9.)*m_a + compute_dtype(3.)*m_b + compute_dtype(3.)*m_c + compute_dtype(1.)*m_d)
             elif domain_a:
                 m_fine = m_a
@@ -378,7 +441,7 @@ class KernelProvider:
             else:
                 m_fine = solid_vec()
                 for l in range(velocity_set.q):
-                    m_fine[l] = compute_dtype(0.0)
+                    m_fine[l] = compute_dtype(wp.nan)
 
 
             # scale necessary components of m
@@ -413,7 +476,22 @@ class KernelProvider:
                     assert not wp.isnan(f_local[l])
                 
         @wp.kernel
-        def restrict(
+        def restrict_no_boundaries(
+            coarse: wp.array4d(dtype=store_dtype), fine: wp.array4d(dtype=store_dtype)
+        ):
+            i, j, k = wp.tid()
+
+            f_a = read_local_population(fine, 2 * i, 2 * j)
+            f_b = read_local_population(fine, 2 * i + 1, 2 * j)
+            f_c = read_local_population(fine, 2 * i, 2 * j + 1)
+            f_d = read_local_population(fine, 2 * i + 1, 2 * j + 1)
+
+            coarse_f = compute_dtype(0.25)*(f_a + f_b + f_c + f_d)
+
+            write_population_to_global(coarse, coarse_f, i, j)
+
+        @wp.kernel
+        def restrict_with_boundaries(
             coarse: wp.array4d(dtype=store_dtype), fine: wp.array4d(dtype=store_dtype), fine_boundary_array: wp.array4d(dtype=wp.int8)
         ):
             i, j, k = wp.tid()
@@ -439,7 +517,7 @@ class KernelProvider:
             
             coarse_f = solid_vec()
             for l in range(velocity_set.q):
-                coarse_f[l] = compute_dtype(0.0)
+                coarse_f[l] = compute_dtype(0)
             
             count = compute_dtype(0)
             if domain_a:
@@ -457,7 +535,10 @@ class KernelProvider:
             
             if not (count < compute_dtype(1e-6)):
                 coarse_f /= count
-            
+            else:
+                for l in range(velocity_set.q):
+                    coarse_f[l] = compute_dtype(wp.nan)
+
             write_population_to_global(coarse, coarse_f, i, j)
 
 
@@ -521,7 +602,7 @@ class KernelProvider:
             i, j, k = wp.tid()  # for 2d k will equal 1
             if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(velocity_set.q):
-                    f[l, i, j, 0] = store_dtype(0)
+                    f[l, i, j, 0] = store_dtype(wp.nan)
 
         # Set all declared functions as properties of the class
         self.read_local_population = read_local_population
@@ -538,9 +619,11 @@ class KernelProvider:
         self.relaxation = relaxation
         self.relaxation_no_defect = relaxation_no_defect
         self.interpolate = interpolate
-        self.interpolate_through_moments = interpolate_through_moments
+        self.interpolate_through_moments_no_boundaries = interpolate_through_moments_no_boundaries
+        self.interpolate_through_moments_with_boundaries = interpolate_through_moments_with_boundaries
         self.interpolate_through_macroscopics = interpolate_through_macroscopics
-        self.restrict = restrict
+        self.restrict_no_boundaries = restrict_no_boundaries
+        self.restrict_with_boundaries = restrict_with_boundaries
         self.restrict_through_moments = restrict_through_moments
         self.l2_norm = l2_norm
         self.convert_moments_to_populations = convert_moments_to_populations

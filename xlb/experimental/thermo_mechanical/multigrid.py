@@ -63,11 +63,10 @@ class Level:
         # get all necessary kernels
         kernel_provider = KernelProvider()
         self.relax = kernel_provider.relaxation
-        self.interpolate = kernel_provider.interpolate_through_moments
-        #self.interpolate = kernel_provider.interpolate_through_macroscopics
-        # self.interpolate = kernel_provider.interpolate
-        self.restrict = kernel_provider.restrict
-        #self.restrict = kernel_provider.restrict_through_moments
+        self.interpolate_bc = kernel_provider.interpolate_through_moments_with_boundaries
+        self.interpolate = kernel_provider.interpolate_through_moments_no_boundaries
+        self.restrict = kernel_provider.restrict_no_boundaries
+        self.restrict_bc = kernel_provider.restrict_with_boundaries
         self.copy_populations = kernel_provider.copy_populations
         self.add_populations = kernel_provider.add_populations
         self.subtract_populations = kernel_provider.subtract_populations
@@ -139,12 +138,30 @@ class Level:
             self.perform_smoothing()
 
         coarse = self.multigrid.get_next_level(self.level_num)
+
+        '''wp.launch(self.convert_populations_to_moments, inputs=[self.f_1, self.f_1], dim=self.f_1.shape[1:])
+        wp.launch(self.convert_populations_to_moments, inputs=[self.f_3, self.f_3], dim=self.f_3.shape[1:])
+        macroscopics = self.f_1.numpy()
+        wp.launch(self.restrict, inputs=[coarse.f_1, self.f_1], dim=coarse.f_1.shape[1:])
+        wp.launch(self.interpolate, inputs=[self.f_3, coarse.f_1, coarse.nodes_x, coarse.nodes_y], dim=self.f_3.shape[1:])
+        #error_macroscopics = coarse.f_1.numpy()
+        error_macroscopics = self.f_3.numpy() 
+        utils.plot_x_slice(array1=macroscopics[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_f', label1='current', label2='error')
+        utils.plot_x_slice(array1=macroscopics[6,:,:,0], array2=error_macroscopics[6,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_21', label1='current', label2='error')
+        utils.plot_x_slice(array1=macroscopics[5,:,:,0], array2=error_macroscopics[5,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_12', label1='current', label2='error')
+        utils.plot_x_slice(array1=macroscopics[4,:,:,0], array2=error_macroscopics[4,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_d', label1='current', label2='error')
+        utils.plot_x_slice(array1=macroscopics[3,:,:,0], array2=error_macroscopics[3,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_s', label1='current', label2='error')
+        utils.plot_x_slice(array1=macroscopics[2,:,:,0], array2=error_macroscopics[2,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_11', label1='current', label2='error')
+        utils.plot_x_slice(array1=macroscopics[1,:,:,0], array2=error_macroscopics[1,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_01', label1='current', label2='error')
+        utils.plot_x_slice(array1=macroscopics[0,:,:,0], array2=error_macroscopics[0,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_10', label1='current', label2='error')'''
+
         if coarse != None:
             # get residual
             residual = self.get_residual()
             wp.launch(self.set_zero_outside_boundary, inputs=[residual, self.boundary_conditions], dim=residual.shape[1:])
             #restrict residual to defect_corrrection on coarse grid
-            wp.launch(self.restrict, inputs=[coarse.defect_correction, residual, self.boundary_conditions], dim=coarse.defect_correction.shape[1:])
+            wp.launch(self.restrict_bc, inputs=[coarse.defect_correction, residual, self.boundary_conditions], dim=coarse.defect_correction.shape[1:])
+            wp.launch(self.set_zero_outside_boundary, inputs=[coarse.defect_correction, coarse.boundary_conditions], dim=coarse.defect_correction.shape[1:])
             # set intial guess of coarse mesh to residual
             wp.launch(self.set_population_to_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:])
             wp.launch(self.set_population_to_zero, inputs=[coarse.f_4, 9], dim=coarse.f_1.shape[1:])
@@ -156,11 +173,11 @@ class Level:
             # get approximation of error
             error_approx = coarse.f_1
             # interpolate error approx to fine grid
-            wp.launch(self.interpolate, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y, coarse.boundary_conditions], dim=self.f_3.shape[1:])
+            wp.launch(self.interpolate_bc, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y, coarse.boundary_conditions], dim=self.f_3.shape[1:])
             if self.boundary_conditions != None:
                 wp.launch(self.set_zero_outside_boundary, inputs=[self.f_3, self.boundary_conditions], dim=self.f_3.shape[1:])
 
-            if (self.level_num == 0 and False):
+            if (self.level_num == 0 and True):
                 macroscopics = self.get_macroscopics(self.f_1)
                 error_macroscopics = self.get_macroscopics(self.f_3)
                 wp.launch(self.convert_populations_to_moments, inputs=[residual, residual], dim=residual.shape[1:])
@@ -168,8 +185,11 @@ class Level:
                 #convert current and error approx to moments
                 wp.launch(self.convert_populations_to_moments, inputs=[self.f_1, self.f_1], dim=self.f_1.shape[1:])
                 wp.launch(self.convert_populations_to_moments, inputs=[self.f_3, self.f_3], dim=self.f_3.shape[1:])
+                wp.launch(self.convert_populations_to_moments, inputs=[error_approx, coarse.f_2], dim=error_approx.shape[1:])
                 macroscopics = self.f_1.numpy()
                 error_macroscopics = self.f_3.numpy()
+                utils.plot_x_slice(array1=macroscopics[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_f', label1='current', label2='error')
+                utils.plot_x_slice(array1=coarse.f_2.numpy()[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=coarse.dx, dx2=self.dx, timestep=timestep, name='m_f_2', label1='current', label2='error')
                 utils.plot_x_slice(array1=macroscopics[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_f', label1='current', label2='error')
                 utils.plot_x_slice(array1=macroscopics[6,:,:,0], array2=error_macroscopics[6,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_21', label1='current', label2='error')
                 utils.plot_x_slice(array1=macroscopics[5,:,:,0], array2=error_macroscopics[5,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_12', label1='current', label2='error')
@@ -183,7 +203,7 @@ class Level:
                 wp.launch(self.convert_moments_to_populations, inputs=[self.f_3, self.f_3], dim=self.f_3.shape[1:])
 
             # add error_approx to current estimate
-            wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
+            #wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
         
         #copy over to f_4 for boundary conditions
         wp.launch(self.copy_populations, inputs=[self.f_1, self.f_4, 9], dim=self.f_1.shape[1:])
@@ -272,8 +292,10 @@ class MultigridSolver:
                     displacement = [0 * x + 0 * y, 0 * x + 0 * y]
                     indicator = lambda x, y: -1
                     boundary_conditions_level, boundary_values_level = bc.init_bc_from_lambda(potential_sympy=potential, grid=level.grid, dx=dx, velocity_set=velocity_set, manufactured_displacement=displacement, indicator=indicator, x=x, y=y, precision_policy=precision_policy)
-                    level.boundary_conditions = boundary_conditions_level
-                    level.add_boundary_conditions(boundary_conditions_level, boundary_values)
+                    #print(boundary_values.numpy())
+                    #level.boundary_conditions = boundary_conditions_level
+                    level.add_boundary_conditions(boundary_conditions_level, boundary_values_level)
+
             self.levels.append(level)
 
     def get_next_level(self, level_num):

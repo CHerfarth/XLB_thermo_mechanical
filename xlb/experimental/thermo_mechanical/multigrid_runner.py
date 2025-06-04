@@ -38,8 +38,8 @@ if __name__ == "__main__":
     #wp.config.verbose = True
 
     # initiali1e grid
-    nodes_x = 64
-    nodes_y = 64
+    nodes_x = 16
+    nodes_y = 16
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 20
+    timesteps = 10
     dt = 0.01
 
     # params
@@ -61,8 +61,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)  # + 3
-    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)  # + 3
+    manufactured_u = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * y)  # + 3
+    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * y)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -78,16 +78,17 @@ if __name__ == "__main__":
     ])
 
     # set boundary potential
-    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
+    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.05
     potential = sympy.lambdify([x, y], potential_sympy)
     indicator = lambda x, y: -1
     boundary_array, boundary_values = bc.init_bc_from_lambda(
         potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
     )
+    #potential, boundary_array, boundary_values = None, None, None
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
-    expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
+    #expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
     norms_over_time = list()
     residual_over_time = list()
     multigrid_solver = MultigridSolver(
@@ -98,17 +99,19 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=8,
-        v2=8,
-        max_levels=None,
+        v1=1,
+        v2=80,
+        max_levels=2,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
         potential=potential_sympy,
+        coarsest_level_iter=5000,
     )
     finest_level = multigrid_solver.get_finest_level()
+    finest_level.f_1 = utils.get_initial_guess_from_white_noise(shape=finest_level.f_1.shape, precision_policy=precision_policy, dx=dx)
     for i in range(timesteps):
         print("-------Timestep {}---------".format(i))
-        residual_norm = finest_level.start_v_cycle()
+        residual_norm = finest_level.start_v_cycle(timestep=i)
         residual_over_time.append(residual_norm)
         macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)

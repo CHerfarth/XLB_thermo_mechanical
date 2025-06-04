@@ -200,6 +200,10 @@ def plot_x_slice(array1, dx1, array2=None, dx2=None, zlim=None, name='slice', ti
     if dx2 != None:
         x2 = np.arange(array2.shape[1])*dx2 +0.5*dx2
         plt.plot(x2, array2[y_index_2, :], '-s', label=label2)
+    
+    if dx2 == dx1:
+        plt.plot(x1, (array1 + array2)[y_index_1, :], '-o', label='combined+')
+        #plt.plot(x1, (array1 - array2)[y_index_1, :], '-o', label='combined-')
 
     if zlim!=None:
         plt.ylim(zlim)
