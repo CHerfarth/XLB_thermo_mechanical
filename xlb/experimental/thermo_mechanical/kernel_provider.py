@@ -521,7 +521,7 @@ class KernelProvider:
             i, j, k = wp.tid()  # for 2d k will equal 1
             if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(velocity_set.q):
-                    f[l, i, j, 0] = store_dtype(wp.nan)
+                    f[l, i, j, 0] = store_dtype(0)
 
         # Set all declared functions as properties of the class
         self.read_local_population = read_local_population

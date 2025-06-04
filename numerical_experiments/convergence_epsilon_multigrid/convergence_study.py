@@ -24,7 +24,7 @@ from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 def write_results(norms_over_time, name):
     with open(name, "w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["Timestep", "L2", "Linf"])
+        writer.writerow(["WU", "Timestep", "res norm", "L2_disp", "Linf_disp", "L2_stress", "LInf_stress"])
         writer.writerows(norms_over_time)
 
 
@@ -126,10 +126,10 @@ if __name__ == "__main__":
     finest_level = multigrid_solver.get_finest_level()
 
     # set initial guess from white noise
-    finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
+    #finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
 
     for i in range(timesteps):
-        residual_norm = finest_level.start_v_cycle()
+        residual_norm = finest_level.start_v_cycle(return_residual=True)
         residuals.append(residual_norm)
         macroscopics = finest_level.get_macroscopics()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
@@ -139,3 +139,4 @@ if __name__ == "__main__":
     print("Final error Linf_disp: {}".format(linf_disp))
     print("Final error L2_stress: {}".format(l2_stress))
     print("Final error Linf_stress: {}".format(linf_stress))
+    write_results(data_over_wu, "nodes_{}_results.csv".format(nodes_x))

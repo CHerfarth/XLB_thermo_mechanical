@@ -139,3 +139,13 @@ class SolidsStepper(Stepper):
             precision_policy=self.precision_policy,
             compute_backend=self.compute_backend,
         )
+    
+    def apply_boundary_conditions(f_destination,f_post_collision, f_previous_post_collision):
+        bared_moments = self.macroscopic.get_bared_moments_device(f_post_collision)
+        if self.boundary_conditions != None:
+            self.boundaries(
+                f_destination=f_destination,
+                f_post_collision=f_post_collision,
+                f_previous_post_collision=f_previous_post_collision,
+                bared_moments=bared_moments,
+            )
