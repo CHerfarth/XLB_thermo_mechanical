@@ -130,7 +130,7 @@ class Level:
     def start_v_cycle(self, return_residual=False,timestep=0):
         self.set_params()
 
-        if self.stepper.boundary_conditions != None:
+        if self.boundary_conditions != None:
             wp.launch(self.set_zero_outside_boundary, inputs=[self.defect_correction, self.stepper.boundary_conditions], dim=self.defect_correction.shape[1:])
 
         # do pre-smoothing
@@ -139,71 +139,31 @@ class Level:
 
         coarse = self.multigrid.get_next_level(self.level_num)
 
-        '''wp.launch(self.convert_populations_to_moments, inputs=[self.f_1, self.f_1], dim=self.f_1.shape[1:])
-        wp.launch(self.convert_populations_to_moments, inputs=[self.f_3, self.f_3], dim=self.f_3.shape[1:])
-        macroscopics = self.f_1.numpy()
-        wp.launch(self.restrict, inputs=[coarse.f_1, self.f_1], dim=coarse.f_1.shape[1:])
-        wp.launch(self.interpolate, inputs=[self.f_3, coarse.f_1, coarse.nodes_x, coarse.nodes_y], dim=self.f_3.shape[1:])
-        #error_macroscopics = coarse.f_1.numpy()
-        error_macroscopics = self.f_3.numpy() 
-        utils.plot_x_slice(array1=macroscopics[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_f', label1='current', label2='error')
-        utils.plot_x_slice(array1=macroscopics[6,:,:,0], array2=error_macroscopics[6,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_21', label1='current', label2='error')
-        utils.plot_x_slice(array1=macroscopics[5,:,:,0], array2=error_macroscopics[5,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_12', label1='current', label2='error')
-        utils.plot_x_slice(array1=macroscopics[4,:,:,0], array2=error_macroscopics[4,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_d', label1='current', label2='error')
-        utils.plot_x_slice(array1=macroscopics[3,:,:,0], array2=error_macroscopics[3,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_s', label1='current', label2='error')
-        utils.plot_x_slice(array1=macroscopics[2,:,:,0], array2=error_macroscopics[2,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_11', label1='current', label2='error')
-        utils.plot_x_slice(array1=macroscopics[1,:,:,0], array2=error_macroscopics[1,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_01', label1='current', label2='error')
-        utils.plot_x_slice(array1=macroscopics[0,:,:,0], array2=error_macroscopics[0,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_10', label1='current', label2='error')'''
-
         if coarse != None:
             # get residual
             residual = self.get_residual()
-            wp.launch(self.set_zero_outside_boundary, inputs=[residual, self.boundary_conditions], dim=residual.shape[1:])
             #restrict residual to defect_corrrection on coarse grid
-            wp.launch(self.restrict_bc, inputs=[coarse.defect_correction, residual, self.boundary_conditions], dim=coarse.defect_correction.shape[1:])
-            wp.launch(self.set_zero_outside_boundary, inputs=[coarse.defect_correction, coarse.boundary_conditions], dim=coarse.defect_correction.shape[1:])
-            # set intial guess of coarse mesh to residual
+            if self.boundary_conditions != None:
+                wp.launch(self.restrict_bc, inputs=[coarse.defect_correction, residual, self.boundary_conditions], dim=coarse.defect_correction.shape[1:])
+                wp.launch(self.set_population_to_zero, inputs=[coarse.f_4, 9], dim=coarse.f_1.shape[1:])
+            else:
+                wp.launch(self.restrict, inputs=[coarse.defect_correction, residual], dim=coarse.defect_correction.shape[1:])
+            # set initial guess of coarse mesh to zero 
             wp.launch(self.set_population_to_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:])
-            wp.launch(self.set_population_to_zero, inputs=[coarse.f_4, 9], dim=coarse.f_1.shape[1:])
-
-            # scale defect correction?
+            # scale defect correction
             wp.launch(self.multiply_populations, inputs=[coarse.defect_correction, 4., 9], dim=coarse.defect_correction.shape[1:])
             # start v_cycle on coarse grid
             coarse.start_v_cycle(timestep=timestep)
             # get approximation of error
             error_approx = coarse.f_1
             # interpolate error approx to fine grid
-            wp.launch(self.interpolate_bc, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y, coarse.boundary_conditions], dim=self.f_3.shape[1:])
             if self.boundary_conditions != None:
+                wp.launch(self.interpolate_bc, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y, coarse.boundary_conditions], dim=self.f_3.shape[1:])
                 wp.launch(self.set_zero_outside_boundary, inputs=[self.f_3, self.boundary_conditions], dim=self.f_3.shape[1:])
-
-            if (self.level_num == 0 and True):
-                macroscopics = self.get_macroscopics(self.f_1)
-                error_macroscopics = self.get_macroscopics(self.f_3)
-                wp.launch(self.convert_populations_to_moments, inputs=[residual, residual], dim=residual.shape[1:])
-                m_res = residual.numpy() 
-                #convert current and error approx to moments
-                wp.launch(self.convert_populations_to_moments, inputs=[self.f_1, self.f_1], dim=self.f_1.shape[1:])
-                wp.launch(self.convert_populations_to_moments, inputs=[self.f_3, self.f_3], dim=self.f_3.shape[1:])
-                wp.launch(self.convert_populations_to_moments, inputs=[error_approx, coarse.f_2], dim=error_approx.shape[1:])
-                macroscopics = self.f_1.numpy()
-                error_macroscopics = self.f_3.numpy()
-                utils.plot_x_slice(array1=macroscopics[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_f', label1='current', label2='error')
-                utils.plot_x_slice(array1=coarse.f_2.numpy()[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=coarse.dx, dx2=self.dx, timestep=timestep, name='m_f_2', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_f', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[6,:,:,0], array2=error_macroscopics[6,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_21', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[5,:,:,0], array2=error_macroscopics[5,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_12', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[4,:,:,0], array2=error_macroscopics[4,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_d', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[3,:,:,0], array2=error_macroscopics[3,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_s', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[2,:,:,0], array2=error_macroscopics[2,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_11', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[1,:,:,0], array2=error_macroscopics[1,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_01', label1='current', label2='error')
-                utils.plot_x_slice(array1=macroscopics[0,:,:,0], array2=error_macroscopics[0,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_10', label1='current', label2='error')
-
-                wp.launch(self.convert_moments_to_populations, inputs=[self.f_1, self.f_1], dim=self.f_1.shape[1:])
-                wp.launch(self.convert_moments_to_populations, inputs=[self.f_3, self.f_3], dim=self.f_3.shape[1:])
-
+            else:
+                wp.launch(self.interpolate, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y], dim=self.f_3.shape[1:])
             # add error_approx to current estimate
-            #wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
+            wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
         
         #copy over to f_4 for boundary conditions
         wp.launch(self.copy_populations, inputs=[self.f_1, self.f_4, 9], dim=self.f_1.shape[1:])
@@ -220,6 +180,25 @@ class Level:
             return self.get_residual_norm(self.get_residual())
         else:
             return None
+
+def visualize_error_approx(self):
+    #convert current and error approx to moments
+    wp.launch(self.convert_populations_to_moments, inputs=[self.f_1, self.f_1], dim=self.f_1.shape[1:])
+    wp.launch(self.convert_populations_to_moments, inputs=[self.f_3, self.f_3], dim=self.f_3.shape[1:])
+    macroscopics = self.f_1.numpy()
+    error_macroscopics = self.f_3.numpy()
+    utils.plot_x_slice(array1=macroscopics[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_f', label1='current', label2='error')
+    utils.plot_x_slice(array1=coarse.f_2.numpy()[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=coarse.dx, dx2=self.dx, timestep=timestep, name='m_f_2', label1='current', label2='error')
+    utils.plot_x_slice(array1=macroscopics[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_f', label1='current', label2='error')
+    utils.plot_x_slice(array1=macroscopics[6,:,:,0], array2=error_macroscopics[6,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_21', label1='current', label2='error')
+    utils.plot_x_slice(array1=macroscopics[5,:,:,0], array2=error_macroscopics[5,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_12', label1='current', label2='error')
+    utils.plot_x_slice(array1=macroscopics[4,:,:,0], array2=error_macroscopics[4,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_d', label1='current', label2='error')
+    utils.plot_x_slice(array1=macroscopics[3,:,:,0], array2=error_macroscopics[3,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_s', label1='current', label2='error')
+    utils.plot_x_slice(array1=macroscopics[2,:,:,0], array2=error_macroscopics[2,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_11', label1='current', label2='error')
+    utils.plot_x_slice(array1=macroscopics[1,:,:,0], array2=error_macroscopics[1,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_01', label1='current', label2='error')
+    utils.plot_x_slice(array1=macroscopics[0,:,:,0], array2=error_macroscopics[0,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_10', label1='current', label2='error')
+    wp.launch(self.convert_moments_to_populations, inputs=[self.f_1, self.f_1], dim=self.f_1.shape[1:])
+    wp.launch(self.convert_moments_to_populations, inputs=[self.f_3, self.f_3], dim=self.f_3.shape[1:])
 
 
 class MultigridSolver:
