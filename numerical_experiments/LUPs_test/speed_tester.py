@@ -17,7 +17,6 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 import xlb.experimental.thermo_mechanical.solid_bounceback as bc
 from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
-from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
 from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import argparse
@@ -105,7 +104,6 @@ if __name__ == "__main__":
     # startup grids
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     # set initial guess from white noise
     # f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=3, seed=31)
 
@@ -116,8 +114,7 @@ if __name__ == "__main__":
     wp.synchronize()
     start = time.time()
     for i in range(timesteps):
-        stepper(f_1, f_3)
-        f_1, f_2, f_3 = f_3, f_1, f_2
+        stepper(f_1, f_2)
     wp.synchronize()
     end = time.time()
 

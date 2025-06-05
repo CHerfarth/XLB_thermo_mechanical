@@ -77,8 +77,6 @@ class SolidsStepper(Stepper):
         self.collision = SolidsCollision(self.omega)
         self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)
         self.boundaries = SolidsDirichlet(
-            boundary_array=self.boundary_conditions,
-            boundary_values=self.boundary_values,
             force=self.force,
             velocity_set=self.velocity_set,
             precision_policy=self.precision_policy,
@@ -97,36 +95,84 @@ class SolidsStepper(Stepper):
         # ----------create field for temp stuff------------
         self.temp_f = grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
 
+    
+    def _construct_warp(self):
         # get kernels
         kernel_provider = KernelProvider()
-        self.copy_populations = kernel_provider.copy_populations
+        copy_populations = kernel_provider.copy_populations
+        read_local_population = kernel_provider.read_local_population
+        write_population_to_global = kernel_provider.write_population_to_global
+        read_bc_info = kernel_provider.read_bc_info
+        read_bc_vals = kernel_provider.read_bc_vals
+        vec = kernel_provider.vec
+        bc_info_vec = kernel_provider.bc_info_vec
+        bc_val_vec = kernel_provider.bc_val_vec
+
+        @wp.func
+        def functional_no_bc(f_vec: vec, f_post_collision_array: wp.array4d(dtype=self.store_dtype), i: wp.int32, j: wp.int32, k: wp.int32, omega: vec, force_x: self.compute_dtype, force_y: self.compute_dtype, theta: self.compute_dtype):
+            index = wp.vec3i(i,j,k)
+            f_post_collision = self.collision.warp_functional(f_vec=f_vec, force_x=force_x, force_y=force_y, omega=omega, theta=theta)
+            write_population_to_global(f_post_collision_array, f_post_collision, i, j)
+            f_post_stream = self.stream.warp_functional(f_post_collision_array, index)
+            return f_post_stream
+        
+        @wp.func
+        def functional_bc(f_vec: vec, f_post_collision_array: wp.array4d(dtype=self.store_dtype), f_previous_post_collision_vec: vec, i: wp.int32, j: wp.int32, k: wp.int32, omega: vec, boundary_info_vec: bc_info_vec, boundary_vals_vec: bc_val_vec, force_x: self.compute_dtype, force_y: self.compute_dtype, K: self.compute_dtype, mu: self.compute_dtype, theta: self.compute_dtype):
+            index = wp.vec3i(i,j,k)
+            bared_m = self.bared_moments.warp_functional(f_vec=f_vec, force_x=force_x, force_y=force_y, omega=omega, theta=theta)
+            f_post_collision = self.collision.warp_functional(f_vec=f_vec, force_x=force_x, force_y=force_y, omega=omega, theta=theta)
+            write_population_to_global(f_post_collision_array, f_post_collision, i, j)
+            f_post_stream = self.stream.warp_functional(f_post_collision_array, index)
+            f_post_stream = self.boundaries.warp_functional(f_post_stream_vec=f_post_stream, f_post_collision_vec=f_post_collision, f_previous_post_collision_vec=f_previous_post_collision_vec, boundary_info_vec=boundary_info_vec, boundary_vals_vec=boundary_vals_vec, force_x=force_x, force_y=force_y, bared_m_vec=bared_m, K=K, mu=mu, theta=theta)
+            return f_post_stream
+
+
+        @wp.kernel
+        def kernel_no_bc(f_current: wp.array4d(dtype=self.store_dtype), f_post_collision_array: wp.array4d(dtype=self.store_dtype), force: wp.array4d(dtype=self.store_dtype), omega: vec, theta: self.compute_dtype):
+            i,j,k = wp.tid()
+            f_vec = read_local_population(f_current, i, j)
+            force_x = self.compute_dtype(force[0,i,j,0])
+            force_y = self.compute_dtype(force[1,i,j,0])
+            f_post_stream = functional_no_bc(f_vec=f_vec, f_post_collision_array=f_post_collision_array, i=i, j=j, k=k, omega=omega, force_x=force_x, force_y=force_y, theta=theta)
+            write_population_to_global(f_current, f_post_stream, i, j)
+
+        @wp.kernel
+        def kernel_bc(f_current: wp.array4d(dtype=self.store_dtype), f_post_collision: wp.array4d(dtype=self.store_dtype), force: wp.array4d(dtype=self.store_dtype), boundary_info: wp.array4d(dtype=wp.int8), boundary_vals: wp.array4d(dtype=self.store_dtype), omega: vec, K: self.compute_dtype, mu: self.compute_dtype, theta: self.compute_dtype):
+            i,j,k = wp.tid()
+            f_vec = read_local_population(f_current, i, j)
+            force_x = self.compute_dtype(force[0,i,j,0])
+            force_y = self.compute_dtype(force[1,i,j,0])
+            boundary_info_vec = read_bc_info(boundary_info, i, j)
+            boundary_vals_vec = read_bc_vals(boundary_vals, i, j)
+            f_previous_post_collision_vec = read_local_population(f_post_collision, i, j)
+            f_post_stream = functional_bc(f_vec=f_vec, f_post_collision_array= f_post_collision, f_previous_post_collision_vec=f_previous_post_collision_vec, i=i, j=j, k=k, omega=omega, boundary_info_vec=boundary_info_vec, boundary_vals_vec=boundary_vals_vec, force_x=force_x, force_y=force_y, K=K, mu=mu, theta=theta)
+            write_population_to_global(f_current, f_post_stream, i, j)
+        
+        return (functional_no_bc, functional_bc), (kernel_no_bc, kernel_bc)
+
+
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f_1, f_2):  # f_1 carries current population, f_2 carries the previous post_collision population
         params = SimulationParams()
         theta = params.theta
-        wp.launch(self.copy_populations, inputs=[f_2, self.temp_f, self.velocity_set.q], dim=f_1.shape[1:])
-        bared_moments = self.bared_moments(f_1, self.force)
-        # Collision Stage
-        wp.launch(self.collision.warp_kernel, inputs=[f_1, f_1, self.force, self.omega, theta], dim=f_1.shape[1:])
-        # Streaming Stage
-        wp.launch(self.stream.warp_kernel, inputs=[f_1, f_2], dim=f_1.shape[1:])
-        # Apply BC
+        K = params.K
+        mu = params.mu
+
         if self.boundary_conditions != None:
-            self.boundaries(
-                f_out=f_2,
-                f_post_stream=f_2,
-                f_post_collision=f_1,
-                f_previous_post_collision=self.temp_f,
-                bared_moments=bared_moments,
-            )
+            wp.launch(self.warp_kernel[1], inputs=[f_1, f_2, self.force, self.boundary_conditions, self.boundary_values, self.omega, K, mu, theta], dim=f_1.shape[1:])
+        else:
+            wp.launch(self.warp_kernel[0], inputs=[f_1, f_2, self.force, self.omega, theta], dim=f_1.shape[1:])
+        
+        return f_1, f_2
+        
 
-    def get_macroscopics_device(self, f):
-        bared_moments = self.bared_moments(f, self.force)
-        return self.macroscopic(bared_moments, self.force)
+    def get_macroscopics_device(self, macroscopics, f):
+        bared_moments = self.bared_moments(macroscopics, f, self.force)
+        return self.macroscopic(bared_moments, bared_moments, self.force)
 
-    def get_macroscopics_host(self, f):
-        return self.get_macroscopics_device(f).numpy()
+    def get_macroscopics_host(self, macroscopics, f):
+        return self.get_macroscopics_device(macroscopics, f).numpy()
 
     def add_boundary_conditions(self, boundary_conditions, boundary_values):
         self.boundary_conditions = boundary_conditions

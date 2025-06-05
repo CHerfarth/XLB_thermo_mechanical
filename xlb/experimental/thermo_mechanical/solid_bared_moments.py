@@ -16,7 +16,6 @@ class SolidBaredMoments(Operator):
     def __init__(self, grid, omega, velocity_set=None, precision_policy=None, compute_backend=None):
         super().__init__(velocity_set=velocity_set, precision_policy=precision_policy, compute_backend=compute_backend)
         self.omega = omega
-        self.bared_moments = grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
         # Mapping for macroscopics:
         # 0: dis_x
         # 1: dis_y
@@ -41,7 +40,7 @@ class SolidBaredMoments(Operator):
 
         @wp.func
         def functional(
-            f_vec: vec, force_x: self.compute_dtype, force_y: self.compute_dtype, omega: vec, theta: self.compute_dtype, L: self.compute_dtype, T: self.compute_dtype, kappa: self.compute_dtype
+            f_vec: vec, force_x: self.compute_dtype, force_y: self.compute_dtype, omega: vec, theta: self.compute_dtype
         ):
 
             bared_m = calc_moments(f_vec)
@@ -63,32 +62,27 @@ class SolidBaredMoments(Operator):
             f: wp.array4d(dtype=self.store_dtype),
             force: wp.array4d(dtype=self.store_dtype),
             omega: vec,
-            L: self.compute_dtype,
-            T: self.compute_dtype,
             theta: self.compute_dtype,
-            kappa: self.compute_dtype,
         ):
             i, j, k = wp.tid()
             f_vec = read_local_population(f, i, j)
             force_x = self.compute_dtype(force[0,i,j,0])
             force_y = self.compute_dtype(force[1,i,j,0])
 
-            macro = functional(f_vec=f_vec, force_x=force_x, force_y=force_y, omega=omega, theta=theta, L=L, T=T, kappa=kappa)
+            bared_m = functional(f_vec=f_vec, force_x=force_x, force_y=force_y, omega=omega, theta=theta)
 
-            write_population_to_global(bared_moments, macro, i, j)
+            write_population_to_global(bared_moments, bared_m, i, j)
         
         return functional, kernel
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f, force):
+    def warp_implementation(self, output_array, f, force):
         params = SimulationParams()
-        T = params.T
-        L = params.L
         theta = params.theta
         kappa = float(params.kappa)
         wp.launch(
             self.warp_kernel,
-            inputs=[self.bared_moments, f, force, self.omega, L, T, theta, kappa],
-            dim=self.bared_moments.shape[1:],
+            inputs=[output_array, f, force, self.omega, theta],
+            dim=output_array.shape[1:],
         )
-        return self.bared_moments
+        return output_array

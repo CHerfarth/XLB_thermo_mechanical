@@ -16,7 +16,6 @@ class SolidMacroscopics(Operator):
     def __init__(self, grid, omega, velocity_set=None, precision_policy=None, compute_backend=None):
         super().__init__(velocity_set=velocity_set, precision_policy=precision_policy, compute_backend=compute_backend)
         self.omega = omega
-        self.bared_moments = grid.create_field(cardinality=self.velocity_set.q, dtype=self.precision_policy.store_precision)
         # Mapping for macroscopics:
         # 0: dis_x
         # 1: dis_y
@@ -27,7 +26,6 @@ class SolidMacroscopics(Operator):
         # 6: dy_syy
         # 7: dy_sxy
         #  8: dx_sxy
-        self.macroscopics = grid.create_field(cardinality=9, dtype=self.precision_policy.store_precision)
 
     def _construct_warp(self):
         # get warp funcs 
@@ -101,7 +99,7 @@ class SolidMacroscopics(Operator):
         return functional, kernel
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, bared_moments, force):
+    def warp_implementation(self, output_array, bared_moments, force):
         params = SimulationParams()
         T = params.T
         L = params.L
@@ -109,7 +107,7 @@ class SolidMacroscopics(Operator):
         kappa = float(params.kappa)
         wp.launch(
             self.warp_kernel,
-            inputs=[self.macroscopics, bared_moments, force, self.omega, L, T, theta, kappa],
-            dim=self.macroscopics.shape[1:],
+            inputs=[output_array, bared_moments, force, self.omega, L, T, theta, kappa],
+            dim=output_array.shape[1:],
         )
-        return self.macroscopics
+        return output_array

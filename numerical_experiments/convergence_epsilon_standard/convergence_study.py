@@ -107,19 +107,15 @@ if __name__ == "__main__":
     # startup grids
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     # set initial guess from white noise
     # f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=0, seed=31)
 
     norms_over_time = list()  # to track error over time
-    tolerance = 1e-8
-    macroscopics = stepper.get_macroscopics_host(f_1)
 
     for i in range(timesteps):
         stepper(f_1, f_2)
-        f_1, f_2 = f_2, f_1
 
-    macroscopics = stepper.get_macroscopics_host(f_1)
+    macroscopics = stepper.get_macroscopics_host(f_2, f_1)
     utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
     # write out error norms
     last_norms = norms_over_time[len(norms_over_time) - 1]

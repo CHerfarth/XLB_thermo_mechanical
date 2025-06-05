@@ -52,8 +52,12 @@ class KernelProvider:
         lamb = compute_dtype(params.lamb)
 
         vec = wp.vec(9, dtype=compute_dtype)
+        bc_info_vec = wp.vec(10, dtype=wp.int8)
+        bc_val_vec = wp.vec(9*7, dtype=compute_dtype)
 
         self.vec = vec
+        self.bc_info_vec = bc_info_vec
+        self.bc_val_vec = bc_val_vec
 
         @wp.func
         def read_local_population(f: wp.array4d(dtype=store_dtype), x: wp.int32, y: wp.int32):
@@ -61,6 +65,20 @@ class KernelProvider:
             for i in range(9):
                 f_local[i] = compute_dtype(f[i, x, y, 0])
             return f_local
+
+        @wp.func
+        def read_bc_info(bc_info: wp.array4d(dtype=wp.int8), i: wp.int32, j: wp.int32):
+            info = bc_info_vec()
+            for l in range(10):
+                info[l] = bc_info[l, i, j, 0]
+            return info
+
+        @wp.func
+        def read_bc_vals(bc_vals: wp.array4d(dtype=store_dtype), i: wp.int32, j: wp.int32):
+            vals = bc_val_vec()
+            for l in range(9*7):
+                vals[l] = bc_vals[l,i,j,0]
+            return vals
 
 
         @wp.func
@@ -630,3 +648,5 @@ class KernelProvider:
         self.convert_populations_to_moments = convert_populations_to_moments
         self.set_zero_outside_boundary = set_zero_outside_boundary
         self.check_for_nans = check_for_nans
+        self.read_bc_info = read_bc_info
+        self.read_bc_vals = read_bc_vals

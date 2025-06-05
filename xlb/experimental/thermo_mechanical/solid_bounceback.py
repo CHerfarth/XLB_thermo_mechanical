@@ -19,8 +19,6 @@ class SolidsDirichlet(Operator):
 
     def __init__(
         self,
-        boundary_array,
-        boundary_values,
         force,
         velocity_set: VelocitySet = None,
         precision_policy: PrecisionPolicy = None,
@@ -31,8 +29,6 @@ class SolidsDirichlet(Operator):
             precision_policy,
             compute_backend,
         )
-        self.boundary_array = boundary_array
-        self.boundary_values = boundary_values
         self.force = force
 
     def _construct_warp(self):
@@ -43,11 +39,16 @@ class SolidsDirichlet(Operator):
 
         kernel_provider = KernelProvider()
         vec = kernel_provider.vec
+        bc_info_vec = kernel_provider.bc_info_vec
+        bc_val_vec = kernel_provider.bc_val_vec
+        read_bc_info = kernel_provider.read_bc_info
+        read_bc_vals = kernel_provider.read_bc_vals
         read_local_population = kernel_provider.read_local_population
         calc_moments = kernel_provider.calc_moments
         calc_equilibrium = kernel_provider.calc_equilibrium
         calc_populations = kernel_provider.calc_populations
         write_population_to_global = kernel_provider.write_population_to_global
+
 
         @wp.func
         def dirichlet_functional(
@@ -213,9 +214,41 @@ class SolidsDirichlet(Operator):
                 f_out[new_direction] += self.compute_dtype(0.25)*q_ij*((self.compute_dtype(1)+zeta)*(dx_sxx*n_x + dx_sxy*n_y + x_dir*y_dir*(dy_sxx*n_x + dy_sxy*n_y)) + (self.compute_dtype(1) - zeta)*(x_dir*y_dir*(dx_sxy*n_x + dx_syy*n_y) + dy_sxy*n_x + dy_syy*n_y))'''
             
             return f_out
+        
+        @wp.func
+        def functional(f_post_stream_vec: vec, f_post_collision_vec: vec, f_previous_post_collision_vec: vec, boundary_info_vec: bc_info_vec, boundary_vals_vec: bc_val_vec, force_x: self.compute_dtype, force_y: self.compute_dtype, bared_m_vec: vec, K: self.compute_dtype, mu: self.compute_dtype, theta: self.compute_dtype):
+            f_out_vec = f_post_stream_vec
+            #-------------outside domain--------------
+            if boundary_info_vec[0] == wp.int8(0):  # if outside domain, just set to 0
+                for l in range(self.velocity_set.q):
+                    f_out_vec[l] = self.compute_dtype(wp.nan)
+            #-------------Dirichlet BC---------------'''
+            elif boundary_info_vec[0] == wp.int8(2):  # for boundary nodes: check which directions need to be given by dirichlet BC
+                for l in range(self.velocity_set.q):
+                    if boundary_info_vec[l+1] == wp.int8(
+                        1
+                    ):  # this means the interior node is connected to a ghost node in direction l; the bounce back bc needs to be applied
+                        # get values from value array
+                        u_x = boundary_vals_vec[l * 7]
+                        u_y = boundary_vals_vec[l * 7 + 1]
+                        q_ij = boundary_vals_vec[l * 7 + 6]
+                        f_out_vec = dirichlet_functional(old_direction=l, f_current_vec=f_out_vec, f_previous_post_collision_vec=f_previous_post_collision_vec, bared_m_vec=bared_m_vec, u_x=u_x, u_y=u_y, q_ij=q_ij, K=K, mu=mu)
+            #-------------VN BC--------------------
+            elif boundary_info_vec[l] == wp.int8(3):  # for boundary nodes: check which directions need to be given VN BC
+                for l in range(q):
+                    if boundary_info_vec[l+1] == wp.int8(1):
+                        # print("Calling Von Neumann")
+                        n_x = boundary_vals_vec[l * 7]
+                        n_y = boundary_vals_vec[l * 7 + 1]
+                        T_x = boundary_vals_vec[l * 7 + 2]
+                        T_y = boundary_vals_vec[l * 7 + 3]
+                        q_ij = boundary_vals_vec[l * 7 + 6]
+                        f_out_vec = vn_functional(old_direction=l, f_post_stream_vec=f_out_vec, f_post_collision_vec=f_post_collision_vec,
+                        bared_m_vec = bared_m_vec, n_x=n_x, n_y=n_y, T_x=T_x, T_y=T_y, q_ij=q_ij, force_x=force_x, force_y=force_y, K=K, mu=mu, tau_t=self.compute_dtype(0.5), theta=theta)
+            return f_out_vec
                 
 
-        @wp.kernel
+        '''@wp.kernel
         def kernel(
             f_out: wp.array4d(dtype=self.store_dtype),
             f_post_stream: wp.array4d(dtype=self.store_dtype),
@@ -242,7 +275,7 @@ class SolidsDirichlet(Operator):
             if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(self.velocity_set.q):
                     f_out_vec[l] = self.compute_dtype(wp.nan)
-            #-------------Dirichlet BC---------------'''
+            #-------------Dirichlet BC---------------
             elif boundary_array[0, i, j, 0] == wp.int8(2):  # for boundary nodes: check which directions need to be given by dirichlet BC
                 for l in range(self.velocity_set.q):
                     if boundary_array[l + 1, i, j, 0] == wp.int8(
@@ -265,9 +298,9 @@ class SolidsDirichlet(Operator):
                         q_ij = self.compute_dtype(boundary_values[l * 7 + 6, i, j, 0])
                         f_out_vec = vn_functional(old_direction=l, f_post_stream_vec=f_out_vec, f_post_collision_vec=f_post_collision_vec,
                         bared_m_vec = bared_m_vec, n_x=n_x, n_y=n_y, T_x=T_x, T_y=T_y, q_ij=q_ij, force_x=force_x, force_y=force_y, K=K, mu=mu, tau_t=self.compute_dtype(0.5), theta=theta)
-            write_population_to_global(f_out, f_out_vec, i, j)
+            write_population_to_global(f_out, f_out_vec, i, j)'''
 
-        return (dirichlet_functional, vn_functional), kernel
+        return functional, None
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f_out, f_post_stream, f_post_collision, f_previous_post_collision, bared_moments):
@@ -335,7 +368,7 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
     kappa = params.kappa
 
     values_per_direction = 7
-    host_boundary_info = np.zeros(shape=(19, grid.shape[0], grid.shape[1], 1), dtype=np.int8)
+    host_boundary_info = np.zeros(shape=(10, grid.shape[0], grid.shape[1], 1), dtype=np.int8)
     host_boundary_values = np.zeros(shape=(velocity_set.q * values_per_direction, grid.shape[0], grid.shape[1], 1), dtype=np.float64)
 
     # lambdify bc
@@ -412,7 +445,7 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                     elif boundary_node and indicator(bc_x, bc_y) > 0:  # if VN: find T
                         host_boundary_info[direction + 1, i, j, 0] = 1
                         opposite_direction = velocity_set.opp_indices[direction]
-                        host_boundary_info[1 + 9 + opposite_direction, i, j, 0] = 1
+                        #host_boundary_info[1 + 9 + opposite_direction, i, j, 0] = 1
                         host_boundary_info[0, i, j, 0] = 3
                         # find n
                         n = [dx_potential(bc_x, bc_y), dy_potential(bc_x, bc_y)]

@@ -16,7 +16,7 @@ from typing import Any
 import sympy
 
 
-class Level:
+class Level(Operator):
     def __init__(
         self,
         nodes_x,

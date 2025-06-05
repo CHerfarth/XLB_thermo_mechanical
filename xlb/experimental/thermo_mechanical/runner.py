@@ -44,7 +44,7 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 10000
+    timesteps = 1
     dt = 0.001
 
     # params
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     boundary_array, boundary_values = bc.init_bc_from_lambda(
         potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
     )
-    # potential, boundary_array, boundary_values = None, None, None
+    potential, boundary_array, boundary_values = None, None, None
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
@@ -100,8 +100,6 @@ if __name__ == "__main__":
     l2, linf = 0, 0
     for i in range(timesteps):
         stepper(f_1, f_2)
-        # f_1, f_2, f_3 = f_3, f_1, f_2
-        f_1, f_2 = f_2, f_1
         macroscopics = stepper.get_macroscopics_host(f_1)
         l2_disp, l2_inf, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
         if i % 10 == 0:
