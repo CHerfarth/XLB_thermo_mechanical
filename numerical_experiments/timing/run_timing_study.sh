@@ -13,7 +13,7 @@ num_E=3
 d_nu=0.1
 num_nu=4
 
-iterations=8
+iterations=9
 current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
 log_file="log_"$current_date_time".txt"
 results_file="results_"$current_date_time".csv"
@@ -35,8 +35,8 @@ do
             nodes_x=$base_nodes_x
             nodes_y=$base_nodes_y
             test_multigrid=1
-            test_standard=1
-            test_relaxed=1
+            test_standard=0
+            test_relaxed=0
             for ((i=0; i<iterations; i++))
             do
                 python3 timing.py $nodes_x $nodes_y $max_multi $start_multi $interval_multi $max_standard $start_standard $intervals_standard $E $nu $test_multigrid $test_standard $test_relaxed >  tmp_1.txt 
