@@ -51,20 +51,20 @@ class KernelProvider:
         theta = compute_dtype(params.theta)
         lamb = compute_dtype(params.lamb)
 
-        solid_vec = wp.vec(9, dtype=compute_dtype)
+        vec = wp.vec(9, dtype=compute_dtype)
 
-        self.solid_vec = solid_vec
+        self.vec = vec
 
         @wp.func
         def read_local_population(f: wp.array4d(dtype=store_dtype), x: wp.int32, y: wp.int32):
-            f_local = solid_vec()
+            f_local = vec()
             for i in range(9):
                 f_local[i] = compute_dtype(f[i, x, y, 0])
             return f_local
 
 
         @wp.func
-        def write_population_to_global(f: wp.array4d(dtype=store_dtype), f_local: solid_vec, x: wp.int32, y: wp.int32):
+        def write_population_to_global(f: wp.array4d(dtype=store_dtype), f_local: vec, x: wp.int32, y: wp.int32):
             for i in range(9):
                 f[i, x, y, 0] = store_dtype(f_local[i])
 
@@ -74,8 +74,8 @@ class KernelProvider:
                 array[i, x, y, 0] = store_dtype(array_local[i])
 
         @wp.func
-        def calc_moments(f: solid_vec):
-            m = solid_vec()
+        def calc_moments(f: vec):
+            m = vec()
             # Todo: find better way to do this!
             m[0] = f[3] - f[6] + f[7] - f[4] - f[8] + f[5]
             m[1] = f[1] - f[2] + f[7] + f[4] - f[8] - f[5]
@@ -148,8 +148,8 @@ class KernelProvider:
 
 
         @wp.func
-        def calc_populations(m: solid_vec):
-            f = solid_vec()
+        def calc_populations(m: vec):
+            f = vec()
             # m_7 is m_f right now, we convert it back to m_22
             tau_s = compute_dtype(2.0) * K_scaled / (compute_dtype(1.0) + theta)
             tau_f = compute_dtype(0.5)  # todo: make modular, as function argument etc
@@ -171,9 +171,9 @@ class KernelProvider:
             return f
 
         @wp.func
-        def calc_equilibrium(m: solid_vec, theta: compute_dtype):
+        def calc_equilibrium(m: vec, theta: compute_dtype):
             zero = compute_dtype(0.0)
-            m_eq = solid_vec()
+            m_eq = vec()
             m_eq[0] = m[0]
             m_eq[1] = m[1]
             m_eq[2] = zero
@@ -219,7 +219,7 @@ class KernelProvider:
 
 
         @wp.func
-        def local_contains_nan(local: solid_vec):
+        def local_contains_nan(local: vec):
             for l in range(velocity_set.q):
                 if wp.isnan(local[l]):
                     return True
@@ -289,7 +289,7 @@ class KernelProvider:
             one = compute_dtype(1)
             two = compute_dtype(2)
             
-            m_fine = solid_vec()
+            m_fine = vec()
             m_fine[0] = u_x *compute_dtype(0)
             m_fine[1] = u_y *compute_dtype(0)
             m_fine[2] = -(one + one/(two*tau_11))*s_xy*compute_dtype(0)
@@ -439,7 +439,7 @@ class KernelProvider:
             elif domain_d:
                 m_fine = m_d
             else:
-                m_fine = solid_vec()
+                m_fine = vec()
                 for l in range(velocity_set.q):
                     m_fine[l] = compute_dtype(wp.nan)
 
@@ -515,7 +515,7 @@ class KernelProvider:
             if fine_boundary_array[0, 2 * i + 1, 2 * j + 1, 0] == wp.int8(0):
                 domain_d = False
             
-            coarse_f = solid_vec()
+            coarse_f = vec()
             for l in range(velocity_set.q):
                 coarse_f[l] = compute_dtype(0)
             

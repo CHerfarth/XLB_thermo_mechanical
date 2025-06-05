@@ -42,7 +42,7 @@ class SolidsDirichlet(Operator):
         q = self.velocity_set.q
 
         kernel_provider = KernelProvider()
-        solid_vec = kernel_provider.solid_vec
+        vec = kernel_provider.vec
         read_local_population = kernel_provider.read_local_population
         calc_moments = kernel_provider.calc_moments
         calc_equilibrium = kernel_provider.calc_equilibrium
@@ -51,72 +51,70 @@ class SolidsDirichlet(Operator):
 
         @wp.func
         def dirichlet_functional(
-            l: wp.int32,
-            i: wp.int32,
-            j: wp.int32,
-            f_current: wp.array4d(dtype=self.store_dtype),
-            f_previous: wp.array4d(dtype=self.store_dtype),
-            boundary_values: wp.array4d(dtype=self.store_dtype),
-            bared_moments: wp.array4d(dtype=self.store_dtype),
+            old_direction: wp.int32, #l: direction index of population leaving domain
+            f_current_vec: vec,
+            f_previous_post_collision_vec: vec,
+            bared_m_vec: vec,
+            u_x: self.compute_dtype,
+            u_y: self.compute_dtype,
+            q_ij: self.compute_dtype,
             K: self.compute_dtype,
             mu: self.compute_dtype,
         ):
-            new_direction = opp_indices[l]
+            new_direction = opp_indices[old_direction]
             x_dir = c[0, new_direction]
             y_dir = c[1, new_direction]
             weight = w[new_direction]
-            # get values from value array
-            u_x = self.compute_dtype(boundary_values[l * 7, i, j, 0])
-            u_y = self.compute_dtype(boundary_values[l * 7 + 1, i, j, 0])
-            q_ij = self.compute_dtype(boundary_values[l * 7 + 6, i, j, 0])
-            # get moments
-            m_local = read_local_population(bared_moments, i, j)
-            m_s = m_local[3]
-            m_d = m_local[4]
-            m_11 = m_local[2]
+
+            m_s = bared_m_vec[3]
+            m_d = bared_m_vec[4]
+            m_11 = bared_m_vec[2]
             dx_u_x = -self.compute_dtype(0.25) * (m_s / K + m_d / mu)
             dy_u_y = -self.compute_dtype(0.25) * (m_s / K - m_d / mu)
             cross_dev = -m_11 / mu  # dy_u_x + dx_u_y
 
+            f_out = f_current_vec
+
             # bounceback with zero order correction
-            f_current[new_direction, i, j, 0] = self.store_dtype(
-                self.compute_dtype(f_previous[l, i, j, 0]) + self.compute_dtype(6.0) * weight * (x_dir * u_x + y_dir * u_y)
+            f_out[new_direction] = self.store_dtype(
+                self.compute_dtype(f_previous_post_collision_vec[old_direction]) + self.compute_dtype(6.0) * weight * (x_dir * u_x + y_dir * u_y)
             )
             # add first order correction
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(1.0)) < 1e-3:
-                f_current[new_direction, i, j, 0] += self.store_dtype(
+                f_out[new_direction] += self.store_dtype(
                     self.compute_dtype(6.0) * weight * (q_ij - self.compute_dtype(0.5)) * (wp.abs(x_dir) * dx_u_x + wp.abs(y_dir) * dy_u_y)
                 )
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(2.0)) < 1e-3:
-                f_current[new_direction, i, j, 0] += self.store_dtype(
+                f_out[new_direction] += self.store_dtype(
                     self.compute_dtype(6.0) * weight * (q_ij - self.compute_dtype(0.5)) * (dx_u_x + dy_u_y + x_dir * y_dir * (cross_dev))
                 )
+            return f_out
+
 
         @wp.func
         def vn_functional(
             old_direction: wp.int32,
-            i: wp.int32,
-            j: wp.int32,
-            f_current: wp.array4d(dtype=self.store_dtype),
-            f_previous: wp.array4d(dtype=self.store_dtype),
-            boundary_values: wp.array4d(dtype=self.store_dtype),
-            force: wp.array4d(dtype=self.store_dtype),
-            bared_moments: wp.array4d(dtype=self.store_dtype),
+            f_post_stream_vec: vec,
+            f_post_collision_vec: vec,
+            bared_m_vec: vec,
+            n_x: self.compute_dtype,
+            n_y: self.compute_dtype,
+            T_x: self.compute_dtype,
+            T_y: self.compute_dtype,
+            q_ij: self.compute_dtype,
+            force_x: self.compute_dtype,
+            force_y: self.compute_dtype,
             K: self.compute_dtype,
             mu: self.compute_dtype,
             tau_t: self.compute_dtype,
+            theta: self.compute_dtype,
         ):
             theta = self.compute_dtype(1.0) / self.compute_dtype(3.0)  # assuming this, see issue on github
             new_direction = opp_indices[old_direction]
             x_dir = c[0, new_direction]
             y_dir = c[1, new_direction]
             weight = w[new_direction]
-            # read out values
-            n_x = self.compute_dtype(boundary_values[old_direction * 7, i, j, 0])
-            n_y = self.compute_dtype(boundary_values[old_direction * 7 + 1, i, j, 0])
-            T_x = self.compute_dtype(boundary_values[old_direction * 7 + 2, i, j, 0])
-            T_y = self.compute_dtype(boundary_values[old_direction * 7 + 3, i, j, 0])
-            q_ij = self.compute_dtype(boundary_values[old_direction * 7 + 6, i, j, 0])
+            f_out = f_post_stream_vec
             # get zeta
             zeta = self.compute_dtype(1.0)
             if wp.abs(n_x) > wp.abs(n_y):
@@ -142,7 +140,7 @@ class SolidsDirichlet(Operator):
                     ) * c_3
                     if wp.abs(x_dir + k) < 1e-3 and wp.abs(y_dir + l) < 1e-3:
                         a_ijkl += -self.compute_dtype(1.0)
-                    local_sum += a_ijkl * self.compute_dtype(f_previous[m, i, j, 0])
+                    local_sum += a_ijkl * f_post_collision_vec[m]
             elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(2.0)) < 1e-3:  # case V2
                 local_sum = self.compute_dtype(0.0)
                 for m in range(q):
@@ -189,33 +187,37 @@ class SolidsDirichlet(Operator):
                     )
                     if wp.abs(x_dir + k) < 1e-3 and wp.abs(y_dir + l) < 1e-3:
                         a_ijkl += -self.compute_dtype(1.0)
-                    local_sum += a_ijkl * self.compute_dtype(f_previous[m, i, j, 0])
+                    local_sum += a_ijkl * f_post_collision_vec[m]
 
-            f_current[new_direction, i, j, 0] = self.store_dtype(local_sum)
+            f_out[new_direction] = local_sum
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(1.0)) < 1e-3:
-                f_current[new_direction, i, j, 0] += self.store_dtype(T_x * x_dir + T_y * y_dir)
+                f_out[new_direction] += T_x * x_dir + T_y * y_dir
             elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(2.0)) < 1e-3:
-                f_current[new_direction, i, j, 0] += self.store_dtype(
-                    self.compute_dtype(0.25) * (x_dir * (self.compute_dtype(1.0) + zeta) * T_x + y_dir * (self.compute_dtype(1.0) - zeta) * T_y)
-                )
-            # get derivatives of stress
-            m_local = read_local_population(bared_moments, i, j)
-            m_10 = m_local[0]
-            m_01 = m_local[1]
-            m_11 = m_local[2]
-            m_s = m_local[3]
-            m_d = m_local[4]
-            m_12 = m_local[5]
-            m_21 = m_local[6]
-            m_f = m_local[7]
+                f_out[new_direction] += self.compute_dtype(0.25) * (x_dir * (self.compute_dtype(1.0) + zeta) * T_x + y_dir * (self.compute_dtype(1.0) - zeta) * T_y)
 
-            # dx_sxx = self.compute_dtype(2.0) * (theta * m_10 - m_12) / (self.compute_dtype(1.0) + self.compute_dtype(2.0) * tau_t) - force[0, i, j, 0]
-            # dy_syy = self.compute_dtype(2.0) * (m_12 - theta * m_10) / (self.compute_dtype(1.0) + self.compute_dtype(2.0) * tau_t) - force[1, i, j, 0]
-            # dy_sxy = self.compute_dtype(2.0) * (m_12 - theta * m_10) / (self.compute_dtype(1.0) + self.compute_dtype(2.0) * tau_t)
-            # dx_sxy = self.compute_dtype(2.0) * (m_21 - theta * m_01) / (self.compute_dtype(1.0) + self.compute_dtype(2.0) * tau_t)
+            #-----------second-order correction-----------
+            dev_factor = self.compute_dtype(2.0) / (self.compute_dtype(1.0) + self.compute_dtype(2.0) * tau_t)
+            dis_x = bared_m_vec[0]
+            dis_y = bared_m_vec[1]
+            m_12 = bared_m_vec[5]
+            m_21 = bared_m_vec[6]
+            dx_sxx = dev_factor * (theta * dis_x - m_12) - force_x
+            dy_syy = dev_factor * (theta * dis_y - m_21) - force_y
+            dy_sxy = dev_factor * (m_12 - theta * dis_x)
+            dx_sxy = dev_factor * (m_21 - theta * dis_y)
+            '''if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(1.0)) < 1e-3:
+                f_out[new_direction] += self.compute_dtype(0.5)*(x_dir*dx_sxx + y_dir*dy_syy)
+                f_out[new_direction] += q_ij*(wp.abs(x_dir)*(dx_sxx*n_x + dx_sxy*n_y) + wp.abs(y_dir)*(dy_sxy*n_x + dy_syy*n_y))
+            elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(2.0)) < 1e-3:
+                f_out[new_direction] += self.compute_dtype(0.25)*(x_dir*dy_sxy + y_dir*dx_sxy)
+                f_out[new_direction] += self.compute_dtype(0.25)*q_ij*((self.compute_dtype(1)+zeta)*(dx_sxx*n_x + dx_sxy*n_y + x_dir*y_dir*(dy_sxx*n_x + dy_sxy*n_y)) + (self.compute_dtype(1) - zeta)*(x_dir*y_dir*(dx_sxy*n_x + dx_syy*n_y) + dy_sxy*n_x + dy_syy*n_y))'''
+            
+            return f_out
+                
 
         @wp.kernel
-        def bc_kernel(
+        def kernel(
+            f_out: wp.array4d(dtype=self.store_dtype),
             f_post_stream: wp.array4d(dtype=self.store_dtype),
             f_post_collision: wp.array4d(dtype=self.store_dtype),
             f_previous_post_collision: wp.array4d(dtype=self.store_dtype),
@@ -225,37 +227,61 @@ class SolidsDirichlet(Operator):
             bared_moments: wp.array4d(dtype=self.store_dtype),
             K: self.compute_dtype,
             mu: self.compute_dtype,
+            theta: self.compute_dtype,
         ):
             i, j, k = wp.tid()  # for 2d k will equal 1
-            tau_t = self.compute_dtype(0.5)  # ToDo: as argument of fuction
+            f_post_stream_vec = read_local_population(f_post_stream, i, j)
+            f_post_collision_vec = read_local_population(f_post_collision, i, j)
+            f_previous_post_collision_vec = read_local_population(f_previous_post_collision, i, j)
+            bared_m_vec = read_local_population(bared_moments, i, j)
+            force_x = self.compute_dtype(force[0,i,j,0])
+            force_y = self.compute_dtype(force[1,i,j,0])
+
+            f_out_vec = f_post_stream_vec
+            #-------------outside domain--------------
             if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
-                for l in range(q):
-                    f_post_stream[l, i, j, 0] = self.store_dtype(wp.nan) #self.store_dtype(0.0)
+                for l in range(self.velocity_set.q):
+                    f_out_vec[l] = self.compute_dtype(wp.nan)
+            #-------------Dirichlet BC---------------'''
             elif boundary_array[0, i, j, 0] == wp.int8(2):  # for boundary nodes: check which directions need to be given by dirichlet BC
-                for l in range(q):
+                for l in range(self.velocity_set.q):
                     if boundary_array[l + 1, i, j, 0] == wp.int8(
                         1
                     ):  # this means the interior node is connected to a ghost node in direction l; the bounce back bc needs to be applied
-                        dirichlet_functional(l, i, j, f_post_stream, f_previous_post_collision, boundary_values, bared_moments, K, mu)
+                        # get values from value array
+                        u_x = self.compute_dtype(boundary_values[l * 7, i, j, 0])
+                        u_y = self.compute_dtype(boundary_values[l * 7 + 1, i, j, 0])
+                        q_ij = self.compute_dtype(boundary_values[l * 7 + 6, i, j, 0])
+                        f_out_vec = dirichlet_functional(old_direction=l, f_current_vec=f_out_vec, f_previous_post_collision_vec=f_previous_post_collision_vec, bared_m_vec=bared_m_vec, u_x=u_x, u_y=u_y, q_ij=q_ij, K=K, mu=mu)
+            #-------------VN BC--------------------
             elif boundary_array[0, i, j, 0] == wp.int8(3):  # for boundary nodes: check which directions need to be given VN BC
                 for l in range(q):
                     if boundary_array[l + 1, i, j, 0] == wp.int8(1):
                         # print("Calling Von Neumann")
-                        vn_functional(l, i, j, f_post_stream, f_post_collision, boundary_values, force, bared_moments, K, mu, tau_t)
+                        n_x = self.compute_dtype(boundary_values[l * 7, i, j, 0])
+                        n_y = self.compute_dtype(boundary_values[l * 7 + 1, i, j, 0])
+                        T_x = self.compute_dtype(boundary_values[l * 7 + 2, i, j, 0])
+                        T_y = self.compute_dtype(boundary_values[l * 7 + 3, i, j, 0])
+                        q_ij = self.compute_dtype(boundary_values[l * 7 + 6, i, j, 0])
+                        f_out_vec = vn_functional(old_direction=l, f_post_stream_vec=f_out_vec, f_post_collision_vec=f_post_collision_vec,
+                        bared_m_vec = bared_m_vec, n_x=n_x, n_y=n_y, T_x=T_x, T_y=T_y, q_ij=q_ij, force_x=force_x, force_y=force_y, K=K, mu=mu, tau_t=self.compute_dtype(0.5), theta=theta)
+            write_population_to_global(f_out, f_out_vec, i, j)
 
-        return (dirichlet_functional, vn_functional), bc_kernel
+        return (dirichlet_functional, vn_functional), kernel
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f_destination, f_post_collision, f_previous_post_collision, bared_moments):
+    def warp_implementation(self, f_out, f_post_stream, f_post_collision, f_previous_post_collision, bared_moments):
         # Launch the warp kernel
         params = SimulationParams()
         K = params.K
         mu = params.mu
+        theta = params.theta
 
         wp.launch(
             self.warp_kernel,
             inputs=[
-                f_destination,
+                f_out,
+                f_post_stream,
                 f_post_collision,
                 f_previous_post_collision,
                 self.boundary_array,
@@ -264,8 +290,9 @@ class SolidsDirichlet(Operator):
                 bared_moments,
                 K,
                 mu,
+                theta,
             ],
-            dim=f_destination.shape[1:],
+            dim=f_out.shape[1:],
         )
 
 
