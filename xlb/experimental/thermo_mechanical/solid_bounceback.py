@@ -216,33 +216,33 @@ class SolidsDirichlet(Operator):
             return f_out
         
         @wp.func
-        def functional(f_post_stream_vec: vec, f_post_collision_vec: vec, f_previous_post_collision_vec: vec, boundary_info_vec: bc_info_vec, boundary_vals_vec: bc_val_vec, force_x: self.compute_dtype, force_y: self.compute_dtype, bared_m_vec: vec, K: self.compute_dtype, mu: self.compute_dtype, theta: self.compute_dtype):
+        def functional(f_post_stream_vec: vec, f_post_collision_vec: vec, f_previous_post_collision_vec: vec, i: wp.int32, j: wp.int32, boundary_info: wp.array4d(dtype=wp.int8), boundary_vals: wp.array4d(dtype=self.store_dtype), force_x: self.compute_dtype, force_y: self.compute_dtype, bared_m_vec: vec, K: self.compute_dtype, mu: self.compute_dtype, theta: self.compute_dtype):
             f_out_vec = f_post_stream_vec
             #-------------outside domain--------------
-            if boundary_info_vec[0] == wp.int8(0):  # if outside domain, just set to 0
+            if boundary_info[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(self.velocity_set.q):
                     f_out_vec[l] = self.compute_dtype(wp.nan)
             #-------------Dirichlet BC---------------'''
-            elif boundary_info_vec[0] == wp.int8(2):  # for boundary nodes: check which directions need to be given by dirichlet BC
+            elif boundary_info[0, i, j, 0] == wp.int8(2):  # for boundary nodes: check which directions need to be given by dirichlet BC
                 for l in range(self.velocity_set.q):
-                    if boundary_info_vec[l+1] == wp.int8(
+                    if boundary_info[l+1, i, j, 0] == wp.int8(
                         1
                     ):  # this means the interior node is connected to a ghost node in direction l; the bounce back bc needs to be applied
                         # get values from value array
-                        u_x = boundary_vals_vec[l * 7]
-                        u_y = boundary_vals_vec[l * 7 + 1]
-                        q_ij = boundary_vals_vec[l * 7 + 6]
+                        u_x = self.compute_dtype(boundary_vals[l * 7, i, j, 0])
+                        u_y = self.compute_dtype(boundary_vals[l * 7 + 1, i, j, 0])
+                        q_ij = self.compute_dtype(boundary_vals[l * 7 + 6, i, j, 0])
                         f_out_vec = dirichlet_functional(old_direction=l, f_current_vec=f_out_vec, f_previous_post_collision_vec=f_previous_post_collision_vec, bared_m_vec=bared_m_vec, u_x=u_x, u_y=u_y, q_ij=q_ij, K=K, mu=mu)
             #-------------VN BC--------------------
-            elif boundary_info_vec[l] == wp.int8(3):  # for boundary nodes: check which directions need to be given VN BC
+            elif boundary_info[0, i, j, 0] == wp.int8(3):  # for boundary nodes: check which directions need to be given VN BC
                 for l in range(q):
-                    if boundary_info_vec[l+1] == wp.int8(1):
+                    if boundary_info[l+1, i, j, 0] == wp.int8(1):
                         # print("Calling Von Neumann")
-                        n_x = boundary_vals_vec[l * 7]
-                        n_y = boundary_vals_vec[l * 7 + 1]
-                        T_x = boundary_vals_vec[l * 7 + 2]
-                        T_y = boundary_vals_vec[l * 7 + 3]
-                        q_ij = boundary_vals_vec[l * 7 + 6]
+                        n_x = self.compute_dtype(boundary_vals[l * 7, i, j, 0])
+                        n_y = self.compute_dtype(boundary_vals[l * 7 + 1, i, j, 0])
+                        T_x = self.compute_dtype(boundary_vals[l * 7 + 2, i, j, 0])
+                        T_y = self.compute_dtype(boundary_vals[l * 7 + 3, i, j, 0])
+                        q_ij = self.compute_dtype(boundary_vals[l * 7 + 6, i, j, 0])
                         f_out_vec = vn_functional(old_direction=l, f_post_stream_vec=f_out_vec, f_post_collision_vec=f_post_collision_vec,
                         bared_m_vec = bared_m_vec, n_x=n_x, n_y=n_y, T_x=T_x, T_y=T_y, q_ij=q_ij, force_x=force_x, force_y=force_y, K=K, mu=mu, tau_t=self.compute_dtype(0.5), theta=theta)
             return f_out_vec
