@@ -98,6 +98,7 @@ if __name__ == "__main__":
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
+    macroscopics = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
 
     # -------------------------------------- collect data for multigrid----------------------------
     data_over_wu = list()
@@ -113,8 +114,8 @@ if __name__ == "__main__":
         force_load=force_load,
         gamma=0.8,
         v1=2,
-        v2=0,
-        max_levels=None,
+        v2=2,
+        max_levels=1,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
         potential=potential_sympy,
@@ -122,13 +123,13 @@ if __name__ == "__main__":
     finest_level = multigrid_solver.get_finest_level()
 
     # set initial guess from white noise
-    finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
+    #finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
 
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle(return_residual=True)
         residuals.append(residual_norm)
-        macroscopics = finest_level.get_macroscopics()
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
+        macroscopics = finest_level.get_macroscopics(macroscopics)
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics.numpy(), expected_macroscopics, i, dx, list())
         data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
         if benchmark_data.wu > timesteps:
             break
@@ -166,12 +167,11 @@ if __name__ == "__main__":
         benchmark_data.wu += 1
         wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
         stepper(f_1, f_2)
-        f_1, f_2 = f_2, f_1
         wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:])
         residual_norm = np.linalg.norm(residual.numpy())
         residuals.append(residual_norm)
-        macroscopics = stepper.get_macroscopics_host(f_1)
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
+        macroscopics = stepper.get_macroscopics(macroscopics, f_1)
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics.numpy(), expected_macroscopics, i, dx, list())
         data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
         # if utils.last_n_avg(residuals, 50) < 1e-6:
         #    break

@@ -155,20 +155,19 @@ class SolidsStepper(Stepper):
     def warp_implementation(self, f_1, f_2):  # f_1 carries current population, f_2 carries the previous post_collision population
         params = SimulationParams()
         theta = params.theta
-        if (self.boundary_conditions == None):
+        if (self.boundary_conditions == None) or True:
             wp.launch(self.warp_kernel[0], inputs=[f_1, f_2, self.force, self.omega, theta], dim=f_1.shape[1:])
         else:
+            print("hehehe")
             K = params.K
             mu = params.mu
             wp.launch(self.warp_kernel[1], inputs=[f_1, f_2, self.force, self.boundary_conditions, self.boundary_values, self.omega, K, mu, theta], dim=f_1.shape[1:])
         
 
-    def get_macroscopics_device(self, macroscopics, f):
+    def get_macroscopics(self, macroscopics, f):
         bared_moments = self.bared_moments(macroscopics, f, self.force)
         return self.macroscopic(bared_moments, bared_moments, self.force)
 
-    def get_macroscopics_host(self, macroscopics, f):
-        return self.get_macroscopics_device(macroscopics, f).numpy()
 
     def add_boundary_conditions(self, boundary_conditions, boundary_values):
         self.boundary_conditions = boundary_conditions

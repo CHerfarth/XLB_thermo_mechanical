@@ -12,7 +12,8 @@ import csv
 import math
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
-from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
+from xlb.experimental.thermo_mechanical.multigrid_solver import MultigridSolver
+from xlb.experimental.thermo_mechanical.multigrid import Level
 from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import argparse
@@ -171,7 +172,6 @@ if __name__ == "__main__":
             if i % 100 == 0:
                 wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
             stepper(f_1, f_2)
-            f_1, f_2 = f_2, f_1 
             if i % 100 == 0:
                 wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:])
                 residual_norm_sq = wp.zeros(shape=1, dtype=precision_policy.compute_precision.wp_dtype)
@@ -220,7 +220,7 @@ if __name__ == "__main__":
             benchmark_data.wu += 1
             wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
             stepper(f_1, f_2)
-            wp.launch(relaxation_no_defect, inputs=[f_2, residual, f_1, gamma, 9], dim=f_2.shape[1:])
+            wp.launch(relaxation_no_defect, inputs=[f_1, residual, f_1, gamma, 9], dim=f_2.shape[1:])
             if i % 100 == 0:
                 wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:])
                 residual_norm_sq = wp.zeros(shape=1, dtype=precision_policy.compute_precision.wp_dtype)

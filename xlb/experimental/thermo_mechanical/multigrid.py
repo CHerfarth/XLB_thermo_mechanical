@@ -96,10 +96,9 @@ class Level:
         # for statistics
         benchmark_data = BenchmarkData()
         benchmark_data.wu += 0.25**self.level_num
-        wp.launch(self.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
-        self.stepper(self.f_1, self.f_4)
-        wp.launch(self.relax, inputs=[self.f_4, self.f_3, self.defect_correction, self.f_4, self.gamma, self.velocity_set.q], dim=self.f_1.shape[1:])
-        self.f_1, self.f_4 = self.f_4, self.f_1
+        #wp.launch(self.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
+        self.stepper(self.f_1, self.f_2)
+        #wp.launch(self.relax, inputs=[self.f_1, self.f_3, self.defect_correction, self.f_1, self.gamma, self.velocity_set.q], dim=self.f_1.shape[1:])
 
     def get_residual(self):
         wp.launch(self.copy_populations, inputs=[self.f_1, self.f_2, 9], dim=self.f_1.shape[1:])
@@ -107,20 +106,18 @@ class Level:
         self.stepper(self.f_2, self.f_3)
         # rules for operator: A(f) = current - previous
         # --> residual = defect - A(f) = defect + previous - current
-        wp.launch(self.add_populations, inputs=[self.f_1, self.defect_correction, self.f_2, 9], dim=self.f_1.shape[1:])
-        wp.launch(self.subtract_populations, inputs=[self.f_2, self.f_3, self.f_2, 9], dim=self.f_2.shape[1:])
+        wp.launch(self.add_populations, inputs=[self.f_1, self.defect_correction, self.f_3, 9], dim=self.f_1.shape[1:])
+        wp.launch(self.subtract_populations, inputs=[self.f_3, self.f_2, self.f_3, 9], dim=self.f_2.shape[1:])
         # if simulating with boundary conditions, set residual to 0 outside potential
         if self.stepper.boundary_conditions != None:
-            wp.launch(self.set_zero_outside_boundary, inputs=[self.f_2, self.stepper.boundary_conditions], dim=self.f_2.shape[1:])
-        return self.f_2
+            wp.launch(self.set_zero_outside_boundary, inputs=[self.f_3, self.stepper.boundary_conditions], dim=self.f_3.shape[1:])
+        return self.f_3
 
-    def get_macroscopics(self, population=None, device=False):
+    def get_macroscopics(self, output_array, population=None):
         self.set_params()
         if population == None:
             population = self.f_1
-        if device:
-            return self.stepper.get_macroscopics_device(population)
-        return self.stepper.get_macroscopics_host(population)
+        return self.stepper.get_macroscopics(output_array, population)
 
     def set_params(self):
         simulation_params = SimulationParams()
@@ -139,7 +136,7 @@ class Level:
 
         coarse = self.multigrid.get_next_level(self.level_num)
 
-        if coarse != None:
+        '''if coarse != None:
             # get residual
             residual = self.get_residual()
             #restrict residual to defect_corrrection on coarse grid
@@ -163,10 +160,12 @@ class Level:
             else:
                 wp.launch(self.interpolate, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y], dim=self.f_3.shape[1:])
             # add error_approx to current estimate
-            wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
+            #wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])'''
         
         #copy over to f_4 for boundary conditions
-        wp.launch(self.copy_populations, inputs=[self.f_1, self.f_4, 9], dim=self.f_1.shape[1:])
+        wp.synchronize()
+        #wp.launch(self.copy_populations, inputs=[self.f_1, self.f_4, 9], dim=self.f_1.shape[1:])
+        wp.synchronize()
 
         # do post_smoothing
         for i in range(self.v2):
@@ -201,3 +200,87 @@ def visualize_error_approx(self):
     wp.launch(self.convert_moments_to_populations, inputs=[self.f_3, self.f_3], dim=self.f_3.shape[1:])
 
 
+class MultigridSolver:
+    """
+    A class implementing a multigrid iterative solver for elliptic PDEs.
+    """
+
+    def __init__(
+        self,
+        nodes_x,
+        nodes_y,
+        length_x,
+        length_y,
+        dt,
+        force_load,
+        gamma,
+        v1,
+        v2,
+        max_levels=None,
+        coarsest_level_iter=0,
+        boundary_conditions=None,
+        boundary_values=None,
+        potential=None,
+        output_images=False,
+    ):
+        precision_policy = DefaultConfig.default_precision_policy
+        compute_backend = DefaultConfig.default_backend
+        velocity_set = DefaultConfig.velocity_set
+        # TODO: boundary conditions
+
+        # Determine maximum possible levels
+        self.max_possible_levels = min(int(np.log2(nodes_x)), int(np.log2(nodes_y)))  # + 1
+
+        if max_levels is None:
+            self.max_levels = self.max_possible_levels
+        else:
+            self.max_levels = min(max_levels, self.max_possible_levels)
+
+        # setup levels
+        self.levels = list()
+        for i in range(self.max_levels):
+            nx_level = (nodes_x - 1) // (2**i) + 1  # IMPORTANT: only works with nodes as power of two at the moment
+            ny_level = (nodes_y - 1) // (2**i) + 1
+            dx = length_x / float(nx_level)
+            dy = length_y / float(ny_level)
+            dt_level = dt * (4**i)
+            assert math.isclose(dx, dy)
+            level = Level(
+                nodes_x=nx_level,
+                nodes_y=ny_level,
+                dx=dx,
+                dt=dt_level,
+                force_load=force_load,
+                gamma=gamma,
+                v1=v1,
+                v2=v2,
+                level_num=i,
+                multigrid=self,
+                compute_backend=compute_backend,
+                velocity_set=velocity_set,
+                precision_policy=precision_policy,
+                coarsest_level_iter=coarsest_level_iter,
+            )
+            if boundary_conditions != None:
+                if i == 0:
+                    level.add_boundary_conditions(boundary_conditions, boundary_values)
+                else:
+                    # create zero displacement boundary for coarser meshes
+                    x, y = sympy.symbols("x y")
+                    displacement = [0 * x + 0 * y, 0 * x + 0 * y]
+                    indicator = lambda x, y: -1
+                    boundary_conditions_level, boundary_values_level = bc.init_bc_from_lambda(potential_sympy=potential, grid=level.grid, dx=dx, velocity_set=velocity_set, manufactured_displacement=displacement, indicator=indicator, x=x, y=y, precision_policy=precision_policy)
+                    #print(boundary_values.numpy())
+                    #level.boundary_conditions = boundary_conditions_level
+                    level.add_boundary_conditions(boundary_conditions_level, boundary_values_level)
+
+            self.levels.append(level)
+
+    def get_next_level(self, level_num):
+        if level_num + 1 < self.max_levels:
+            return self.levels[level_num + 1]
+        else:
+            return None
+
+    def get_finest_level(self):
+        return self.levels[0]
