@@ -17,7 +17,7 @@ from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import xlb.experimental.thermo_mechanical.solid_bounceback as bc
 from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
-from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
+from xlb.experimental.thermo_mechanical.multigrid_solver import MultigridSolver
 
 
 def write_results(norms_over_time, name):
@@ -39,13 +39,11 @@ if __name__ == "__main__":
         default_backend=compute_backend,
         default_precision_policy=precision_policy,
     )
-    wp.config.mode = "debug"
-    wp.config.verify_cuda = True  # Add this early in your script
     # wp.config.verbose = True
 
     # initiali1e grid
-    nodes_x = 16
-    nodes_y = 16
+    nodes_x = 64
+    nodes_y = nodes_x
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -54,11 +52,10 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 10
-    dt = 0.01
+    dt = dx*dx
 
     # params
-    E = 0.085 * 2.5
+    E = 0.5 
     nu = 0.8
 
     solid_simulation = SimulationParams()
@@ -96,7 +93,8 @@ if __name__ == "__main__":
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
-    # expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
+    macroscopics = grid.create_field(cardinality=9, dtype=precision_policy.store_precision)
+
     norms_over_time = list()
     residual_over_time = list()
     multigrid_solver = MultigridSolver(
@@ -107,33 +105,19 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=1,
-        v2=80,
+        v1=5,
+        v2=5,
         max_levels=2,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
         potential=potential_sympy,
         coarsest_level_iter=5000,
     )
-    finest_level = multigrid_solver.get_finest_level()
-    finest_level.f_1 = utils.get_initial_guess_from_white_noise(
-        shape=finest_level.f_1.shape, precision_policy=precision_policy, dx=dx
-    )
-    for i in range(timesteps):
-        print("-------Timestep {}---------".format(i))
-        residual_norm = finest_level.start_v_cycle(timestep=i)
-        residual_over_time.append(residual_norm)
-        macroscopics = finest_level.get_macroscopics().numpy()
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(
-            macroscopics, expected_macroscopics, i, dx, norms_over_time
-        )
-        utils.output_image(macroscopics, i, "image1")
-        print("-------Timestep {} done---------".format(i))
 
-        # write out error norms
-        # print(finest_level.f_1.numpy()[1,:,:,0])
-        # print("-----------------------------------------------------------")
+    for i in range(100):
+        multigrid_solver.start_v_cycle()
+        multigrid_solver.get_macroscopics(output_array=macroscopics)
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.get_error_norms(macroscopics.numpy(), expected_macroscopics, dx, i)
+        print(l2_disp)
 
-    print(l2_disp, linf_disp, l2_stress, linf_stress)
-    print(residual_norm)
-    write_results(norms_over_time, "results.csv")
+
