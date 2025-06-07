@@ -22,21 +22,33 @@ from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import argparse
 
 
-
 def write_results(data_over_wu, name):
     with open(name, "w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["wu", "iteration", "residual_norm", "l2_disp", "linf_disp", "l2_stress", "linf_stress"])
+        writer.writerow([
+            "wu",
+            "iteration",
+            "residual_norm",
+            "l2_disp",
+            "linf_disp",
+            "l2_stress",
+            "linf_stress",
+        ])
         writer.writerows(data_over_wu)
-
 
 
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP64FP64
-    velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
+    velocity_set = xlb.velocity_set.D2Q9(
+        precision_policy=precision_policy, compute_backend=compute_backend
+    )
 
-    xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
+    xlb.init(
+        velocity_set=velocity_set,
+        default_backend=compute_backend,
+        default_precision_policy=precision_policy,
+    )
 
     parser = argparse.ArgumentParser("convergence_study")
     parser.add_argument("nodes_x", type=int)
@@ -60,15 +72,17 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    dt = dx*dx
-    timesteps= args.timesteps
+    dt = dx * dx
+    timesteps = args.timesteps
 
     # params
-    E = args.E 
+    E = args.E
     nu = args.nu
 
     solid_simulation = SimulationParams()
-    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1, theta=1.0 / 3.0)
+    solid_simulation.set_all_parameters(
+        E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1, theta=1.0 / 3.0
+    )
     print("Simulating with E_scaled {}".format(solid_simulation.E))
     print("Simulating with nu {}".format(solid_simulation.nu))
 
@@ -117,7 +131,9 @@ if __name__ == "__main__":
     finest_level = multigrid_solver.get_finest_level()
 
     # ------------set initial guess to white noise------------------------
-    finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
+    finest_level.f_1 = utils.get_initial_guess_from_white_noise(
+        finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31
+    )
 
     converged = 2
 
@@ -126,8 +142,18 @@ if __name__ == "__main__":
         residual_norm = np.linalg.norm(finest_level.start_v_cycle(return_residual=True))
         residuals.append(residual_norm)
         macroscopics = finest_level.get_macroscopics()
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
-        data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(
+            macroscopics, expected_macroscopics, i, dx, list()
+        )
+        data_over_wu.append((
+            benchmark_data.wu,
+            i,
+            residual_norm,
+            l2_disp,
+            linf_disp,
+            l2_stress,
+            linf_stress,
+        ))
         if residual_norm < 1e-11:
             converged = 1
             break

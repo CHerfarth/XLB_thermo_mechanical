@@ -39,7 +39,9 @@ class BoundaryCondition(Operator):
         indices=None,
         mesh_vertices=None,
     ):
-        self.id = boundary_condition_registry.register_boundary_condition(self.__class__.__name__ + "_" + str(hash(self)))
+        self.id = boundary_condition_registry.register_boundary_condition(
+            self.__class__.__name__ + "_" + str(hash(self))
+        )
         velocity_set = velocity_set or DefaultConfig.velocity_set
         precision_policy = precision_policy or DefaultConfig.default_precision_policy
         compute_backend = compute_backend or DefaultConfig.default_backend
@@ -85,7 +87,11 @@ class BoundaryCondition(Operator):
         Constructs the warp kernel for the boundary condition.
         The functional is specific to each boundary condition and should be passed as an argument.
         """
-        bc_helper = HelperFunctionsBC(velocity_set=self.velocity_set, precision_policy=self.precision_policy, compute_backend=self.compute_backend)
+        bc_helper = HelperFunctionsBC(
+            velocity_set=self.velocity_set,
+            precision_policy=self.precision_policy,
+            compute_backend=self.compute_backend,
+        )
         _id = wp.uint8(self.id)
 
         # Construct the warp kernel
@@ -101,7 +107,9 @@ class BoundaryCondition(Operator):
             index = wp.vec3i(i, j, k)
 
             # read tid data
-            _f_pre, _f_post, _boundary_id, _missing_mask = bc_helper.get_thread_data(f_pre, f_post, bc_mask, missing_mask, index)
+            _f_pre, _f_post, _boundary_id, _missing_mask = bc_helper.get_thread_data(
+                f_pre, f_post, bc_mask, missing_mask, index
+            )
 
             # Apply the boundary condition
             if _boundary_id == _id:
@@ -120,7 +128,11 @@ class BoundaryCondition(Operator):
         """
         Constructs the warp kernel for the auxilary data recovery.
         """
-        bc_helper = HelperFunctionsBC(velocity_set=self.velocity_set, precision_policy=self.precision_policy, compute_backend=self.compute_backend)
+        bc_helper = HelperFunctionsBC(
+            velocity_set=self.velocity_set,
+            precision_policy=self.precision_policy,
+            compute_backend=self.compute_backend,
+        )
 
         _id = wp.uint8(self.id)
         _opp_indices = self.velocity_set.opp_indices
@@ -139,7 +151,9 @@ class BoundaryCondition(Operator):
             index = wp.vec3i(i, j, k)
 
             # read tid data
-            _f_0, _f_1, _boundary_id, _missing_mask = bc_helper.get_thread_data(f_0, f_1, bc_mask, missing_mask, index)
+            _f_0, _f_1, _boundary_id, _missing_mask = bc_helper.get_thread_data(
+                f_0, f_1, bc_mask, missing_mask, index
+            )
 
             # Apply the functional
             if _boundary_id == _id:
@@ -155,7 +169,9 @@ class BoundaryCondition(Operator):
                 # The other remaining BC auxiliary data are stored in missing directions of f_1.
                 for l in range(1, self.velocity_set.q):
                     if _missing_mask[l] == wp.uint8(1) and counter < _num_of_aux_data:
-                        f_1[_opp_indices[l], index[0], index[1], index[2]] = self.store_dtype(prescribed_values[counter])
+                        f_1[_opp_indices[l], index[0], index[1], index[2]] = self.store_dtype(
+                            prescribed_values[counter]
+                        )
                         counter += 1
 
         return aux_data_init_kernel

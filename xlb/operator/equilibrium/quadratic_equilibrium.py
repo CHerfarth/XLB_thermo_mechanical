@@ -55,7 +55,15 @@ class QuadraticEquilibrium(Equilibrium):
                 usqr = self.compute_dtype(1.5) * wp.dot(u, u)
 
                 # Compute feq
-                feq[l] = rho * _w[l] * (self.compute_dtype(1.0) + cu * (self.compute_dtype(1.0) + self.compute_dtype(0.5) * cu) - usqr)
+                feq[l] = (
+                    rho
+                    * _w[l]
+                    * (
+                        self.compute_dtype(1.0)
+                        + cu * (self.compute_dtype(1.0) + self.compute_dtype(0.5) * cu)
+                        - usqr
+                    )
+                )
 
             return feq
 

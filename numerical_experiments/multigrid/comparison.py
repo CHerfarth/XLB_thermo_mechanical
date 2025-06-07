@@ -25,16 +25,30 @@ import argparse
 def write_results(data_over_wu, name):
     with open(name, "w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["wu", "iteration", "residual_norm", "l2_disp", "linf_disp", "l2_stress", "linf_stress"])
+        writer.writerow([
+            "wu",
+            "iteration",
+            "residual_norm",
+            "l2_disp",
+            "linf_disp",
+            "l2_stress",
+            "linf_stress",
+        ])
         writer.writerows(data_over_wu)
 
 
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP64FP64
-    velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
+    velocity_set = xlb.velocity_set.D2Q9(
+        precision_policy=precision_policy, compute_backend=compute_backend
+    )
 
-    xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
+    xlb.init(
+        velocity_set=velocity_set,
+        default_backend=compute_backend,
+        default_precision_policy=precision_policy,
+    )
 
     parser = argparse.ArgumentParser("convergence_study")
     parser.add_argument("nodes_x", type=int)
@@ -57,14 +71,16 @@ if __name__ == "__main__":
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     timesteps = args.timesteps
-    dt = dx*dx
+    dt = dx * dx
 
     # params
-    E = args.E 
+    E = args.E
     nu = args.nu
 
     solid_simulation = SimulationParams()
-    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+    solid_simulation.set_all_parameters(
+        E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0
+    )
 
     print("E scaled {}, nu {}".format(solid_simulation.E, solid_simulation.nu))
 
@@ -98,7 +114,9 @@ if __name__ == "__main__":
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
-    macroscopics = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    macroscopics = grid.create_field(
+        cardinality=velocity_set.q, dtype=precision_policy.store_precision
+    )
 
     # -------------------------------------- collect data for multigrid----------------------------
     data_over_wu = list()
@@ -123,14 +141,24 @@ if __name__ == "__main__":
     finest_level = multigrid_solver.get_finest_level()
 
     # set initial guess from white noise
-    #finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
+    # finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
 
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle(return_residual=True)
         residuals.append(residual_norm)
         macroscopics = finest_level.get_macroscopics(macroscopics)
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics.numpy(), expected_macroscopics, i, dx, list())
-        data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(
+            macroscopics.numpy(), expected_macroscopics, i, dx, list()
+        )
+        data_over_wu.append((
+            benchmark_data.wu,
+            i,
+            residual_norm,
+            l2_disp,
+            linf_disp,
+            l2_stress,
+            linf_stress,
+        ))
         if benchmark_data.wu > timesteps:
             break
 
@@ -141,10 +169,14 @@ if __name__ == "__main__":
     # ------------------------------------- collect data for normal LB ----------------------------------
 
     solid_simulation = SimulationParams()
-    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+    solid_simulation.set_all_parameters(
+        E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0
+    )
 
     # initialize stepper
-    stepper = SolidsStepper(grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values)
+    stepper = SolidsStepper(
+        grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values
+    )
 
     # startup grids
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
@@ -167,13 +199,23 @@ if __name__ == "__main__":
         benchmark_data.wu += 1
         wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
         stepper(f_1, f_2)
-        f_1,f_2 = f_2, f_1
+        f_1, f_2 = f_2, f_1
         wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:])
         residual_norm = np.linalg.norm(residual.numpy())
         residuals.append(residual_norm)
         macroscopics = stepper.get_macroscopics(macroscopics, f_1)
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics.numpy(), expected_macroscopics, i, dx, list())
-        data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(
+            macroscopics.numpy(), expected_macroscopics, i, dx, list()
+        )
+        data_over_wu.append((
+            benchmark_data.wu,
+            i,
+            residual_norm,
+            l2_disp,
+            linf_disp,
+            l2_stress,
+            linf_stress,
+        ))
         # if utils.last_n_avg(residuals, 50) < 1e-6:
         #    break
 

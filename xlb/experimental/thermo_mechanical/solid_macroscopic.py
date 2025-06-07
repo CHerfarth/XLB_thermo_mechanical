@@ -14,7 +14,11 @@ from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 
 class SolidMacroscopics(Operator):
     def __init__(self, grid, omega, velocity_set=None, precision_policy=None, compute_backend=None):
-        super().__init__(velocity_set=velocity_set, precision_policy=precision_policy, compute_backend=compute_backend)
+        super().__init__(
+            velocity_set=velocity_set,
+            precision_policy=precision_policy,
+            compute_backend=compute_backend,
+        )
         self.omega = omega
         # Mapping for macroscopics:
         # 0: dis_x
@@ -28,7 +32,7 @@ class SolidMacroscopics(Operator):
         #  8: dx_sxy
 
     def _construct_warp(self):
-        # get warp funcs 
+        # get warp funcs
         kernel_provider = KernelProvider()
         vec = kernel_provider.vec
         read_local_population = kernel_provider.read_local_population
@@ -40,22 +44,31 @@ class SolidMacroscopics(Operator):
 
         @wp.func
         def functional(
-            bared_m: vec, force_x: self.compute_dtype, force_y: self.compute_dtype, omega: vec, theta: self.compute_dtype, L: self.compute_dtype, T: self.compute_dtype, kappa: self.compute_dtype
+            bared_m: vec,
+            force_x: self.compute_dtype,
+            force_y: self.compute_dtype,
+            omega: vec,
+            theta: self.compute_dtype,
+            L: self.compute_dtype,
+            T: self.compute_dtype,
+            kappa: self.compute_dtype,
         ):
-            #--------Step 1: calculate macroscopics------------------
-            tau_t =  self.compute_dtype(0.5)
-            dev_factor = self.compute_dtype(2.0) / (self.compute_dtype(1.0) + self.compute_dtype(2.0) * tau_t)
-            #displacement
+            # --------Step 1: calculate macroscopics------------------
+            tau_t = self.compute_dtype(0.5)
+            dev_factor = self.compute_dtype(2.0) / (
+                self.compute_dtype(1.0) + self.compute_dtype(2.0) * tau_t
+            )
+            # displacement
             dis_x = bared_m[0]
             dis_y = bared_m[1]
-            #stress
+            # stress
             bared_m_s = bared_m[3]
             bared_m_d = bared_m[4]
             bared_m_11 = bared_m[2]
             s_xx = -self.compute_dtype(0.5) * (bared_m_s + bared_m_d)
             s_yy = -self.compute_dtype(0.5) * (bared_m_s - bared_m_d)
             s_xy = -bared_m_11
-            #stress derivatives
+            # stress derivatives
             m_12 = bared_m[5]
             m_21 = bared_m[6]
             dx_sxx = dev_factor * (theta * dis_x - m_12) - force_x
@@ -67,7 +80,7 @@ class SolidMacroscopics(Operator):
             macro[0] = dis_x
             macro[1] = dis_y
             macro[2] = s_xx * (L * kappa) / T
-            macro[3] = s_yy * (L * kappa) / T 
+            macro[3] = s_yy * (L * kappa) / T
             macro[4] = s_xy * (L * kappa) / T
             macro[5] = dx_sxx * kappa / T
             macro[6] = dy_syy * kappa / T
@@ -89,13 +102,22 @@ class SolidMacroscopics(Operator):
         ):
             i, j, k = wp.tid()
             bared_m = read_local_population(bared_moments, i, j)
-            force_x = self.compute_dtype(force[0,i,j,0])
-            force_y = self.compute_dtype(force[1,i,j,0])
+            force_x = self.compute_dtype(force[0, i, j, 0])
+            force_y = self.compute_dtype(force[1, i, j, 0])
 
-            macro = functional(bared_m=bared_m,force_x=force_x, force_y=force_y, omega=omega, theta=theta, L=L, T=T, kappa=kappa)
+            macro = functional(
+                bared_m=bared_m,
+                force_x=force_x,
+                force_y=force_y,
+                omega=omega,
+                theta=theta,
+                L=L,
+                T=T,
+                kappa=kappa,
+            )
 
             write_population_to_global(macroscopics, macro, i, j)
-        
+
         return functional, kernel
 
     @Operator.register_backend(ComputeBackend.WARP)

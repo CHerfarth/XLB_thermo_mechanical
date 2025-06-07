@@ -8,7 +8,9 @@ from xlb.precision_policy import Precision
 
 
 def init_xlb_env(velocity_set):
-    vel_set = velocity_set(precision_policy=xlb.PrecisionPolicy.FP32FP32, compute_backend=ComputeBackend.WARP)
+    vel_set = velocity_set(
+        precision_policy=xlb.PrecisionPolicy.FP32FP32, compute_backend=ComputeBackend.WARP
+    )
     xlb.init(
         default_precision_policy=xlb.PrecisionPolicy.FP32FP32,
         default_backend=ComputeBackend.WARP,
@@ -23,7 +25,9 @@ def test_warp_grid_create_field(grid_size):
         my_grid = grid_factory(grid_shape)
         f = my_grid.create_field(cardinality=9, dtype=Precision.FP32)
         if len(grid_shape) == 2:
-            assert f.shape == (9,) + grid_shape + (1,), "Field shape is incorrect got {}".format(f.shape)
+            assert f.shape == (9,) + grid_shape + (1,), "Field shape is incorrect got {}".format(
+                f.shape
+            )
         else:
             assert f.shape == (9,) + grid_shape, "Field shape is incorrect got {}".format(f.shape)
         assert isinstance(f, wp.array), "Field should be a Warp ndarray"

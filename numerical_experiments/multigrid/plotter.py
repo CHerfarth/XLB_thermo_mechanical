@@ -9,9 +9,13 @@ import argparse
 from mpltools import annotation
 
 
-multigrid_data = pd.read_csv("multigrid_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64)
+multigrid_data = pd.read_csv(
+    "multigrid_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64
+)
 print(multigrid_data.head())
-normal_data = pd.read_csv("normal_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64)
+normal_data = pd.read_csv(
+    "normal_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64
+)
 print(normal_data.head())
 max_wu_normal = normal_data["wu"].max()
 print(max_wu_normal)
@@ -21,8 +25,20 @@ title = "Residuals over Work Units (WU)"
 x_label = "WU"
 y_label = "Residual"
 fig, ax = plt.subplots()
-ax.plot(multigrid_data["wu"], multigrid_data["residual_norm"], "-", color="blue", label="Residual Multigrid LB")
-ax.plot(normal_data["wu"], normal_data["residual_norm"], "-", color="green", label="Residual Standard LB")
+ax.plot(
+    multigrid_data["wu"],
+    multigrid_data["residual_norm"],
+    "-",
+    color="blue",
+    label="Residual Multigrid LB",
+)
+ax.plot(
+    normal_data["wu"],
+    normal_data["residual_norm"],
+    "-",
+    color="green",
+    label="Residual Standard LB",
+)
 ax.grid(True)
 ax.set_xlim((0, max_wu_normal))
 plt.yscale("log")
@@ -39,10 +55,20 @@ title = "Error over Work Units (WU)"
 x_label = "WU"
 y_label = "Error"
 fig, ax = plt.subplots()
-ax.plot(multigrid_data["wu"], multigrid_data["l2_disp"], "-", color="blue", label="L2 disp Multigrid")
-ax.plot(multigrid_data["wu"], multigrid_data["l2_stress"], "--", color="blue", label="L2 stress Multigrid")
+ax.plot(
+    multigrid_data["wu"], multigrid_data["l2_disp"], "-", color="blue", label="L2 disp Multigrid"
+)
+ax.plot(
+    multigrid_data["wu"],
+    multigrid_data["l2_stress"],
+    "--",
+    color="blue",
+    label="L2 stress Multigrid",
+)
 ax.plot(normal_data["wu"], normal_data["l2_disp"], "-", color="green", label="L2 disp Standard")
-ax.plot(normal_data["wu"], normal_data["l2_stress"], "--", color="green", label="L2 stress Standard")
+ax.plot(
+    normal_data["wu"], normal_data["l2_stress"], "--", color="green", label="L2 stress Standard"
+)
 ax.grid(True)
 ax.set_xlim((0, max_wu_normal))
 plt.yscale("log")
@@ -63,7 +89,9 @@ ax.plot(multigrid_data["wu"], multigrid_data["residual_norm"], "-", color="red",
 ax.plot(multigrid_data["wu"], multigrid_data["l2_disp"], "-", color="blue", label="L2 disp")
 ax.plot(multigrid_data["wu"], multigrid_data["linf_disp"], "--", color="blue", label="Linf disp")
 ax.plot(multigrid_data["wu"], multigrid_data["l2_stress"], "-", color="green", label="L2 stress")
-ax.plot(multigrid_data["wu"], multigrid_data["linf_stress"], "--", color="green", label="Linf stress")
+ax.plot(
+    multigrid_data["wu"], multigrid_data["linf_stress"], "--", color="green", label="Linf stress"
+)
 ax.grid(True)
 ax.set_xlim((0, max_wu_normal))
 plt.yscale("log")
@@ -101,14 +129,26 @@ title = "Residual over Iteration for Multigrid LB"
 x_label = "Iteration"
 y_label = "Residual"
 fig, ax = plt.subplots()
-ax.plot(multigrid_data["iteration"], multigrid_data["residual_norm"], "-", color="green", label="Residual")
+ax.plot(
+    multigrid_data["iteration"],
+    multigrid_data["residual_norm"],
+    "-",
+    color="green",
+    label="Residual",
+)
 ax.grid(True)
 plt.yscale("log")
 ax.set_title(title)
 # plot expected speed of convergence
 slope = 0.714**4
 multigrid_data["slope_power"] = slope ** multigrid_data["iteration"]
-ax.plot(multigrid_data["iteration"], multigrid_data["slope_power"], "--", color="black", label="Expected Speed of convergence = 0.714**4")
+ax.plot(
+    multigrid_data["iteration"],
+    multigrid_data["slope_power"],
+    "--",
+    color="black",
+    label="Expected Speed of convergence = 0.714**4",
+)
 slope = 0.93
 multigrid_data["slope_power"] = slope ** multigrid_data["iteration"]
 # ax.plot(multigrid_data['iteration'], multigrid_data['slope_power'], '--', color='green', label="Speed of convergence = {}".format(slope))

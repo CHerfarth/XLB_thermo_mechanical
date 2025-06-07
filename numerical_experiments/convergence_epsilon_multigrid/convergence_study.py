@@ -24,16 +24,30 @@ from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 def write_results(norms_over_time, name):
     with open(name, "w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["WU", "Timestep", "res norm", "L2_disp", "Linf_disp", "L2_stress", "LInf_stress"])
+        writer.writerow([
+            "WU",
+            "Timestep",
+            "res norm",
+            "L2_disp",
+            "Linf_disp",
+            "L2_stress",
+            "LInf_stress",
+        ])
         writer.writerows(norms_over_time)
 
 
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP64FP64
-    velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
+    velocity_set = xlb.velocity_set.D2Q9(
+        precision_policy=precision_policy, compute_backend=compute_backend
+    )
 
-    xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
+    xlb.init(
+        velocity_set=velocity_set,
+        default_backend=compute_backend,
+        default_precision_policy=precision_policy,
+    )
 
     # get command line arguments
     parser = argparse.ArgumentParser("convergence_study")
@@ -64,7 +78,9 @@ if __name__ == "__main__":
     nu = 0.8
 
     solid_simulation = SimulationParams()
-    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+    solid_simulation.set_all_parameters(
+        E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0
+    )
     print("E_scaled {}, nu {}".format(solid_simulation.E, solid_simulation.nu))
 
     # get force load
@@ -126,14 +142,24 @@ if __name__ == "__main__":
     finest_level = multigrid_solver.get_finest_level()
 
     # set initial guess from white noise
-    #finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
+    # finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
 
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle(return_residual=True)
         residuals.append(residual_norm)
         macroscopics = finest_level.get_macroscopics().numpy()
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
-        data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(
+            macroscopics, expected_macroscopics, i, dx, list()
+        )
+        data_over_wu.append((
+            benchmark_data.wu,
+            i,
+            residual_norm,
+            l2_disp,
+            linf_disp,
+            l2_stress,
+            linf_stress,
+        ))
 
     print("Final error L2_disp: {}".format(l2_disp))
     print("Final error Linf_disp: {}".format(linf_disp))

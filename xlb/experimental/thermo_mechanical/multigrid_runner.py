@@ -30,12 +30,18 @@ def write_results(norms_over_time, name):
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP64FP64
-    velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
+    velocity_set = xlb.velocity_set.D2Q9(
+        precision_policy=precision_policy, compute_backend=compute_backend
+    )
 
-    xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
+    xlb.init(
+        velocity_set=velocity_set,
+        default_backend=compute_backend,
+        default_precision_policy=precision_policy,
+    )
     wp.config.mode = "debug"
     wp.config.verify_cuda = True  # Add this early in your script
-    #wp.config.verbose = True
+    # wp.config.verbose = True
 
     # initiali1e grid
     nodes_x = 16
@@ -56,7 +62,9 @@ if __name__ == "__main__":
     nu = 0.8
 
     solid_simulation = SimulationParams()
-    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+    solid_simulation.set_all_parameters(
+        E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0
+    )
     print("E: {}        nu: {}".format(solid_simulation.E, solid_simulation.nu))
 
     # get force load
@@ -88,7 +96,7 @@ if __name__ == "__main__":
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
-    #expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
+    # expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
     norms_over_time = list()
     residual_over_time = list()
     multigrid_solver = MultigridSolver(
@@ -108,13 +116,17 @@ if __name__ == "__main__":
         coarsest_level_iter=5000,
     )
     finest_level = multigrid_solver.get_finest_level()
-    finest_level.f_1 = utils.get_initial_guess_from_white_noise(shape=finest_level.f_1.shape, precision_policy=precision_policy, dx=dx)
+    finest_level.f_1 = utils.get_initial_guess_from_white_noise(
+        shape=finest_level.f_1.shape, precision_policy=precision_policy, dx=dx
+    )
     for i in range(timesteps):
         print("-------Timestep {}---------".format(i))
         residual_norm = finest_level.start_v_cycle(timestep=i)
         residual_over_time.append(residual_norm)
         macroscopics = finest_level.get_macroscopics().numpy()
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(
+            macroscopics, expected_macroscopics, i, dx, norms_over_time
+        )
         utils.output_image(macroscopics, i, "image1")
         print("-------Timestep {} done---------".format(i))
 

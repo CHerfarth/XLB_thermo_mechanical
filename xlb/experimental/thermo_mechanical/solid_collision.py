@@ -27,7 +27,11 @@ class SolidsCollision(Collision):
         precision_policy=None,
         compute_backend=None,
     ):
-        super().__init__(velocity_set=velocity_set, precision_policy=precision_policy, compute_backend=compute_backend)
+        super().__init__(
+            velocity_set=velocity_set,
+            precision_policy=precision_policy,
+            compute_backend=compute_backend,
+        )
 
         self.omega = omega
 
@@ -41,18 +45,24 @@ class SolidsCollision(Collision):
         write_population_to_global = kernel_provider.write_population_to_global
 
         @wp.func
-        def functional(f_vec: vec, force_x: self.compute_dtype, force_y: self.compute_dtype, omega: vec, theta: self.compute_dtype):
+        def functional(
+            f_vec: vec,
+            force_x: self.compute_dtype,
+            force_y: self.compute_dtype,
+            omega: vec,
+            theta: self.compute_dtype,
+        ):
             m = calc_moments(f_vec)
 
             # apply half-forcing and get displacement
-            m[0] += self.compute_dtype(0.5) * force_x 
+            m[0] += self.compute_dtype(0.5) * force_x
             m[1] += self.compute_dtype(0.5) * force_y
 
             m_eq = calc_equilibrium(m, self.compute_dtype(theta))
 
             # get post-collision populations
             for l in range(self.velocity_set.q):
-                m[l] = omega[l]*m_eq[l] + (self.compute_dtype(1.0) - omega[l])*m[l]
+                m[l] = omega[l] * m_eq[l] + (self.compute_dtype(1.0) - omega[l]) * m[l]
 
             # half-forcing
             m[0] += self.compute_dtype(0.5) * force_x
@@ -62,7 +72,6 @@ class SolidsCollision(Collision):
             f_vec_out = calc_populations(m)
 
             return f_vec_out
-
 
         @wp.kernel
         def kernel(
@@ -75,15 +84,15 @@ class SolidsCollision(Collision):
             i, j, k = wp.tid()  # for 2d, k will equal 1
 
             f_vec = read_local_population(f, i, j)
-            force_x = self.compute_dtype(force[0,i,j,0])
-            force_y = self.compute_dtype(force[1,i,j,0])
+            force_x = self.compute_dtype(force[0, i, j, 0])
+            force_y = self.compute_dtype(force[1, i, j, 0])
 
             f_vec_out = functional(f_vec, force_x, force_y, omega, theta)
-            
+
             write_population_to_global(f_out, f_vec_out, i, j)
 
         return functional, kernel
-    
+
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, f, f_out, force, omega):
         params = SimulationParams()
@@ -91,13 +100,7 @@ class SolidsCollision(Collision):
         # Launch the warp kernel
         wp.launch(
             self.warp_kernel,
-            inputs=[
-                f,
-                f_out,
-                force,
-                omega,
-                theta
-            ],
+            inputs=[f, f_out, force, omega, theta],
             dim=f.shape[1:],
         )
         return fout

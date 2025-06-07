@@ -28,7 +28,13 @@ cmap = plt.get_cmap("plasma")  # You can choose any colormap here
 
 fig, ax = plt.subplots()
 for i in range(args.k):
-    ax.plot(data["timestep"], data[str(i) + "_residual"] / data[str(i) + "_residual"][0], "-", color=cmap(i / args.k), label=str(i) + " Residual")
+    ax.plot(
+        data["timestep"],
+        data[str(i) + "_residual"] / data[str(i) + "_residual"][0],
+        "-",
+        color=cmap(i / args.k),
+        label=str(i) + " Residual",
+    )
 ##ax.plot(data['time'], data['linf_disp'], "--", color='blue', label='Linf disp')
 # ax.plot(data['time'], data['l2_stress'], "-", color='green', label='L2 stress')
 # ax.plot(data['time'], data['linf_stress'], "--", color='green', label='Linf stress')

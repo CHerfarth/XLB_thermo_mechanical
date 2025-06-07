@@ -49,10 +49,9 @@ class SolidsDirichlet(Operator):
         calc_populations = kernel_provider.calc_populations
         write_population_to_global = kernel_provider.write_population_to_global
 
-
         @wp.func
         def dirichlet_functional(
-            old_direction: wp.int32, #l: direction index of population leaving domain
+            old_direction: wp.int32,  # l: direction index of population leaving domain
             f_current_vec: vec,
             f_previous_post_collision_vec: vec,
             bared_m_vec: vec,
@@ -78,19 +77,25 @@ class SolidsDirichlet(Operator):
 
             # bounceback with zero order correction
             f_out[new_direction] = self.store_dtype(
-                self.compute_dtype(f_previous_post_collision_vec[old_direction]) + self.compute_dtype(6.0) * weight * (x_dir * u_x + y_dir * u_y)
+                self.compute_dtype(f_previous_post_collision_vec[old_direction])
+                + self.compute_dtype(6.0) * weight * (x_dir * u_x + y_dir * u_y)
             )
             # add first order correction
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(1.0)) < 1e-3:
                 f_out[new_direction] += self.store_dtype(
-                    self.compute_dtype(6.0) * weight * (q_ij - self.compute_dtype(0.5)) * (wp.abs(x_dir) * dx_u_x + wp.abs(y_dir) * dy_u_y)
+                    self.compute_dtype(6.0)
+                    * weight
+                    * (q_ij - self.compute_dtype(0.5))
+                    * (wp.abs(x_dir) * dx_u_x + wp.abs(y_dir) * dy_u_y)
                 )
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(2.0)) < 1e-3:
                 f_out[new_direction] += self.store_dtype(
-                    self.compute_dtype(6.0) * weight * (q_ij - self.compute_dtype(0.5)) * (dx_u_x + dy_u_y + x_dir * y_dir * (cross_dev))
+                    self.compute_dtype(6.0)
+                    * weight
+                    * (q_ij - self.compute_dtype(0.5))
+                    * (dx_u_x + dy_u_y + x_dir * y_dir * (cross_dev))
                 )
             return f_out
-
 
         @wp.func
         def vn_functional(
@@ -110,7 +115,9 @@ class SolidsDirichlet(Operator):
             tau_t: self.compute_dtype,
             theta: self.compute_dtype,
         ):
-            theta = self.compute_dtype(1.0) / self.compute_dtype(3.0)  # assuming this, see issue on github
+            theta = self.compute_dtype(1.0) / self.compute_dtype(
+                3.0
+            )  # assuming this, see issue on github
             new_direction = opp_indices[old_direction]
             x_dir = c[0, new_direction]
             y_dir = c[1, new_direction]
@@ -125,7 +132,9 @@ class SolidsDirichlet(Operator):
                 theta * (self.compute_dtype(1.0) - theta - self.compute_dtype(4.0) * mu)
             )
             c_2 = -(self.compute_dtype(2.0) * mu) / (theta - self.compute_dtype(2.0) * mu)
-            c_3 = -(self.compute_dtype(4.0) * mu) / (self.compute_dtype(1.0) - theta - self.compute_dtype(4.0) * mu)
+            c_3 = -(self.compute_dtype(4.0) * mu) / (
+                self.compute_dtype(1.0) - theta - self.compute_dtype(4.0) * mu
+            )
 
             local_sum = self.compute_dtype(0.0)
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(1.0)) < 1e-3:  # case V1
@@ -133,11 +142,20 @@ class SolidsDirichlet(Operator):
                 for m in range(q):
                     k = c[0, m]
                     l = c[1, m]
-                    a_ijkl = wp.abs(k) * wp.abs(l) * (self.compute_dtype(1.0) + x_dir * n_x + y_dir * n_y) * c_1
+                    a_ijkl = (
+                        wp.abs(k)
+                        * wp.abs(l)
+                        * (self.compute_dtype(1.0) + x_dir * n_x + y_dir * n_y)
+                        * c_1
+                    )
                     a_ijkl += k * l * (x_dir * n_y + y_dir * n_x) * c_2
                     a_ijkl += (
-                        wp.abs(k) * (self.compute_dtype(1.0) - wp.abs(l)) * (wp.abs(x_dir) + x_dir * n_x)
-                        + wp.abs(l) * (self.compute_dtype(1.0) - wp.abs(k)) * (wp.abs(y_dir) + y_dir * n_y)  # type: ignore
+                        wp.abs(k)
+                        * (self.compute_dtype(1.0) - wp.abs(l))
+                        * (wp.abs(x_dir) + x_dir * n_x)
+                        + wp.abs(l)
+                        * (self.compute_dtype(1.0) - wp.abs(k))
+                        * (wp.abs(y_dir) + y_dir * n_y)  # type: ignore
                     ) * c_3
                     if wp.abs(x_dir + k) < 1e-3 and wp.abs(y_dir + l) < 1e-3:
                         a_ijkl += -self.compute_dtype(1.0)
@@ -153,7 +171,10 @@ class SolidsDirichlet(Operator):
                         * wp.abs(l)
                         * (
                             self.compute_dtype(0.5) * (self.compute_dtype(1.0) + zeta) * x_dir * n_x
-                            + self.compute_dtype(0.5) * (self.compute_dtype(1.0) - zeta) * y_dir * n_y
+                            + self.compute_dtype(0.5)
+                            * (self.compute_dtype(1.0) - zeta)
+                            * y_dir
+                            * n_y
                         )
                         * c_1
                     )
@@ -163,8 +184,14 @@ class SolidsDirichlet(Operator):
                         * l
                         * (
                             x_dir * y_dir
-                            + self.compute_dtype(0.5) * (self.compute_dtype(1.0) + zeta) * x_dir * n_y
-                            + self.compute_dtype(0.5) * (self.compute_dtype(1.0) - zeta) * y_dir * n_x
+                            + self.compute_dtype(0.5)
+                            * (self.compute_dtype(1.0) + zeta)
+                            * x_dir
+                            * n_y
+                            + self.compute_dtype(0.5)
+                            * (self.compute_dtype(1.0) - zeta)
+                            * y_dir
+                            * n_x
                         )
                         * c_2
                     )
@@ -194,10 +221,15 @@ class SolidsDirichlet(Operator):
             if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(1.0)) < 1e-3:
                 f_out[new_direction] += T_x * x_dir + T_y * y_dir
             elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(2.0)) < 1e-3:
-                f_out[new_direction] += self.compute_dtype(0.25) * (x_dir * (self.compute_dtype(1.0) + zeta) * T_x + y_dir * (self.compute_dtype(1.0) - zeta) * T_y)
+                f_out[new_direction] += self.compute_dtype(0.25) * (
+                    x_dir * (self.compute_dtype(1.0) + zeta) * T_x
+                    + y_dir * (self.compute_dtype(1.0) - zeta) * T_y
+                )
 
-            #-----------second-order correction-----------
-            dev_factor = self.compute_dtype(2.0) / (self.compute_dtype(1.0) + self.compute_dtype(2.0) * tau_t)
+            # -----------second-order correction-----------
+            dev_factor = self.compute_dtype(2.0) / (
+                self.compute_dtype(1.0) + self.compute_dtype(2.0) * tau_t
+            )
             dis_x = bared_m_vec[0]
             dis_y = bared_m_vec[1]
             m_12 = bared_m_vec[5]
@@ -206,49 +238,91 @@ class SolidsDirichlet(Operator):
             dy_syy = dev_factor * (theta * dis_y - m_21) - force_y
             dy_sxy = dev_factor * (m_12 - theta * dis_x)
             dx_sxy = dev_factor * (m_21 - theta * dis_y)
-            '''if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(1.0)) < 1e-3:
+            """if wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(1.0)) < 1e-3:
                 f_out[new_direction] += self.compute_dtype(0.5)*(x_dir*dx_sxx + y_dir*dy_syy)
                 f_out[new_direction] += q_ij*(wp.abs(x_dir)*(dx_sxx*n_x + dx_sxy*n_y) + wp.abs(y_dir)*(dy_sxy*n_x + dy_syy*n_y))
             elif wp.abs(wp.abs(x_dir) + wp.abs(y_dir) - self.compute_dtype(2.0)) < 1e-3:
                 f_out[new_direction] += self.compute_dtype(0.25)*(x_dir*dy_sxy + y_dir*dx_sxy)
-                f_out[new_direction] += self.compute_dtype(0.25)*q_ij*((self.compute_dtype(1)+zeta)*(dx_sxx*n_x + dx_sxy*n_y + x_dir*y_dir*(dy_sxx*n_x + dy_sxy*n_y)) + (self.compute_dtype(1) - zeta)*(x_dir*y_dir*(dx_sxy*n_x + dx_syy*n_y) + dy_sxy*n_x + dy_syy*n_y))'''
-            
+                f_out[new_direction] += self.compute_dtype(0.25)*q_ij*((self.compute_dtype(1)+zeta)*(dx_sxx*n_x + dx_sxy*n_y + x_dir*y_dir*(dy_sxx*n_x + dy_sxy*n_y)) + (self.compute_dtype(1) - zeta)*(x_dir*y_dir*(dx_sxy*n_x + dx_syy*n_y) + dy_sxy*n_x + dy_syy*n_y))"""
+
             return f_out
-        
+
         @wp.func
-        def functional(f_post_stream_vec: vec, f_post_collision_vec: vec, f_previous_post_collision_vec: vec, i: wp.int32, j: wp.int32, boundary_info: wp.array4d(dtype=wp.int8), boundary_vals: wp.array4d(dtype=self.store_dtype), force_x: self.compute_dtype, force_y: self.compute_dtype, bared_m_vec: vec, K: self.compute_dtype, mu: self.compute_dtype, theta: self.compute_dtype):
+        def functional(
+            f_post_stream_vec: vec,
+            f_post_collision_vec: vec,
+            f_previous_post_collision_vec: vec,
+            i: wp.int32,
+            j: wp.int32,
+            boundary_info: wp.array4d(dtype=wp.int8),
+            boundary_vals: wp.array4d(dtype=self.store_dtype),
+            force_x: self.compute_dtype,
+            force_y: self.compute_dtype,
+            bared_m_vec: vec,
+            K: self.compute_dtype,
+            mu: self.compute_dtype,
+            theta: self.compute_dtype,
+        ):
             f_out_vec = f_post_stream_vec
-            #-------------outside domain--------------
+            # -------------outside domain--------------
             if boundary_info[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(self.velocity_set.q):
                     f_out_vec[l] = self.compute_dtype(wp.nan)
-            #-------------Dirichlet BC---------------'''
-            elif boundary_info[0, i, j, 0] == wp.int8(2):  # for boundary nodes: check which directions need to be given by dirichlet BC
+            # -------------Dirichlet BC---------------'''
+            elif boundary_info[0, i, j, 0] == wp.int8(
+                2
+            ):  # for boundary nodes: check which directions need to be given by dirichlet BC
                 for l in range(self.velocity_set.q):
-                    if boundary_info[l+1, i, j, 0] == wp.int8(
-                        1
+                    if (
+                        boundary_info[l + 1, i, j, 0] == wp.int8(1)
                     ):  # this means the interior node is connected to a ghost node in direction l; the bounce back bc needs to be applied
                         # get values from value array
                         u_x = self.compute_dtype(boundary_vals[l * 7, i, j, 0])
                         u_y = self.compute_dtype(boundary_vals[l * 7 + 1, i, j, 0])
                         q_ij = self.compute_dtype(boundary_vals[l * 7 + 6, i, j, 0])
-                        f_out_vec = dirichlet_functional(old_direction=l, f_current_vec=f_out_vec, f_previous_post_collision_vec=f_previous_post_collision_vec, bared_m_vec=bared_m_vec, u_x=u_x, u_y=u_y, q_ij=q_ij, K=K, mu=mu)
-            #-------------VN BC--------------------
-            elif boundary_info[0, i, j, 0] == wp.int8(3):  # for boundary nodes: check which directions need to be given VN BC
+                        f_out_vec = dirichlet_functional(
+                            old_direction=l,
+                            f_current_vec=f_out_vec,
+                            f_previous_post_collision_vec=f_previous_post_collision_vec,
+                            bared_m_vec=bared_m_vec,
+                            u_x=u_x,
+                            u_y=u_y,
+                            q_ij=q_ij,
+                            K=K,
+                            mu=mu,
+                        )
+            # -------------VN BC--------------------
+            elif boundary_info[0, i, j, 0] == wp.int8(
+                3
+            ):  # for boundary nodes: check which directions need to be given VN BC
                 for l in range(q):
-                    if boundary_info[l+1, i, j, 0] == wp.int8(1):
+                    if boundary_info[l + 1, i, j, 0] == wp.int8(1):
                         # print("Calling Von Neumann")
                         n_x = self.compute_dtype(boundary_vals[l * 7, i, j, 0])
                         n_y = self.compute_dtype(boundary_vals[l * 7 + 1, i, j, 0])
                         T_x = self.compute_dtype(boundary_vals[l * 7 + 2, i, j, 0])
                         T_y = self.compute_dtype(boundary_vals[l * 7 + 3, i, j, 0])
                         q_ij = self.compute_dtype(boundary_vals[l * 7 + 6, i, j, 0])
-                        f_out_vec = vn_functional(old_direction=l, f_post_stream_vec=f_out_vec, f_post_collision_vec=f_post_collision_vec,
-                        bared_m_vec = bared_m_vec, n_x=n_x, n_y=n_y, T_x=T_x, T_y=T_y, q_ij=q_ij, force_x=force_x, force_y=force_y, K=K, mu=mu, tau_t=self.compute_dtype(0.5), theta=theta)
+                        f_out_vec = vn_functional(
+                            old_direction=l,
+                            f_post_stream_vec=f_out_vec,
+                            f_post_collision_vec=f_post_collision_vec,
+                            bared_m_vec=bared_m_vec,
+                            n_x=n_x,
+                            n_y=n_y,
+                            T_x=T_x,
+                            T_y=T_y,
+                            q_ij=q_ij,
+                            force_x=force_x,
+                            force_y=force_y,
+                            K=K,
+                            mu=mu,
+                            tau_t=self.compute_dtype(0.5),
+                            theta=theta,
+                        )
             return f_out_vec
-                
 
-        '''@wp.kernel
+        """@wp.kernel
         def kernel(
             f_out: wp.array4d(dtype=self.store_dtype),
             f_post_stream: wp.array4d(dtype=self.store_dtype),
@@ -298,12 +372,14 @@ class SolidsDirichlet(Operator):
                         q_ij = self.compute_dtype(boundary_values[l * 7 + 6, i, j, 0])
                         f_out_vec = vn_functional(old_direction=l, f_post_stream_vec=f_out_vec, f_post_collision_vec=f_post_collision_vec,
                         bared_m_vec = bared_m_vec, n_x=n_x, n_y=n_y, T_x=T_x, T_y=T_y, q_ij=q_ij, force_x=force_x, force_y=force_y, K=K, mu=mu, tau_t=self.compute_dtype(0.5), theta=theta)
-            write_population_to_global(f_out, f_out_vec, i, j)'''
+            write_population_to_global(f_out, f_out_vec, i, j)"""
 
         return functional, None
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f_out, f_post_stream, f_post_collision, f_previous_post_collision, bared_moments):
+    def warp_implementation(
+        self, f_out, f_post_stream, f_post_collision, f_previous_post_collision, bared_moments
+    ):
         # Launch the warp kernel
         params = SimulationParams()
         K = params.K
@@ -330,7 +406,17 @@ class SolidsDirichlet(Operator):
 
 
 # --------------utils used to construct bc arrays----------------
-def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_displacement, indicator, x, y, precision_policy=None):
+def init_bc_from_lambda(
+    potential_sympy,
+    grid,
+    dx,
+    velocity_set,
+    manufactured_displacement,
+    indicator,
+    x,
+    y,
+    precision_policy=None,
+):
     # Mapping:
     # 0: ghost node
     # 1: interior node
@@ -369,10 +455,16 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
 
     values_per_direction = 7
     host_boundary_info = np.zeros(shape=(10, grid.shape[0], grid.shape[1], 1), dtype=np.int8)
-    host_boundary_values = np.zeros(shape=(velocity_set.q * values_per_direction, grid.shape[0], grid.shape[1], 1), dtype=np.float64)
+    host_boundary_values = np.zeros(
+        shape=(velocity_set.q * values_per_direction, grid.shape[0], grid.shape[1], 1),
+        dtype=np.float64,
+    )
 
     # lambdify bc
-    bc_dirichlet = [sympy.lambdify([x, y], manufactured_displacement[0]), sympy.lambdify([x, y], manufactured_displacement[1])]
+    bc_dirichlet = [
+        sympy.lambdify([x, y], manufactured_displacement[0]),
+        sympy.lambdify([x, y], manufactured_displacement[1]),
+    ]
 
     # get derivative of BC
     bc_dirichlet_devs = [
@@ -409,7 +501,9 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                     on_boundary = (
                         on_boundary or i + x_direction < 0 or i + x_direction >= grid.shape[0]
                     )  # check if on edge of grid, automatically counts as boundary node too
-                    on_boundary = on_boundary or j + y_direction < 0 or j + y_direction >= grid.shape[1]
+                    on_boundary = (
+                        on_boundary or j + y_direction < 0 or j + y_direction >= grid.shape[1]
+                    )
 
                     # check if boundary node
                     boundary_node = False
@@ -440,12 +534,16 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                         host_boundary_info[direction + 1, i, j, 0] = 1
                         host_boundary_info[0, i, j, 0] = 2
                         for k in range(values_per_direction - 1):
-                            host_boundary_values[direction * values_per_direction + k, i, j, 0] = bc_dirichlet[k](bc_x, bc_y)
-                        host_boundary_values[(direction + 1) * values_per_direction - 1, i, j, 0] = q_ij
+                            host_boundary_values[direction * values_per_direction + k, i, j, 0] = (
+                                bc_dirichlet[k](bc_x, bc_y)
+                            )
+                        host_boundary_values[
+                            (direction + 1) * values_per_direction - 1, i, j, 0
+                        ] = q_ij
                     elif boundary_node and indicator(bc_x, bc_y) > 0:  # if VN: find T
                         host_boundary_info[direction + 1, i, j, 0] = 1
                         opposite_direction = velocity_set.opp_indices[direction]
-                        #host_boundary_info[1 + 9 + opposite_direction, i, j, 0] = 1
+                        # host_boundary_info[1 + 9 + opposite_direction, i, j, 0] = 1
                         host_boundary_info[0, i, j, 0] = 3
                         # find n
                         n = [dx_potential(bc_x, bc_y), dy_potential(bc_x, bc_y)]
@@ -465,15 +563,33 @@ def init_bc_from_lambda(potential_sympy, grid, dx, velocity_set, manufactured_di
                         dy_ux = bc_dirichlet[3](bc_x, bc_y)
                         dx_uy = bc_dirichlet[4](bc_x, bc_y)
                         dy_uy = bc_dirichlet[5](bc_x, bc_y)
-                        T_x = ((K - mu) * (dx_ux + dy_uy) * n[0] + mu * (2 * dx_ux * n[0] + (dx_uy + dy_ux) * n[1])) * L / kappa
-                        T_y = ((K - mu) * (dx_ux + dy_uy) * n[1] + mu * ((dx_uy + dy_ux) * n[0] + 2 * dy_uy * n[1])) * L / kappa
+                        T_x = (
+                            (
+                                (K - mu) * (dx_ux + dy_uy) * n[0]
+                                + mu * (2 * dx_ux * n[0] + (dx_uy + dy_ux) * n[1])
+                            )
+                            * L
+                            / kappa
+                        )
+                        T_y = (
+                            (
+                                (K - mu) * (dx_ux + dy_uy) * n[1]
+                                + mu * ((dx_uy + dy_ux) * n[0] + 2 * dy_uy * n[1])
+                            )
+                            * L
+                            / kappa
+                        )
 
                         # write to array
                         host_boundary_values[direction * values_per_direction, i, j, 0] = n[0]
                         host_boundary_values[direction * values_per_direction + 1, i, j, 0] = n[1]
                         host_boundary_values[direction * values_per_direction + 2, i, j, 0] = T_x
                         host_boundary_values[direction * values_per_direction + 3, i, j, 0] = T_y
-                        host_boundary_values[(direction + 1) * values_per_direction - 1, i, j, 0] = q_ij
+                        host_boundary_values[
+                            (direction + 1) * values_per_direction - 1, i, j, 0
+                        ] = q_ij
 
     # move to device
-    return wp.from_numpy(host_boundary_info, dtype=wp.int8), wp.from_numpy(host_boundary_values, dtype=precision_policy.store_precision.wp_dtype)
+    return wp.from_numpy(host_boundary_info, dtype=wp.int8), wp.from_numpy(
+        host_boundary_values, dtype=precision_policy.store_precision.wp_dtype
+    )

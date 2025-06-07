@@ -60,7 +60,9 @@ omega = 1.0 / (3.0 * visc + 0.5)
 # Runtime & compute_backend configurations
 compute_backend = ComputeBackend.WARP
 precision_policy = PrecisionPolicy.FP64FP64
-velocity_set = xlb.velocity_set.D3Q27(precision_policy=precision_policy, compute_backend=compute_backend)
+velocity_set = xlb.velocity_set.D3Q27(
+    precision_policy=precision_policy, compute_backend=compute_backend
+)
 num_steps = 10000000
 print_interval = 100000
 post_process_interval = 100000
@@ -140,7 +142,9 @@ f_0 = initialize_eq(f_0, grid, velocity_set, precision_policy, compute_backend, 
 macro = Macroscopic(
     compute_backend=ComputeBackend.JAX,
     precision_policy=precision_policy,
-    velocity_set=xlb.velocity_set.D3Q27(precision_policy=precision_policy, compute_backend=ComputeBackend.JAX),
+    velocity_set=xlb.velocity_set.D3Q27(
+        precision_policy=precision_policy, compute_backend=ComputeBackend.JAX
+    ),
 )
 
 

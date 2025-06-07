@@ -8,7 +8,9 @@ from xlb import DefaultConfig
 
 
 def init_xlb_env(velocity_set):
-    vel_set = velocity_set(precision_policy=xlb.PrecisionPolicy.FP32FP32, compute_backend=ComputeBackend.WARP)
+    vel_set = velocity_set(
+        precision_policy=xlb.PrecisionPolicy.FP32FP32, compute_backend=ComputeBackend.WARP
+    )
     xlb.init(
         default_precision_policy=xlb.PrecisionPolicy.FP32FP32,
         default_backend=ComputeBackend.WARP,
@@ -42,11 +44,15 @@ def test_quadratic_equilibrium_warp(dim, velocity_set, grid_shape):
     f_eq_np = f_eq.numpy()
 
     sum_f_eq = np.sum(f_eq_np, axis=0)
-    assert np.allclose(sum_f_eq, 1.0), "Sum of f_eq should be 1.0 across all directions at each grid point"
+    assert np.allclose(sum_f_eq, 1.0), (
+        "Sum of f_eq should be 1.0 across all directions at each grid point"
+    )
 
     weights = DefaultConfig.velocity_set.w
     for i, weight in enumerate(weights):
-        assert np.allclose(f_eq_np[i, ...], weight), f"Direction {i} in f_eq does not match the expected weight"
+        assert np.allclose(f_eq_np[i, ...], weight), (
+            f"Direction {i} in f_eq does not match the expected weight"
+        )
 
 
 # @pytest.fixture(autouse=True)

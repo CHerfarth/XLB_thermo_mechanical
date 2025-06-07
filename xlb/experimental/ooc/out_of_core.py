@@ -41,7 +41,9 @@ def OOCmap(comm, ref_args, add_index=False, backend="jax"):
             # TODO: Add better checks
             for ooc_array in ooc_array_args:
                 if ooc_array_args[0].tile_dims != ooc_array.tile_dims:
-                    raise ValueError(f"Tile dimensions of ooc arrays do not match. {ooc_array_args[0].tile_dims} != {ooc_array.tile_dims}")
+                    raise ValueError(
+                        f"Tile dimensions of ooc arrays do not match. {ooc_array_args[0].tile_dims} != {ooc_array.tile_dims}"
+                    )
 
             # Apply the function to each of the ooc arrays
             for tile_index in ooc_array_args[0].tiles.keys():

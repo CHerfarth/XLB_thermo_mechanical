@@ -29,9 +29,15 @@ if __name__ == "__main__":
     wp.config.mode = "debug"
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP32FP32
-    velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
+    velocity_set = xlb.velocity_set.D2Q9(
+        precision_policy=precision_policy, compute_backend=compute_backend
+    )
 
-    xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
+    xlb.init(
+        velocity_set=velocity_set,
+        default_backend=compute_backend,
+        default_precision_policy=precision_policy,
+    )
 
     # initialize grid
     nodes_x = 16
@@ -52,7 +58,9 @@ if __name__ == "__main__":
     nu = 0.8
 
     solid_simulation = SimulationParams()
-    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1, theta=1.0 / 3.0)
+    solid_simulation.set_all_parameters(
+        E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1, theta=1.0 / 3.0
+    )
     print("E: {}, nu: {}".format(solid_simulation.lamb, solid_simulation.mu))
     # get force load
     x, y = sympy.symbols("x y")
@@ -86,12 +94,16 @@ if __name__ == "__main__":
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
 
     # initialize stepper
-    stepper = SolidsStepper(grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values)
+    stepper = SolidsStepper(
+        grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values
+    )
 
     # startup grids
     # f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    macroscopics = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    macroscopics = grid.create_field(
+        cardinality=velocity_set.q, dtype=precision_policy.store_precision
+    )
     # set initial guess from white noise
     f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=0, seed=29)
 
@@ -102,10 +114,14 @@ if __name__ == "__main__":
         stepper(f_1, f_2)
         macroscopics = stepper.get_macroscopics(macroscopics, f_1)
         f_1, f_2 = f_2, f_1
-        l2_disp, l2_inf, l2_stress, linf_stress = utils.process_error(macroscopics.numpy(), expected_macroscopics, i, dx, norms_over_time)
+        l2_disp, l2_inf, l2_stress, linf_stress = utils.process_error(
+            macroscopics.numpy(), expected_macroscopics, i, dx, norms_over_time
+        )
         if i % 10 == 0:
             macroscopics = stepper.get_macroscopics(macroscopics, f_1)
-            l2_new, linf_new, l2_stress, linf_stress = utils.process_error(macroscopics.numpy(), expected_macroscopics, i, dx, norms_over_time)
+            l2_new, linf_new, l2_stress, linf_stress = utils.process_error(
+                macroscopics.numpy(), expected_macroscopics, i, dx, norms_over_time
+            )
             print(l2_new, linf_new, l2_stress, linf_stress)
             l2, linf = l2_new, linf_new
 

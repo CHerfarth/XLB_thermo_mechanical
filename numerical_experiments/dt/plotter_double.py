@@ -32,10 +32,18 @@ ax1.set_xscale("log")
 ax1.legend(loc="upper right")
 
 # Second plot (example plot, modify as needed)
-ax2.plot(data["dt"], data["l2_disp"], "-", color="green", label="L2 disp")  # Change this to your desired column/plot
-ax2.plot(data["dt"], data["linf_disp"], "--", color="green", label=("Linf disp"))  # Change this to your desired column/plot
-ax2.plot(data["dt"], data["l2_stress"], "-", color="orange", label=("L2 stress"))  # Change this to your desired column/plot
-ax2.plot(data["dt"], data["linf_stress"], "--", color="orange", label=("Linf stress"))  # Change this to your desired column/plot
+ax2.plot(
+    data["dt"], data["l2_disp"], "-", color="green", label="L2 disp"
+)  # Change this to your desired column/plot
+ax2.plot(
+    data["dt"], data["linf_disp"], "--", color="green", label=("Linf disp")
+)  # Change this to your desired column/plot
+ax2.plot(
+    data["dt"], data["l2_stress"], "-", color="orange", label=("L2 stress")
+)  # Change this to your desired column/plot
+ax2.plot(
+    data["dt"], data["linf_stress"], "--", color="orange", label=("Linf stress")
+)  # Change this to your desired column/plot
 ax2.set_title("Error")
 ax2.set_xlabel(x_label, labelpad=20, fontsize=12)
 ax2.set_ylabel("Error", labelpad=20, fontsize=12)

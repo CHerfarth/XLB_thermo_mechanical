@@ -47,7 +47,9 @@ class ZouHeBC(BoundaryCondition):
     ):
         # Important Note: it is critical to add id inside __init__ for this BC because different instantiations of this BC
         # may have different types (velocity or pressure).
-        assert bc_type in ["velocity", "pressure"], f"type = {bc_type} not supported! Use 'pressure' or 'velocity'."
+        assert bc_type in ["velocity", "pressure"], (
+            f"type = {bc_type} not supported! Use 'pressure' or 'velocity'."
+        )
         self.bc_type = bc_type
         self.equilibrium_operator = QuadraticEquilibrium()
         self.profile = profile
@@ -86,7 +88,9 @@ class ZouHeBC(BoundaryCondition):
                 # Check for non-zero elements - only one element should be non-zero
                 non_zero_count = np.count_nonzero(prescribed_value)
                 if non_zero_count > 1:
-                    raise ValueError("This BC only supports normal prescribed values (only one non-zero element allowed)")
+                    raise ValueError(
+                        "This BC only supports normal prescribed values (only one non-zero element allowed)"
+                    )
 
             # Prescribed value for this BC must be:
             # a single non-zero number associated with normal velocity magnitude for velocity BC OR
@@ -120,7 +124,9 @@ class ZouHeBC(BoundaryCondition):
             return wp.vec(_prescribed_value, length=1)
 
         def prescribed_profile_jax():
-            return jnp.array(_prescribed_value, dtype=self.precision_policy.store_precision.jax_dtype).reshape(-1, 1)
+            return jnp.array(
+                _prescribed_value, dtype=self.precision_policy.store_precision.jax_dtype
+            ).reshape(-1, 1)
 
         if self.compute_backend == ComputeBackend.JAX:
             return prescribed_profile_jax
@@ -141,7 +147,9 @@ class ZouHeBC(BoundaryCondition):
         return normals
 
     @partial(jit, static_argnums=(0, 2, 3), inline=True)
-    def _broadcast_prescribed_values(self, prescribed_values, prescribed_values_shape, target_shape):
+    def _broadcast_prescribed_values(
+        self, prescribed_values, prescribed_values_shape, target_shape
+    ):
         """
         Broadcasts `prescribed_values` to `target_shape` following specific rules:
 
@@ -166,7 +174,11 @@ class ZouHeBC(BoundaryCondition):
                 prescribed_values_shape = (1,) * num_dims_target
             else:
                 # Insert singleton dimensions after the first dimension
-                prescribed_values_shape = (prescribed_values_shape[0], *(1,) * num_singleton, *prescribed_values_shape[1:])
+                prescribed_values_shape = (
+                    prescribed_values_shape[0],
+                    *(1,) * num_singleton,
+                    *prescribed_values_shape[1:],
+                )
                 prescribed_values = prescribed_values.reshape(prescribed_values_shape)
 
         # Create broadcast shape based on the rules
@@ -183,7 +195,9 @@ class ZouHeBC(BoundaryCondition):
     def get_rho(self, fpop, missing_mask):
         if self.bc_type == "velocity":
             target_shape = (self.velocity_set.d,) + fpop.shape[1:]
-            vel = self._broadcast_prescribed_values(self.prescribed_values, self.prescribed_values.shape, target_shape)
+            vel = self._broadcast_prescribed_values(
+                self.prescribed_values, self.prescribed_values.shape, target_shape
+            )
             rho = self.calculate_rho(fpop, vel, missing_mask)
         elif self.bc_type == "pressure":
             rho = self.prescribed_values
@@ -195,7 +209,9 @@ class ZouHeBC(BoundaryCondition):
     def get_vel(self, fpop, missing_mask):
         if self.bc_type == "velocity":
             target_shape = (self.velocity_set.d,) + fpop.shape[1:]
-            vel = self._broadcast_prescribed_values(self.prescribed_values, self.prescribed_values.shape, target_shape)
+            vel = self._broadcast_prescribed_values(
+                self.prescribed_values, self.prescribed_values.shape, target_shape
+            )
         elif self.bc_type == "pressure":
             rho = self.prescribed_values
             vel = self.calculate_vel(fpop, rho, missing_mask)
@@ -211,7 +227,9 @@ class ZouHeBC(BoundaryCondition):
 
         normals = self._get_normal_vec(missing_mask)
         known_mask, middle_mask = self._get_known_middle_mask(missing_mask)
-        fsum = jnp.sum(fpop * middle_mask, axis=0, keepdims=True) + 2.0 * jnp.sum(fpop * known_mask, axis=0, keepdims=True)
+        fsum = jnp.sum(fpop * middle_mask, axis=0, keepdims=True) + 2.0 * jnp.sum(
+            fpop * known_mask, axis=0, keepdims=True
+        )
         unormal = -1.0 + fsum / rho
 
         # Return the above unormal as a normal vector which sets the tangential velocities to zero
@@ -226,7 +244,9 @@ class ZouHeBC(BoundaryCondition):
         normals = self._get_normal_vec(missing_mask)
         known_mask, middle_mask = self._get_known_middle_mask(missing_mask)
         unormal = jnp.sum(normals * vel, keepdims=True, axis=0)
-        fsum = jnp.sum(fpop * middle_mask, axis=0, keepdims=True) + 2.0 * jnp.sum(fpop * known_mask, axis=0, keepdims=True)
+        fsum = jnp.sum(fpop * middle_mask, axis=0, keepdims=True) + 2.0 * jnp.sum(
+            fpop * known_mask, axis=0, keepdims=True
+        )
         rho = fsum / (1.0 + unormal)
         return rho
 
@@ -270,7 +290,11 @@ class ZouHeBC(BoundaryCondition):
 
     def _construct_warp(self):
         # load helper functions
-        bc_helper = HelperFunctionsBC(velocity_set=self.velocity_set, precision_policy=self.precision_policy, compute_backend=self.compute_backend)
+        bc_helper = HelperFunctionsBC(
+            velocity_set=self.velocity_set,
+            precision_policy=self.precision_policy,
+            compute_backend=self.compute_backend,
+        )
         # Set local constants
         _d = self.velocity_set.d
         _q = self.velocity_set.q

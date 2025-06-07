@@ -30,7 +30,9 @@ grid_shape = (grid_size_x, grid_size_y, grid_size_z)
 compute_backend = ComputeBackend.WARP
 precision_policy = PrecisionPolicy.FP32FP32
 
-velocity_set = xlb.velocity_set.D3Q27(precision_policy=precision_policy, compute_backend=compute_backend)
+velocity_set = xlb.velocity_set.D3Q27(
+    precision_policy=precision_policy, compute_backend=compute_backend
+)
 wind_speed = 0.02
 num_steps = 100000
 print_interval = 1000
@@ -69,7 +71,10 @@ box = grid.bounding_box_indices()
 box_no_edge = grid.bounding_box_indices(remove_edges=True)
 inlet = box_no_edge["left"]
 outlet = box_no_edge["right"]
-walls = [box["bottom"][i] + box["top"][i] + box["front"][i] + box["back"][i] for i in range(velocity_set.d)]
+walls = [
+    box["bottom"][i] + box["top"][i] + box["front"][i] + box["back"][i]
+    for i in range(velocity_set.d)
+]
 walls = np.unique(np.array(walls), axis=-1).tolist()
 
 # Load the mesh (replace with your own mesh)
@@ -219,7 +224,9 @@ momentum_transfer = MomentumTransfer(bc_car, compute_backend=compute_backend)
 macro = Macroscopic(
     compute_backend=ComputeBackend.JAX,
     precision_policy=precision_policy,
-    velocity_set=xlb.velocity_set.D3Q27(precision_policy=precision_policy, compute_backend=ComputeBackend.JAX),
+    velocity_set=xlb.velocity_set.D3Q27(
+        precision_policy=precision_policy, compute_backend=ComputeBackend.JAX
+    ),
 )
 
 # Initialize Lists to Store Coefficients and Time Steps

@@ -9,7 +9,9 @@ from xlb.operator.boundary_masker import IndicesBoundaryMasker
 
 
 def init_xlb_env(velocity_set):
-    vel_set = velocity_set(precision_policy=xlb.PrecisionPolicy.FP32FP32, compute_backend=ComputeBackend.WARP)
+    vel_set = velocity_set(
+        precision_policy=xlb.PrecisionPolicy.FP32FP32, compute_backend=ComputeBackend.WARP
+    )
     xlb.init(
         default_precision_policy=xlb.PrecisionPolicy.FP32FP32,
         default_backend=ComputeBackend.WARP,
@@ -50,18 +52,26 @@ def test_fullway_bounce_back_warp(dim, velocity_set, grid_shape):
         indices = np.where((X - nr // 2) ** 2 + (Y - nr // 2) ** 2 < sphere_radius**2)
     else:
         X, Y, Z = np.meshgrid(x, y, z)
-        indices = np.where((X - nr // 2) ** 2 + (Y - nr // 2) ** 2 + (Z - nr // 2) ** 2 < sphere_radius**2)
+        indices = np.where(
+            (X - nr // 2) ** 2 + (Y - nr // 2) ** 2 + (Z - nr // 2) ** 2 < sphere_radius**2
+        )
 
     indices = [tuple(indices[i]) for i in range(velocity_set.d)]
     fullway_bc = xlb.operator.boundary_condition.FullwayBounceBackBC(indices=indices)
 
-    bc_mask, missing_mask = indices_boundary_masker([fullway_bc], bc_mask, missing_mask, start_index=None)
+    bc_mask, missing_mask = indices_boundary_masker(
+        [fullway_bc], bc_mask, missing_mask, start_index=None
+    )
 
     # Generate a random field with the same shape
     if dim == 2:
-        random_field = np.random.rand(velocity_set.q, grid_shape[0], grid_shape[1], 1).astype(np.float32)
+        random_field = np.random.rand(velocity_set.q, grid_shape[0], grid_shape[1], 1).astype(
+            np.float32
+        )
     else:
-        random_field = np.random.rand(velocity_set.q, grid_shape[0], grid_shape[1], grid_shape[2]).astype(np.float32)
+        random_field = np.random.rand(
+            velocity_set.q, grid_shape[0], grid_shape[1], grid_shape[2]
+        ).astype(np.float32)
     # Add the random field to f_pre
     f_pre = wp.array(random_field)
 
@@ -74,7 +84,11 @@ def test_fullway_bounce_back_warp(dim, velocity_set, grid_shape):
     f = f_pre.numpy()
     f_post = f_post.numpy()
 
-    assert f.shape == (velocity_set.q,) + grid_shape if dim == 3 else (velocity_set.q, grid_shape[0], grid_shape[1], 1)
+    assert (
+        f.shape == (velocity_set.q,) + grid_shape
+        if dim == 3
+        else (velocity_set.q, grid_shape[0], grid_shape[1], 1)
+    )
 
     for i in range(velocity_set.q):
         np.allclose(

@@ -40,12 +40,20 @@ class IncompressibleNavierStokesStepper(Stepper):
             self.collision = KBC(self.velocity_set, self.precision_policy, self.compute_backend)
 
         if force_vector is not None:
-            self.collision = ForcedCollision(collision_operator=self.collision, forcing_scheme=forcing_scheme, force_vector=force_vector)
+            self.collision = ForcedCollision(
+                collision_operator=self.collision,
+                forcing_scheme=forcing_scheme,
+                force_vector=force_vector,
+            )
 
         # Construct the operators
         self.stream = Stream(self.velocity_set, self.precision_policy, self.compute_backend)
-        self.equilibrium = QuadraticEquilibrium(self.velocity_set, self.precision_policy, self.compute_backend)
-        self.macroscopic = Macroscopic(self.velocity_set, self.precision_policy, self.compute_backend)
+        self.equilibrium = QuadraticEquilibrium(
+            self.velocity_set, self.precision_policy, self.compute_backend
+        )
+        self.macroscopic = Macroscopic(
+            self.velocity_set, self.precision_policy, self.compute_backend
+        )
 
     def prepare_fields(self, initializer=None):
         """Prepare the fields required for the stepper.
@@ -65,16 +73,23 @@ class IncompressibleNavierStokesStepper(Stepper):
         """
         # Create fields using the helper function
         _, f_0, f_1, missing_mask, bc_mask = create_nse_fields(
-            grid=self.grid, velocity_set=self.velocity_set, compute_backend=self.compute_backend, precision_policy=self.precision_policy
+            grid=self.grid,
+            velocity_set=self.velocity_set,
+            compute_backend=self.compute_backend,
+            precision_policy=self.precision_policy,
         )
 
         # Initialize distribution functions if initializer is provided
         if initializer is not None:
-            f_0 = initializer(self.grid, self.velocity_set, self.precision_policy, self.compute_backend)
+            f_0 = initializer(
+                self.grid, self.velocity_set, self.precision_policy, self.compute_backend
+            )
         else:
             from xlb.helper.initializers import initialize_eq
 
-            f_0 = initialize_eq(f_0, self.grid, self.velocity_set, self.precision_policy, self.compute_backend)
+            f_0 = initialize_eq(
+                f_0, self.grid, self.velocity_set, self.precision_policy, self.compute_backend
+            )
 
         # Copy f_0 using backend-specific copy to f_1
         if self.compute_backend == ComputeBackend.JAX:
@@ -83,9 +98,13 @@ class IncompressibleNavierStokesStepper(Stepper):
             wp.copy(f_1, f_0)
 
         # Process boundary conditions and update masks
-        bc_mask, missing_mask = self._process_boundary_conditions(self.boundary_conditions, bc_mask, missing_mask)
+        bc_mask, missing_mask = self._process_boundary_conditions(
+            self.boundary_conditions, bc_mask, missing_mask
+        )
         # Initialize auxiliary data if needed
-        f_0, f_1 = self._initialize_auxiliary_data(self.boundary_conditions, f_0, f_1, bc_mask, missing_mask)
+        f_0, f_1 = self._initialize_auxiliary_data(
+            self.boundary_conditions, f_0, f_1, bc_mask, missing_mask
+        )
 
         return f_0, f_1, bc_mask, missing_mask
 
@@ -93,7 +112,9 @@ class IncompressibleNavierStokesStepper(Stepper):
     def _process_boundary_conditions(cls, boundary_conditions, bc_mask, missing_mask):
         """Process boundary conditions and update boundary masks."""
         # Check for boundary condition overlaps
-        check_bc_overlaps(boundary_conditions, DefaultConfig.velocity_set.d, DefaultConfig.default_backend)
+        check_bc_overlaps(
+            boundary_conditions, DefaultConfig.velocity_set.d, DefaultConfig.default_backend
+        )
         # Create boundary maskers
         indices_masker = IndicesBoundaryMasker(
             velocity_set=DefaultConfig.velocity_set,
@@ -160,7 +181,9 @@ class IncompressibleNavierStokesStepper(Stepper):
 
         # Apply collision type boundary conditions
         for bc in self.boundary_conditions:
-            f_post_collision = bc.update_bc_auxilary_data(f_post_stream, f_post_collision, bc_mask, missing_mask)
+            f_post_collision = bc.update_bc_auxilary_data(
+                f_post_stream, f_post_collision, bc_mask, missing_mask
+            )
             if bc.implementation_step == ImplementationStep.COLLISION:
                 f_post_collision = bc(
                     f_post_stream,
@@ -190,7 +213,9 @@ class IncompressibleNavierStokesStepper(Stepper):
             if bc_name.startswith("ExtrapolationOutflowBC"):
                 extrapolation_outflow_bc_ids.append(bc_id)
         # Group active boundary conditions
-        active_bcs = set(boundary_condition_registry.id_to_bc[bc.id] for bc in self.boundary_conditions)
+        active_bcs = set(
+            boundary_condition_registry.id_to_bc[bc.id] for bc in self.boundary_conditions
+        )
 
         _opp_indices = self.velocity_set.opp_indices
 
@@ -211,18 +236,28 @@ class IncompressibleNavierStokesStepper(Stepper):
             # Unroll the loop over boundary conditions
             for i in range(wp.static(len(self.boundary_conditions))):
                 if is_post_streaming:
-                    if wp.static(self.boundary_conditions[i].implementation_step == ImplementationStep.STREAMING):
+                    if wp.static(
+                        self.boundary_conditions[i].implementation_step
+                        == ImplementationStep.STREAMING
+                    ):
                         if _boundary_id == wp.static(self.boundary_conditions[i].id):
-                            f_result = wp.static(self.boundary_conditions[i].warp_functional)(index, timestep, missing_mask, f_0, f_1, f_pre, f_post)
-                else:
-                    if wp.static(self.boundary_conditions[i].implementation_step == ImplementationStep.COLLISION):
-                        if _boundary_id == wp.static(self.boundary_conditions[i].id):
-                            f_result = wp.static(self.boundary_conditions[i].warp_functional)(index, timestep, missing_mask, f_0, f_1, f_pre, f_post)
-                    if wp.static(self.boundary_conditions[i].id in extrapolation_outflow_bc_ids):
-                        if _boundary_id == wp.static(self.boundary_conditions[i].id):
-                            f_result = wp.static(self.boundary_conditions[i].update_bc_auxilary_data)(
+                            f_result = wp.static(self.boundary_conditions[i].warp_functional)(
                                 index, timestep, missing_mask, f_0, f_1, f_pre, f_post
                             )
+                else:
+                    if wp.static(
+                        self.boundary_conditions[i].implementation_step
+                        == ImplementationStep.COLLISION
+                    ):
+                        if _boundary_id == wp.static(self.boundary_conditions[i].id):
+                            f_result = wp.static(self.boundary_conditions[i].warp_functional)(
+                                index, timestep, missing_mask, f_0, f_1, f_pre, f_post
+                            )
+                    if wp.static(self.boundary_conditions[i].id in extrapolation_outflow_bc_ids):
+                        if _boundary_id == wp.static(self.boundary_conditions[i].id):
+                            f_result = wp.static(
+                                self.boundary_conditions[i].update_bc_auxilary_data
+                            )(index, timestep, missing_mask, f_0, f_1, f_pre, f_post)
             return f_result
 
         @wp.func
@@ -271,7 +306,9 @@ class IncompressibleNavierStokesStepper(Stepper):
                         # (ii) Recover the values stored in the missing directions of f_1
                         for l in range(1, self.velocity_set.q):
                             if _missing_mask[l] == wp.uint8(1):
-                                f_0[_opp_indices[l], index[0], index[1], index[2]] = self.store_dtype(_f1_thread[_opp_indices[l]])
+                                f_0[_opp_indices[l], index[0], index[1], index[2]] = (
+                                    self.store_dtype(_f1_thread[_opp_indices[l]])
+                                )
 
         @wp.kernel
         def kernel(
@@ -296,14 +333,36 @@ class IncompressibleNavierStokesStepper(Stepper):
             _f_post_collision = _f0_thread
 
             # Apply post-streaming boundary conditions
-            _f_post_stream = apply_bc(index, timestep, _boundary_id, _missing_mask, f_0, f_1, _f_post_collision, _f_post_stream, True)
+            _f_post_stream = apply_bc(
+                index,
+                timestep,
+                _boundary_id,
+                _missing_mask,
+                f_0,
+                f_1,
+                _f_post_collision,
+                _f_post_stream,
+                True,
+            )
 
             _rho, _u = self.macroscopic.warp_functional(_f_post_stream)
             _feq = self.equilibrium.warp_functional(_rho, _u)
-            _f_post_collision = self.collision.warp_functional(_f_post_stream, _feq, _rho, _u, omega)
+            _f_post_collision = self.collision.warp_functional(
+                _f_post_stream, _feq, _rho, _u, omega
+            )
 
             # Apply post-collision boundary conditions
-            _f_post_collision = apply_bc(index, timestep, _boundary_id, _missing_mask, f_0, f_1, _f_post_stream, _f_post_collision, False)
+            _f_post_collision = apply_bc(
+                index,
+                timestep,
+                _boundary_id,
+                _missing_mask,
+                f_0,
+                f_1,
+                _f_post_stream,
+                _f_post_collision,
+                False,
+            )
 
             # Apply auxiliary recovery for boundary conditions (swapping)
             apply_aux_recovery_bc(index, _boundary_id, _missing_mask, f_0, _f1_thread)
