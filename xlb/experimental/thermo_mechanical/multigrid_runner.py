@@ -84,7 +84,7 @@ if __name__ == "__main__":
     boundary_array, boundary_values = bc.init_bc_from_lambda(
         potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
     )
-    #potential, boundary_array, boundary_values = None, None, None
+    potential, boundary_array, boundary_values = None, None, None
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         print("-------Timestep {}---------".format(i))
         residual_norm = finest_level.start_v_cycle(timestep=i)
         residual_over_time.append(residual_norm)
-        macroscopics = finest_level.get_macroscopics()
+        macroscopics = finest_level.get_macroscopics().numpy()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
         utils.output_image(macroscopics, i, "image1")
         print("-------Timestep {} done---------".format(i))

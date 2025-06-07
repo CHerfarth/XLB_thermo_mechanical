@@ -99,7 +99,7 @@ class SolidMacroscopics(Operator):
         return functional, kernel
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, output_array, bared_moments, force):
+    def warp_implementation(self, bared_moments, output_array, force):
         params = SimulationParams()
         T = params.T
         L = params.L

@@ -167,6 +167,7 @@ if __name__ == "__main__":
         benchmark_data.wu += 1
         wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
         stepper(f_1, f_2)
+        f_1,f_2 = f_2, f_1
         wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:])
         residual_norm = np.linalg.norm(residual.numpy())
         residuals.append(residual_norm)

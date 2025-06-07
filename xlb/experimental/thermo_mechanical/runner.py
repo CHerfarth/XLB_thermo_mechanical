@@ -44,7 +44,7 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    timesteps = 1
+    timesteps = 1000
     dt = 0.001
 
     # params
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     # startup grids
     # f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    macroscopics = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     # set initial guess from white noise
     f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=0, seed=29)
 
@@ -100,22 +100,19 @@ if __name__ == "__main__":
     l2, linf = 0, 0
     for i in range(timesteps):
         stepper(f_1, f_2)
-        macroscopics = stepper.get_macroscopics_host(f_1)
-        l2_disp, l2_inf, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
+        macroscopics = stepper.get_macroscopics(macroscopics, f_1)
+        f_1, f_2 = f_2, f_1
+        l2_disp, l2_inf, l2_stress, linf_stress = utils.process_error(macroscopics.numpy(), expected_macroscopics, i, dx, norms_over_time)
         if i % 10 == 0:
-            macroscopics = stepper.get_macroscopics_host(f_1)
-            l2_new, linf_new, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
-            # print(l2_new, linf_new, l2_stress, linf_stress)
-            utils.output_image(macroscopics, i, "figure", potential, dx)
-            if math.fabs(l2 - l2_new) < tolerance and math.fabs(linf - linf_new) < tolerance:
-                print("Final timestep:{}".format(i))
-                break
+            macroscopics = stepper.get_macroscopics(macroscopics, f_1)
+            l2_new, linf_new, l2_stress, linf_stress = utils.process_error(macroscopics.numpy(), expected_macroscopics, i, dx, norms_over_time)
+            print(l2_new, linf_new, l2_stress, linf_stress)
             l2, linf = l2_new, linf_new
 
     # write out error norms
     # print("Final error: {}".format(norms_over_time[len(norms_over_time) - 1]))
-    macroscopics = stepper.get_macroscopics_host(f_1)
-    utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
+    macroscopics = stepper.get_macroscopics(macroscopics, f_1)
+    utils.process_error(macroscopics.numpy(), expected_macroscopics, i, dx, norms_over_time)
     # write out error norms
     last_norms = norms_over_time[len(norms_over_time) - 1]
     print("Final error L2_disp: {}".format(last_norms[1]))
@@ -124,4 +121,3 @@ if __name__ == "__main__":
     print("Final error Linf_stress: {}".format(last_norms[4]))
     print("in {} timesteps".format(last_norms[0]))
     # write_results(norms_over_time, "results.csv")
-    print(macroscopics[0, :, :, :])

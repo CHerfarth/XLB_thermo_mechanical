@@ -96,9 +96,10 @@ class Level:
         # for statistics
         benchmark_data = BenchmarkData()
         benchmark_data.wu += 0.25**self.level_num
-        #wp.launch(self.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
-        self.stepper(self.f_1, self.f_2)
-        #wp.launch(self.relax, inputs=[self.f_1, self.f_3, self.defect_correction, self.f_1, self.gamma, self.velocity_set.q], dim=self.f_1.shape[1:])
+        wp.launch(self.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
+        self.stepper(self.f_1, self.f_4)
+        wp.launch(self.relax, inputs=[self.f_4, self.f_3, self.defect_correction, self.f_4, self.gamma, self.velocity_set.q], dim=self.f_1.shape[1:])
+        self.f_1, self.f_4 = self.f_4, self.f_1
 
     def get_residual(self):
         wp.launch(self.copy_populations, inputs=[self.f_1, self.f_2, 9], dim=self.f_1.shape[1:])
@@ -106,18 +107,19 @@ class Level:
         self.stepper(self.f_2, self.f_3)
         # rules for operator: A(f) = current - previous
         # --> residual = defect - A(f) = defect + previous - current
-        wp.launch(self.add_populations, inputs=[self.f_1, self.defect_correction, self.f_3, 9], dim=self.f_1.shape[1:])
-        wp.launch(self.subtract_populations, inputs=[self.f_3, self.f_2, self.f_3, 9], dim=self.f_2.shape[1:])
+        wp.launch(self.add_populations, inputs=[self.f_1, self.defect_correction, self.f_2, 9], dim=self.f_1.shape[1:])
+        wp.launch(self.subtract_populations, inputs=[self.f_2, self.f_3, self.f_2, 9], dim=self.f_2.shape[1:])
         # if simulating with boundary conditions, set residual to 0 outside potential
         if self.stepper.boundary_conditions != None:
-            wp.launch(self.set_zero_outside_boundary, inputs=[self.f_3, self.stepper.boundary_conditions], dim=self.f_3.shape[1:])
-        return self.f_3
+            wp.launch(self.set_zero_outside_boundary, inputs=[self.f_2, self.stepper.boundary_conditions], dim=self.f_2.shape[1:])
+        return self.f_2
 
-    def get_macroscopics(self, output_array, population=None):
+    def get_macroscopics(self, f=None):
         self.set_params()
-        if population == None:
-            population = self.f_1
-        return self.stepper.get_macroscopics(output_array, population)
+        if f == None:
+            f = self.f_1
+        return self.stepper.get_macroscopics(f=f, output_array=self.f_3)
+
 
     def set_params(self):
         simulation_params = SimulationParams()
@@ -136,7 +138,7 @@ class Level:
 
         coarse = self.multigrid.get_next_level(self.level_num)
 
-        '''if coarse != None:
+        if coarse != None:
             # get residual
             residual = self.get_residual()
             #restrict residual to defect_corrrection on coarse grid
@@ -160,12 +162,10 @@ class Level:
             else:
                 wp.launch(self.interpolate, inputs=[self.f_3, error_approx, coarse.nodes_x, coarse.nodes_y], dim=self.f_3.shape[1:])
             # add error_approx to current estimate
-            #wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])'''
+            wp.launch(self.add_populations, inputs=[self.f_1, self.f_3, self.f_1, 9], dim=self.f_1.shape[1:])
         
         #copy over to f_4 for boundary conditions
-        wp.synchronize()
-        #wp.launch(self.copy_populations, inputs=[self.f_1, self.f_4, 9], dim=self.f_1.shape[1:])
-        wp.synchronize()
+        wp.launch(self.copy_populations, inputs=[self.f_1, self.f_4, 9], dim=self.f_1.shape[1:])
 
         # do post_smoothing
         for i in range(self.v2):

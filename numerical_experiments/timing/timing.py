@@ -12,8 +12,7 @@ import csv
 import math
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
-from xlb.experimental.thermo_mechanical.multigrid_solver import MultigridSolver
-from xlb.experimental.thermo_mechanical.multigrid import Level
+from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
 from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import argparse
@@ -148,6 +147,8 @@ if __name__ == "__main__":
     del multigrid_solver
 
     # ------------------------------------- collect data for normal LB ----------------------------------
+    solid_simulation = SimulationParams()
+    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
 
     timesteps = args.max_timesteps_standard
     converged = 0
@@ -160,18 +161,15 @@ if __name__ == "__main__":
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
 
-    benchmark_data = BenchmarkData()
-    benchmark_data.wu = 0.0
-
     if args.test_standard:
         wp.synchronize()
         start = time.time()
 
         for i in range(timesteps):
-            benchmark_data.wu += 1
             if i % 100 == 0:
                 wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
             stepper(f_1, f_2)
+            f_1, f_2 = f_2, f_1 
             if i % 100 == 0:
                 wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:])
                 residual_norm_sq = wp.zeros(shape=1, dtype=precision_policy.compute_precision.wp_dtype)
@@ -188,6 +186,15 @@ if __name__ == "__main__":
     print("Standard_Converged: {}".format(converged))
     print("Standard_Time: {}".format(runtime))
     print("Standard_Iterations: {}".format(i))
+    norms_over_time = list()
+    macroscopics = stepper.get_macroscopics(f=f_1, output_array=f_2).numpy()
+    utils.process_error(macroscopics=macroscopics, expected_macroscopics=expected_macroscopics, timestep=0, dx=dx, norms_over_time=norms_over_time)
+    last_norms = norms_over_time[len(norms_over_time) - 1]
+    print("Final error L2_disp: {}".format(last_norms[1]))
+    print("Final error Linf_disp: {}".format(last_norms[2]))
+    print("Final error L2_stress: {}".format(last_norms[3]))
+    print("Final error Linf_stress: {}".format(last_norms[4]))
+    print("in {} timesteps".format(last_norms[0]))
 
     del f_1
     del f_2
@@ -195,6 +202,8 @@ if __name__ == "__main__":
 
 
     # ------------------------------------- collect data for relaxed LB ----------------------------------
+    solid_simulation = SimulationParams()
+    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
 
     timesteps = args.max_timesteps_standard
     converged = 0
@@ -220,7 +229,7 @@ if __name__ == "__main__":
             benchmark_data.wu += 1
             wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
             stepper(f_1, f_2)
-            wp.launch(relaxation_no_defect, inputs=[f_1, residual, f_1, gamma, 9], dim=f_2.shape[1:])
+            wp.launch(relaxation_no_defect, inputs=[f_2, residual, f_1, gamma, 9], dim=f_2.shape[1:])
             if i % 100 == 0:
                 wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:])
                 residual_norm_sq = wp.zeros(shape=1, dtype=precision_policy.compute_precision.wp_dtype)

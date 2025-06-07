@@ -115,8 +115,8 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=40,
-        v2=40,
+        v1=4,
+        v2=4,
         max_levels=None,
         coarsest_level_iter=100,
         boundary_conditions=boundary_array,
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle(return_residual=True)
         residuals.append(residual_norm)
-        macroscopics = finest_level.get_macroscopics()
+        macroscopics = finest_level.get_macroscopics().numpy()
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, list())
         data_over_wu.append((benchmark_data.wu, i, residual_norm, l2_disp, linf_disp, l2_stress, linf_stress))
 

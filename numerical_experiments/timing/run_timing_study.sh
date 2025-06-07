@@ -18,9 +18,9 @@ current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
 log_file="log_"$current_date_time".txt"
 results_file="results_"$current_date_time".csv"
 
-repeat_iterations=3
+repeat_iterations=5
 
-timing_cutoff=15
+timing_cutoff=40
 
 
 nu=$base_nu
@@ -36,10 +36,10 @@ do
             nodes_y=$base_nodes_y
             test_multigrid=1
             test_standard=1
-            test_relaxed=0
+            test_relaxed=1
             for ((i=0; i<iterations; i++))
             do
-                python3 timing.py $nodes_x $nodes_y $max_multi $start_multi $interval_multi $max_standard $start_standard $intervals_standard $E $nu $test_multigrid $test_standard $test_relaxed # >  tmp_1.txt 
+                python3 timing.py $nodes_x $nodes_y $max_multi $start_multi $interval_multi $max_standard $start_standard $intervals_standard $E $nu $test_multigrid $test_standard $test_relaxed >  tmp_1.txt 
                 cat tmp_1.txt >> $log_file #write to log
 
                 #get convergence of multigrid 
@@ -92,17 +92,16 @@ do
 
                 rm tmp*
             done
-            python3 plotter.py $results_file $E $nu
-
-            mkdir plots 
-            mkdir data
-            mv runtimes.png plots/runtimes_E_"$E"_nu_"$nu".png
-            mv multigrid.png plots/only_multi_E_"$E"_nu_"$nu".png
-            mv $results_file data/results_"$E"_nu_"$nu".csv
-
-
-            echo "Simulated with E $E and nu $nu"
+            
         done
+        python3 plotter.py $results_file $E $nu
+        mkdir plots 
+        mkdir data
+        mv runtimes.png plots/runtimes_E_"$E"_nu_"$nu".png
+        mv multigrid.png plots/only_multi_E_"$E"_nu_"$nu".png
+        mv $results_file data/results_"$E"_nu_"$nu".csv
+        echo "Simulated with E $E and nu $nu"
+
         E=$(echo "$E+$d_E" | bc -l)
     done
     nu=$(echo "$nu+$d_nu" | bc -l)
