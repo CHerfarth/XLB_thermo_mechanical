@@ -3,11 +3,11 @@ from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 from xlb.compute_backend import ComputeBackend
 import warp as wp
 
+
 class Prolongation(Operator):
-    
     def __init__(
         self,
-        velocity_set = None,
+        velocity_set=None,
         precision_policy=None,
         compute_backend=None,
     ):
@@ -16,7 +16,7 @@ class Prolongation(Operator):
             precision_policy=precision_policy,
             compute_backend=compute_backend,
         )
-    
+
     def _construct_warp(self):
         kernel_provider = KernelProvider()
         vec = kernel_provider.vec
@@ -107,21 +107,22 @@ class Prolongation(Operator):
                 wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y),
             )
 
-            _error_approx = functional(f_a=_f_a, f_b=_f_b, f_c=_f_c, f_d=_f_d) 
+            _error_approx = functional(f_a=_f_a, f_b=_f_b, f_c=_f_c, f_d=_f_d)
             _f_old = read_local_population(fine, i, j)
             _f_out = vec()
             for l in range(self.velocity_set.q):
                 _f_out[l] = _f_old[l] + _error_approx[l]
 
             write_population_to_global(fine, _f_out, i, j)
-        
+
         return functional, kernel
-    
+
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, fine, coarse):
         coarse_nodes_x = coarse.shape[1]
         coarse_nodes_y = coarse.shape[2]
-        wp.launch(self.warp_kernel, inputs=[fine, coarse, coarse_nodes_x, coarse_nodes_y], dim=fine.shape[1:])
-
-    
-
+        wp.launch(
+            self.warp_kernel,
+            inputs=[fine, coarse, coarse_nodes_x, coarse_nodes_y],
+            dim=fine.shape[1:],
+        )

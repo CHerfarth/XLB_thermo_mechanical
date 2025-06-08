@@ -52,10 +52,10 @@ if __name__ == "__main__":
     dx = length_x / float(nodes_x)
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
-    dt = dx*dx
+    dt = dx * dx
 
     # params
-    E = 0.5 
+    E = 0.5
     nu = 0.8
 
     solid_simulation = SimulationParams()
@@ -117,7 +117,7 @@ if __name__ == "__main__":
     for i in range(100):
         multigrid_solver.start_v_cycle()
         multigrid_solver.get_macroscopics(output_array=macroscopics)
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.get_error_norms(macroscopics.numpy(), expected_macroscopics, dx, i)
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.get_error_norms(
+            macroscopics.numpy(), expected_macroscopics, dx, i
+        )
         print(l2_disp)
-
-
