@@ -20,7 +20,7 @@ results_file="results_"$current_date_time".csv"
 
 repeat_iterations=5
 
-timing_cutoff=40
+timing_cutoff=2 #40
 
 
 nu=$base_nu

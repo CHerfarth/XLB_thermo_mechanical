@@ -2,6 +2,7 @@ from functools import partial
 import warp as wp
 import numpy as np
 import sympy
+import math
 
 import xlb
 from xlb.operator.stepper import Stepper
@@ -164,8 +165,39 @@ class SolidsRelaxedStepper(Stepper):
 
             write_population_to_global(f_2, _f_out, i, j)
 
+        @wp.kernel
+        def kernel_residual_norm_squared(
+            f_1: wp.array4d(dtype=self.store_dtype),
+            res_norm:  wp.array1d(dtype=self.store_dtype),
+            force: wp.array4d(dtype=self.store_dtype),
+            omega: vec,
+            theta: self.compute_dtype,
+        ):
+            i, j, k = wp.tid()
+
+            _zero_vec = vec()
+            for l in range(self.velocity_set.q):
+                _zero_vec[l] = self.compute_dtype(0)
+
+            force_x = self.compute_dtype(force[0, i, j, 0])
+            force_y = self.compute_dtype(force[1, i, j, 0])
+
+            _f_pre = read_local_population(f_1, i, j)
+
+            _f_post = functional(i=i, j=j, k=k, f_1=f_1, defect_vec=_zero_vec, omega=omega, force_x=force_x, force_y=force_y, theta=theta, gamma=self.compute_dtype(1))
+
+            _local_res = self.compute_dtype(0)
+            for l in range(self.velocity_set.q):
+                _local_res += (_f_post[l] - _f_pre[l]) * (_f_post[l] - _f_pre[l])
+            
+            
+            wp.atomic_add(res_norm, 0,self.store_dtype(_local_res))
+
+
+
+
         
-        return functional, kernel 
+        return functional, (kernel, kernel_residual_norm_squared)
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(
@@ -175,12 +207,23 @@ class SolidsRelaxedStepper(Stepper):
         theta = params.theta
         if self.boundary_conditions == None:
             wp.launch(
-                self.warp_kernel,
+                self.warp_kernel[0],
                 inputs=[f_1, f_2, defect_correction, self.force, self.omega, theta, self.gamma],
                 dim=f_1.shape[1:],
             )
         else:
             print("Error! Relaxed stepper does not work for boundary conditions yet!")
+    
+    def get_residual_norm(self, f):
+        params = SimulationParams()
+        theta = params.theta
+        res_norm = wp.zeros(shape=(1), dtype=self.store_dtype)
+        wp.launch(
+            self.warp_kernel[1],
+            inputs=[f, res_norm, self.force, self.omega, theta],
+            dim=f.shape[1:],
+        )
+        return math.sqrt(1/(f.shape[0]*f.shape[1]*f.shape[2])*res_norm.numpy()[0])
 
     def get_macroscopics(self, f, output_array):
         bared_moments = self.bared_moments(f=f, output_array=output_array, force=self.force)

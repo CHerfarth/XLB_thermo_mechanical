@@ -76,6 +76,7 @@ class Level(Operator):
         calc_equilibrium = kernel_provider.calc_equilibrium
         calc_populations = kernel_provider.calc_populations
         write_population_to_global = kernel_provider.write_population_to_global
+        self.set_population_zero = kernel_provider.set_population_to_zero
 
         @wp.kernel
         def kernel(f_1: wp.array4d(dtype=self.store_dtype), f_2: wp.array4d(dtype=self.store_dtype), defect_correction: wp.array4d(dtype=self.store_dtype),
@@ -87,15 +88,17 @@ class Level(Operator):
             i,j,k=wp.tid()
             _f_post_collision = read_local_population(f_1, i, j)
             _defect = read_local_population(defect_correction, i, j)
+            _zero_vec = vec()
+            for l in range(self.velocity_set.q):
+                _zero_vec[l] = self.compute_dtype(0)
             force_x = self.compute_dtype(force[0, i, j, 0])
             force_y = self.compute_dtype(force[1, i, j, 0])
-
-            _f_new_post_collision = self.stepper.warp_functional(i=i, j=j, k=k, f_1=f_1, defect_vec=_defect, omega=omega, force_x=force_x, force_y=force_y, theta=theta, gamma=gamma)
+            _f_new_post_collision = self.stepper.warp_functional(i=i, j=j, k=k, f_1=f_1, defect_vec=_zero_vec, omega=omega, force_x=force_x, force_y=force_y, theta=theta, gamma=self.compute_dtype(1)) #gamma = 1, because we're calculating the defect
             # rules for operator: A(f) = current - previous
             # --> residual = defect - A(f) = defect + previous - current
             _res = vec()
             for l in range(self.velocity_set.q):
-                _res[l] = self.compute_dtype(0)*_defect[l] + _f_post_collision[l] - _f_new_post_collision[l]
+                _res[l] =  _defect[l] + _f_post_collision[l] - _f_new_post_collision[l] 
 
             write_population_to_global(f_2, _res, i, j)
 
@@ -106,7 +109,9 @@ class Level(Operator):
         simulation_params.set_dx_dt(self.dx, self.dt)
         
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, multigrid):
+    def warp_implementation(self, multigrid, return_residual=False):
+        self.set_params()
+
         params = SimulationParams()
         theta = params.theta
 
@@ -118,18 +123,29 @@ class Level(Operator):
         coarse = multigrid.get_next_level(self.level_num)
 
 
-        if coarse != None:
+        if coarse is not None:
             wp.launch(self.warp_kernel, inputs=[self.f_1, self.f_2, self.defect_correction, self.stepper.force, self.stepper.omega, theta, self.gamma], dim=self.f_2.shape[1:]) #f_2 now contains the residual
 
             self.restriction(fine=self.f_2, coarse=coarse.defect_correction) #restrict residual to defect correction of coarser grid
 
+            wp.launch(self.set_population_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:])
+
             coarse(multigrid)
 
             self.prolongation(fine=self.f_1, coarse=coarse.f_1) #prolongate error approx back to fine grid and add it to current solution
+        else:
+            
+            for i in range(self.coarsest_level_iter):
+                self.stepper(self.f_1, self.f_2, self.defect_correction)
+                self.f_1, self.f_2 = self.f_2, self.f_1
+
         
         for i in range(self.v2):
             self.stepper(self.f_1, self.f_2, self.defect_correction)
             self.f_1, self.f_2 = self.f_2, self.f_1
+        
+        if return_residual:
+            return self.stepper.get_residual_norm(self.f_1)
         
 
 

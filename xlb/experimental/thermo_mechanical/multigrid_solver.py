@@ -93,9 +93,9 @@ class MultigridSolver:
     def get_finest_level(self):
         return self.levels[0]
     
-    def start_v_cycle(self):
+    def start_v_cycle(self, return_residual=False):
         finest_level = self.get_finest_level()
-        finest_level(self)
+        return finest_level(self, return_residual)
     
     def get_macroscopics(self, output_array):
         finest_level = self.get_finest_level()

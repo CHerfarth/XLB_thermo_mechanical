@@ -64,7 +64,6 @@ class SolidBaredMoments(Operator):
                     bared_m[l] = (
                         self.compute_dtype(1) - tau * omega[l] / (self.compute_dtype(1) - omega[l])
                     ) * m_eq[l] + (tau / (self.compute_dtype(1) - omega[l]) - tau) * bared_m[l]
-
             return bared_m
 
         @wp.kernel

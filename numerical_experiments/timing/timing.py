@@ -12,7 +12,7 @@ import csv
 import math
 import xlb.experimental.thermo_mechanical.solid_utils as utils
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
-from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
+from xlb.experimental.thermo_mechanical.multigrid_solver import MultigridSolver
 from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import argparse
@@ -138,16 +138,14 @@ if __name__ == "__main__":
         v2=3,
         max_levels=None,
     )
-    finest_level = multigrid_solver.get_finest_level()
     # ------------set initial guess to white noise------------------------
-    # finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
     # --------------------------------------------------------------------
     wp.synchronize()
     # -------------start timing-------------------------------------------
     if args.test_multigrid:
         start = time.time()
         for i in range(timesteps):
-            residual_norm = finest_level.start_v_cycle(return_residual=True)
+            residual_norm = multigrid_solver.start_v_cycle(return_residual=True)
             print(residual_norm)
             if residual_norm / dt < tol:
                 converged = 1
@@ -159,7 +157,6 @@ if __name__ == "__main__":
     print("Multigrid_Time: {}".format(runtime))
     print("Multigrid_Iterations: {}".format(i))
 
-    del finest_level
     del multigrid_solver
 
     # ------------------------------------- collect data for normal LB ----------------------------------

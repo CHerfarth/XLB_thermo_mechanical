@@ -16,7 +16,7 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 import xlb.experimental.thermo_mechanical.solid_bounceback as bc
 from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
-from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
+from xlb.experimental.thermo_mechanical.multigrid_solver import MultigridSolver
 from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import argparse
@@ -133,20 +133,17 @@ if __name__ == "__main__":
         gamma=0.8,
         v1=2,
         v2=2,
-        max_levels=1,
+        max_levels=None,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
         potential=potential_sympy,
+        coarsest_level_iter=100,
     )
-    finest_level = multigrid_solver.get_finest_level()
-
-    # set initial guess from white noise
-    # finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31)
 
     for i in range(timesteps):
-        residual_norm = finest_level.start_v_cycle(return_residual=True)
+        residual_norm = multigrid_solver.start_v_cycle(return_residual=True)
         residuals.append(residual_norm)
-        macroscopics = finest_level.get_macroscopics(macroscopics)
+        multigrid_solver.get_macroscopics(macroscopics)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(
             macroscopics.numpy(), expected_macroscopics, i, dx, list()
         )
@@ -174,6 +171,7 @@ if __name__ == "__main__":
     )
 
     # initialize stepper
+    print(force_load)
     stepper = SolidsStepper(
         grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values
     )

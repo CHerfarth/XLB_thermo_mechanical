@@ -107,7 +107,7 @@ if __name__ == "__main__":
         gamma=0.8,
         v1=5,
         v2=5,
-        max_levels=2,
+        max_levels=None,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
         potential=potential_sympy,
