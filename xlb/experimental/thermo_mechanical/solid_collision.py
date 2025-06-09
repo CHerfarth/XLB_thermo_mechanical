@@ -23,7 +23,7 @@ class SolidsCollision(Collision):
     def __init__(
         self,
         omega,
-        velocity_set = None,
+        velocity_set=None,
         precision_policy=None,
         compute_backend=None,
     ):

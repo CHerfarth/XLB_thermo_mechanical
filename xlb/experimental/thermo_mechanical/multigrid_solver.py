@@ -16,6 +16,7 @@ import math
 from typing import Any
 import sympy
 
+
 class MultigridSolver:
     """
     A class implementing a multigrid iterative solver for elliptic PDEs.
@@ -50,7 +51,6 @@ class MultigridSolver:
             self.max_levels = self.max_possible_levels
         else:
             self.max_levels = min(max_levels, self.max_possible_levels)
-        
 
         # setup levels
         self.levels = list()
@@ -66,7 +66,7 @@ class MultigridSolver:
 
             if i != 0:
                 force_load = None
-            
+
             level = Level(
                 nodes_x=nx_level,
                 nodes_y=ny_level,
@@ -92,12 +92,11 @@ class MultigridSolver:
 
     def get_finest_level(self):
         return self.levels[0]
-    
+
     def start_v_cycle(self, return_residual=False):
         finest_level = self.get_finest_level()
         return finest_level(self, return_residual)
-    
+
     def get_macroscopics(self, output_array):
         finest_level = self.get_finest_level()
         finest_level.stepper.get_macroscopics(f=finest_level.f_1, output_array=output_array)
-

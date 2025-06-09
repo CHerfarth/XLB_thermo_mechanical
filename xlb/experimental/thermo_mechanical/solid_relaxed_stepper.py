@@ -80,7 +80,9 @@ class SolidsRelaxedStepper(Stepper):
             host_force_x = np.fromfunction(
                 b_x_scaled, shape=(self.grid.shape[0], self.grid.shape[1])
             )  # create array with force evaluated at the grid points
-            host_force_y = np.fromfunction(b_y_scaled, shape=(self.grid.shape[0], self.grid.shape[1]))
+            host_force_y = np.fromfunction(
+                b_y_scaled, shape=(self.grid.shape[0], self.grid.shape[1])
+            )
             host_force = np.array([[host_force_x, host_force_y]])
             host_force = np.transpose(
                 host_force, (1, 2, 3, 0)
@@ -89,7 +91,9 @@ class SolidsRelaxedStepper(Stepper):
                 host_force, dtype=self.precision_policy.store_precision.wp_dtype
             )  # ...and move to device
         else:
-            self.force = self.grid.create_field(cardinality=2, dtype=self.precision_policy.store_precision)
+            self.force = self.grid.create_field(
+                cardinality=2, dtype=self.precision_policy.store_precision
+            )
 
         # ---------define operators----------
         self.collision = SolidsCollision(self.omega)
@@ -131,7 +135,18 @@ class SolidsRelaxedStepper(Stepper):
         self.copy_populations = kernel_provider.copy_populations
 
         @wp.func
-        def functional(i: wp.int32, j: wp.int32, k: wp.int32, f_1: wp.array4d(dtype=self.store_dtype), defect_vec: vec, omega: vec, force_x: self.compute_dtype, force_y: self.compute_dtype, theta: self.compute_dtype, gamma: self.compute_dtype):
+        def functional(
+            i: wp.int32,
+            j: wp.int32,
+            k: wp.int32,
+            f_1: wp.array4d(dtype=self.store_dtype),
+            defect_vec: vec,
+            omega: vec,
+            force_x: self.compute_dtype,
+            force_y: self.compute_dtype,
+            theta: self.compute_dtype,
+            gamma: self.compute_dtype,
+        ):
             index = wp.vec3i(i, j, k)
             _f_post_collision = read_local_population(f_1, i, j)
             _f_post_stream = self.stream.warp_functional(f_1, index)
@@ -140,10 +155,11 @@ class SolidsRelaxedStepper(Stepper):
             )
             _f_out = vec()
             for l in range(self.velocity_set.q):
-                _f_out[l] = gamma*(_f_new_post_collision[l]-defect_vec[l]) + (self.compute_dtype(1)-gamma)*_f_post_collision[l] 
+                _f_out[l] = (
+                    gamma * (_f_new_post_collision[l] - defect_vec[l])
+                    + (self.compute_dtype(1) - gamma) * _f_post_collision[l]
+                )
             return _f_out
-
-
 
         @wp.kernel
         def kernel(
@@ -161,14 +177,25 @@ class SolidsRelaxedStepper(Stepper):
             force_x = self.compute_dtype(force[0, i, j, 0])
             force_y = self.compute_dtype(force[1, i, j, 0])
 
-            _f_out = functional(i=i, j=j, k=k, f_1=f_1, defect_vec=_defect, omega=omega, force_x=force_x, force_y=force_y, theta=theta, gamma=gamma)
+            _f_out = functional(
+                i=i,
+                j=j,
+                k=k,
+                f_1=f_1,
+                defect_vec=_defect,
+                omega=omega,
+                force_x=force_x,
+                force_y=force_y,
+                theta=theta,
+                gamma=gamma,
+            )
 
             write_population_to_global(f_2, _f_out, i, j)
 
         @wp.kernel
         def kernel_residual_norm_squared(
             f_1: wp.array4d(dtype=self.store_dtype),
-            res_norm:  wp.array1d(dtype=self.store_dtype),
+            res_norm: wp.array1d(dtype=self.store_dtype),
             force: wp.array4d(dtype=self.store_dtype),
             omega: vec,
             theta: self.compute_dtype,
@@ -184,19 +211,25 @@ class SolidsRelaxedStepper(Stepper):
 
             _f_pre = read_local_population(f_1, i, j)
 
-            _f_post = functional(i=i, j=j, k=k, f_1=f_1, defect_vec=_zero_vec, omega=omega, force_x=force_x, force_y=force_y, theta=theta, gamma=self.compute_dtype(1))
+            _f_post = functional(
+                i=i,
+                j=j,
+                k=k,
+                f_1=f_1,
+                defect_vec=_zero_vec,
+                omega=omega,
+                force_x=force_x,
+                force_y=force_y,
+                theta=theta,
+                gamma=self.compute_dtype(1),
+            )
 
             _local_res = self.compute_dtype(0)
             for l in range(self.velocity_set.q):
                 _local_res += (_f_post[l] - _f_pre[l]) * (_f_post[l] - _f_pre[l])
-            
-            
-            wp.atomic_add(res_norm, 0,self.store_dtype(_local_res))
 
+            wp.atomic_add(res_norm, 0, self.store_dtype(_local_res))
 
-
-
-        
         return functional, (kernel, kernel_residual_norm_squared)
 
     @Operator.register_backend(ComputeBackend.WARP)
@@ -213,7 +246,7 @@ class SolidsRelaxedStepper(Stepper):
             )
         else:
             print("Error! Relaxed stepper does not work for boundary conditions yet!")
-    
+
     def get_residual_norm(self, f):
         params = SimulationParams()
         theta = params.theta
@@ -223,7 +256,7 @@ class SolidsRelaxedStepper(Stepper):
             inputs=[f, res_norm, self.force, self.omega, theta],
             dim=f.shape[1:],
         )
-        return math.sqrt(1/(f.shape[0]*f.shape[1]*f.shape[2])*res_norm.numpy()[0])
+        return math.sqrt(1 / (f.shape[0] * f.shape[1] * f.shape[2]) * res_norm.numpy()[0])
 
     def get_macroscopics(self, f, output_array):
         bared_moments = self.bared_moments(f=f, output_array=output_array, force=self.force)
