@@ -29,12 +29,18 @@ theta = 1 / 3
 
 compute_backend = ComputeBackend.WARP
 precision_policy = PrecisionPolicy.FP32FP32
-velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
+velocity_set = xlb.velocity_set.D2Q9(
+    precision_policy=precision_policy, compute_backend=compute_backend
+)
 
-xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
+xlb.init(
+    velocity_set=velocity_set,
+    default_backend=compute_backend,
+    default_precision_policy=precision_policy,
+)
+
 
 def get_LB_matrix(mu, theta, K, phi_x, phi_y):
-
     I = np.eye(8)
 
     omega_11 = 1.0 / (mu / theta + 0.5)
@@ -104,7 +110,7 @@ def get_LB_matrix(mu, theta, K, phi_x, phi_y):
 
     # Compute the gamma factor and adjust M[7] (row 7)
     tau_s = 2.0 * K / (1.0 + theta)
-    if (np.isclose(tau_s,tau_f)):
+    if np.isclose(tau_s, tau_f):
         return I
     gamma_moments = (theta * tau_f) / ((1.0 + theta) * (tau_s - tau_f))
 
@@ -125,7 +131,9 @@ def get_LB_matrix(mu, theta, K, phi_x, phi_y):
     L_mat = gamma * (M_inv @ D @ M_eq @ M + M_inv @ (I - D) @ M)
 
     for i in range(velocity_set.q - 1):
-        L_mat[i, :] *= cmath.exp(-1j * (phi_x * velocity_set.c[0, i + 1] + phi_y * velocity_set.c[1, i + 1]))
+        L_mat[i, :] *= cmath.exp(
+            -1j * (phi_x * velocity_set.c[0, i + 1] + phi_y * velocity_set.c[1, i + 1])
+        )
 
     L_mat += (1 - gamma) * I
 
@@ -159,7 +167,9 @@ for k in range(outer_iterations):
             for j in range(inner_iterations):
                 K_val = E / (2 * (1 - nu))
                 mu_val = E / (2 * (1 + nu))
-                L_evaluated = get_LB_matrix(mu=mu_val, theta=theta, K=K_val, phi_x=phi_x_val, phi_y=phi_y_val)
+                L_evaluated = get_LB_matrix(
+                    mu=mu_val, theta=theta, K=K_val, phi_x=phi_x_val, phi_y=phi_y_val
+                )
 
                 # check for normality
                 # assert(is_normal_matrix(np.array(L_evaluated, dtype=np.complex128)))

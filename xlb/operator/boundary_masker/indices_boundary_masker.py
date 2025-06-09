@@ -51,14 +51,29 @@ class IndicesBoundaryMasker(Operator):
         # TODO MEHDI: There is sometimes a halting problem here when padding is used in a multi-GPU setting since we're not jitting this function.
         # For now, we compute the bmap on GPU zero.
         if dim == 2:
-            bmap = jnp.zeros((pad_x * 2 + bc_mask[0].shape[0], pad_y * 2 + bc_mask[0].shape[1]), dtype=jnp.uint8)
+            bmap = jnp.zeros(
+                (pad_x * 2 + bc_mask[0].shape[0], pad_y * 2 + bc_mask[0].shape[1]), dtype=jnp.uint8
+            )
             bmap = bmap.at[pad_x:-pad_x, pad_y:-pad_y].set(bc_mask[0])
-            grid_mask = jnp.pad(missing_mask, ((0, 0), (pad_x, pad_x), (pad_y, pad_y)), constant_values=True)
+            grid_mask = jnp.pad(
+                missing_mask, ((0, 0), (pad_x, pad_x), (pad_y, pad_y)), constant_values=True
+            )
             # bmap = jnp.pad(bc_mask[0], ((pad_x, pad_x), (pad_y, pad_y)), constant_values=0)
         if dim == 3:
-            bmap = jnp.zeros((pad_x * 2 + bc_mask[0].shape[0], pad_y * 2 + bc_mask[0].shape[1], pad_z * 2 + bc_mask[0].shape[2]), dtype=jnp.uint8)
+            bmap = jnp.zeros(
+                (
+                    pad_x * 2 + bc_mask[0].shape[0],
+                    pad_y * 2 + bc_mask[0].shape[1],
+                    pad_z * 2 + bc_mask[0].shape[2],
+                ),
+                dtype=jnp.uint8,
+            )
             bmap = bmap.at[pad_x:-pad_x, pad_y:-pad_y, pad_z:-pad_z].set(bc_mask[0])
-            grid_mask = jnp.pad(missing_mask, ((0, 0), (pad_x, pad_x), (pad_y, pad_y), (pad_z, pad_z)), constant_values=True)
+            grid_mask = jnp.pad(
+                missing_mask,
+                ((0, 0), (pad_x, pad_x), (pad_y, pad_y), (pad_z, pad_z)),
+                constant_values=True,
+            )
             # bmap = jnp.pad(bc_mask[0], ((pad_x, pad_x), (pad_y, pad_y), (pad_z, pad_z)), constant_values=0)
 
         # shift indices
@@ -68,8 +83,12 @@ class IndicesBoundaryMasker(Operator):
 
         domain_shape = bc_mask[0].shape
         for bc in bclist:
-            assert bc.indices is not None, f"Please specify indices associated with the {bc.__class__.__name__} BC!"
-            assert bc.mesh_vertices is None, f"Please use MeshBoundaryMasker operator if {bc.__class__.__name__} is imposed on a mesh (e.g. STL)!"
+            assert bc.indices is not None, (
+                f"Please specify indices associated with the {bc.__class__.__name__} BC!"
+            )
+            assert bc.mesh_vertices is None, (
+                f"Please use MeshBoundaryMasker operator if {bc.__class__.__name__} is imposed on a mesh (e.g. STL)!"
+            )
             id_number = bc.id
             bc_indices = np.array(bc.indices)
             local_indices = bc_indices - np.array(start_index)[:, np.newaxis]
@@ -81,7 +100,9 @@ class IndicesBoundaryMasker(Operator):
                 if dim == 2:
                     grid_mask = grid_mask.at[:, padded_indices[0], padded_indices[1]].set(True)
                 if dim == 3:
-                    grid_mask = grid_mask.at[:, padded_indices[0], padded_indices[1], padded_indices[2]].set(True)
+                    grid_mask = grid_mask.at[
+                        :, padded_indices[0], padded_indices[1], padded_indices[2]
+                    ].set(True)
 
                 # Assign the boundary id to the push indices
                 push_indices = padded_indices[:, :, None] + self.velocity_set.c[:, None, :]
@@ -107,7 +128,14 @@ class IndicesBoundaryMasker(Operator):
 
         @wp.func
         def check_index_bounds(index: wp.vec3i, shape: wp.vec3i):
-            is_in_bounds = index[0] >= 0 and index[0] < shape[0] and index[1] >= 0 and index[1] < shape[1] and index[2] >= 0 and index[2] < shape[2]
+            is_in_bounds = (
+                index[0] >= 0
+                and index[0] < shape[0]
+                and index[1] >= 0
+                and index[1] < shape[1]
+                and index[2] >= 0
+                and index[2] < shape[2]
+            )
             return is_in_bounds
 
         # Construct the warp 3D kernel
@@ -160,15 +188,23 @@ class IndicesBoundaryMasker(Operator):
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, bclist, bc_mask, missing_mask, start_index=None):
         # Pre-allocate arrays with maximum possible size
-        max_size = sum(len(bc.indices[0]) if isinstance(bc.indices, list) else bc.indices.shape[1] for bc in bclist if bc.indices is not None)
+        max_size = sum(
+            len(bc.indices[0]) if isinstance(bc.indices, list) else bc.indices.shape[1]
+            for bc in bclist
+            if bc.indices is not None
+        )
         indices = np.zeros((3, max_size), dtype=np.int32)
         id_numbers = np.zeros(max_size, dtype=np.uint8)
         is_interior = np.zeros(max_size, dtype=bool)
 
         current_index = 0
         for bc in bclist:
-            assert bc.indices is not None, f'Please specify indices associated with the {bc.__class__.__name__} BC using keyword "indices"!'
-            assert bc.mesh_vertices is None, f"Please use MeshBoundaryMasker operator if {bc.__class__.__name__} is imposed on a mesh (e.g. STL)!"
+            assert bc.indices is not None, (
+                f'Please specify indices associated with the {bc.__class__.__name__} BC using keyword "indices"!'
+            )
+            assert bc.mesh_vertices is None, (
+                f"Please use MeshBoundaryMasker operator if {bc.__class__.__name__} is imposed on a mesh (e.g. STL)!"
+            )
 
             bc_indices = np.asarray(bc.indices)
             num_indices = bc_indices.shape[1]
@@ -185,7 +221,9 @@ class IndicesBoundaryMasker(Operator):
 
             # Set is_interior flags
             if bc.needs_padding:
-                is_interior[current_index : current_index + num_indices] = self.are_indices_in_interior(bc_indices, bc_mask[0].shape)
+                is_interior[current_index : current_index + num_indices] = (
+                    self.are_indices_in_interior(bc_indices, bc_mask[0].shape)
+                )
             else:
                 is_interior[current_index : current_index + num_indices] = False
 

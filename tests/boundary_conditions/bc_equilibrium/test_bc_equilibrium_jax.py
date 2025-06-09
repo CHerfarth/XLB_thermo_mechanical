@@ -9,7 +9,9 @@ from xlb.operator.boundary_masker import IndicesBoundaryMasker
 
 
 def init_xlb_env(velocity_set):
-    vel_set = velocity_set(precision_policy=xlb.PrecisionPolicy.FP32FP32, compute_backend=ComputeBackend.JAX)
+    vel_set = velocity_set(
+        precision_policy=xlb.PrecisionPolicy.FP32FP32, compute_backend=ComputeBackend.JAX
+    )
     xlb.init(
         default_precision_policy=xlb.PrecisionPolicy.FP32FP32,
         default_backend=ComputeBackend.JAX,
@@ -48,7 +50,9 @@ def test_bc_equilibrium_jax(dim, velocity_set, grid_shape):
         indices = np.where((X - nr // 2) ** 2 + (Y - nr // 2) ** 2 < sphere_radius**2)
     else:
         X, Y, Z = np.meshgrid(x, y, z)
-        indices = np.where((X - nr // 2) ** 2 + (Y - nr // 2) ** 2 + (Z - nr // 2) ** 2 < sphere_radius**2)
+        indices = np.where(
+            (X - nr // 2) ** 2 + (Y - nr // 2) ** 2 + (Z - nr // 2) ** 2 < sphere_radius**2
+        )
 
     indices = [tuple(indices[i]) for i in range(velocity_set.d)]
 
@@ -59,7 +63,9 @@ def test_bc_equilibrium_jax(dim, velocity_set, grid_shape):
         indices=indices,
     )
 
-    bc_mask, missing_mask = indices_boundary_masker([equilibrium_bc], bc_mask, missing_mask, start_index=None)
+    bc_mask, missing_mask = indices_boundary_masker(
+        [equilibrium_bc], bc_mask, missing_mask, start_index=None
+    )
 
     f_pre = my_grid.create_field(cardinality=velocity_set.q, dtype=xlb.Precision.FP32)
 
@@ -75,9 +81,13 @@ def test_bc_equilibrium_jax(dim, velocity_set, grid_shape):
     weights = velocity_set.w
     for i, weight in enumerate(weights):
         if dim == 2:
-            assert jnp.allclose(f[i, indices[0], indices[1]], weight), f"Direction {i} in f does not match the expected weight"
+            assert jnp.allclose(f[i, indices[0], indices[1]], weight), (
+                f"Direction {i} in f does not match the expected weight"
+            )
         else:
-            assert jnp.allclose(f[i, indices[0], indices[1], indices[2]], weight), f"Direction {i} in f does not match the expected weight"
+            assert jnp.allclose(f[i, indices[0], indices[1], indices[2]], weight), (
+                f"Direction {i} in f does not match the expected weight"
+            )
 
     # Make sure that everywhere else the values are the same as f_post. Note that indices are just int values
     mask_outside = np.ones(grid_shape, dtype=bool)

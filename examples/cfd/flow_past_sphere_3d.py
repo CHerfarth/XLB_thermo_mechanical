@@ -22,7 +22,9 @@ omega = 1.6
 grid_shape = (512 // 2, 128 // 2, 128 // 2)
 compute_backend = ComputeBackend.WARP
 precision_policy = PrecisionPolicy.FP32FP32
-velocity_set = xlb.velocity_set.D3Q19(precision_policy=precision_policy, compute_backend=compute_backend)
+velocity_set = xlb.velocity_set.D3Q19(
+    precision_policy=precision_policy, compute_backend=compute_backend
+)
 u_max = 0.04
 num_steps = 10000
 post_process_interval = 1000
@@ -42,7 +44,10 @@ box = grid.bounding_box_indices()
 box_no_edge = grid.bounding_box_indices(remove_edges=True)
 inlet = box_no_edge["left"]
 outlet = box_no_edge["right"]
-walls = [box["bottom"][i] + box["top"][i] + box["front"][i] + box["back"][i] for i in range(velocity_set.d)]
+walls = [
+    box["bottom"][i] + box["top"][i] + box["front"][i] + box["back"][i]
+    for i in range(velocity_set.d)
+]
 walls = np.unique(np.array(walls), axis=-1).tolist()
 
 sphere_radius = grid_shape[1] // 12
@@ -50,7 +55,10 @@ x = np.arange(grid_shape[0])
 y = np.arange(grid_shape[1])
 z = np.arange(grid_shape[2])
 X, Y, Z = np.meshgrid(x, y, z, indexing="ij")
-indices = np.where((X - grid_shape[0] // 6) ** 2 + (Y - grid_shape[1] // 2) ** 2 + (Z - grid_shape[2] // 2) ** 2 < sphere_radius**2)
+indices = np.where(
+    (X - grid_shape[0] // 6) ** 2 + (Y - grid_shape[1] // 2) ** 2 + (Z - grid_shape[2] // 2) ** 2
+    < sphere_radius**2
+)
 sphere = [tuple(indices[i]) for i in range(velocity_set.d)]
 
 
@@ -120,7 +128,9 @@ f_0, f_1, bc_mask, missing_mask = stepper.prepare_fields()
 macro = Macroscopic(
     compute_backend=ComputeBackend.JAX,
     precision_policy=precision_policy,
-    velocity_set=xlb.velocity_set.D3Q19(precision_policy=precision_policy, compute_backend=ComputeBackend.JAX),
+    velocity_set=xlb.velocity_set.D3Q19(
+        precision_policy=precision_policy, compute_backend=ComputeBackend.JAX
+    ),
 )
 
 
@@ -163,5 +173,7 @@ for step in range(num_steps):
         post_process(step, f_0)
         end_time = time.time()
         elapsed = end_time - start_time
-        print(f"Completed step {step}. Time elapsed for {post_process_interval} steps: {elapsed:.6f} seconds.")
+        print(
+            f"Completed step {step}. Time elapsed for {post_process_interval} steps: {elapsed:.6f} seconds."
+        )
         start_time = time.time()

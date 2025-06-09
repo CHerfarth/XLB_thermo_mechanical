@@ -29,9 +29,15 @@ def write_results(norms_over_time, name):
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP64FP64
-    velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
+    velocity_set = xlb.velocity_set.D2Q9(
+        precision_policy=precision_policy, compute_backend=compute_backend
+    )
 
-    xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
+    xlb.init(
+        velocity_set=velocity_set,
+        default_backend=compute_backend,
+        default_precision_policy=precision_policy,
+    )
 
     # get command line arguments
     parser = argparse.ArgumentParser("convergence_study")
@@ -62,8 +68,11 @@ if __name__ == "__main__":
     nu = 0.8
 
     solid_simulation = SimulationParams()
-    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
-    print("E_scaled {}, nu {}".format(solid_simulation.E, solid_simulation.nu))
+    solid_simulation.set_all_parameters(
+        E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0
+    )
+    print("E_scaled {}".format(solid_simulation.E))
+    print("nu {}".format(solid_simulation.nu))
 
     # get force load
     x, y = sympy.symbols("x y")
@@ -102,24 +111,22 @@ if __name__ == "__main__":
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
 
     # initialize stepper
-    stepper = SolidsStepper(grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values)
+    stepper = SolidsStepper(
+        grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values
+    )
 
     # startup grids
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     # set initial guess from white noise
-    # f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=0, seed=31)
 
     norms_over_time = list()  # to track error over time
-    tolerance = 1e-8
-    macroscopics = stepper.get_macroscopics_host(f_1)
 
     for i in range(timesteps):
         stepper(f_1, f_2)
         f_1, f_2 = f_2, f_1
 
-    macroscopics = stepper.get_macroscopics_host(f_1)
+    macroscopics = stepper.get_macroscopics(f=f_1, output_array=f_2).numpy()
     utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
     # write out error norms
     last_norms = norms_over_time[len(norms_over_time) - 1]

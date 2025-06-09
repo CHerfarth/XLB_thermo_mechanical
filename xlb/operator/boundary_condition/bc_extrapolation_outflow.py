@@ -141,7 +141,10 @@ class ExtrapolationOutflowBC(BoundaryCondition):
         ):
             if wp.static(self.velocity_set.d == 3):
                 for l in range(_q):
-                    if missing_mask[l] == wp.uint8(1) and wp.abs(_c[0, l]) + wp.abs(_c[1, l]) + wp.abs(_c[2, l]) == 1:
+                    if (
+                        missing_mask[l] == wp.uint8(1)
+                        and wp.abs(_c[0, l]) + wp.abs(_c[1, l]) + wp.abs(_c[2, l]) == 1
+                    ):
                         return -wp.vec3i(_c[0, l], _c[1, l], _c[2, l])
             else:
                 for l in range(_q):
@@ -191,7 +194,9 @@ class ExtrapolationOutflowBC(BoundaryCondition):
                         pull_index[d] = index[d] - (_c[d, l] + nv[d])
                     # The following is the post-streaming values of the neighbor cell
                     f_aux = self.compute_dtype(f_0[l, pull_index[0], pull_index[1], pull_index[2]])
-                    _f[_opp_indices[l]] = (self.compute_dtype(1.0) - sound_speed) * _f_pre[l] + sound_speed * f_aux
+                    _f[_opp_indices[l]] = (self.compute_dtype(1.0) - sound_speed) * _f_pre[
+                        l
+                    ] + sound_speed * f_aux
             return _f
 
         kernel = self._construct_kernel(functional)

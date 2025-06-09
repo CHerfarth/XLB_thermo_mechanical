@@ -67,12 +67,16 @@ class MeshBoundaryMasker(Operator):
             verts: wp.mat33f,  # triangle vertices
             normal: wp.vec3f,  # triangle normal
         ):
-            corner = wp.vec3f(float(normal[0] > 0.0), float(normal[1] > 0.0), float(normal[2] > 0.0))
+            corner = wp.vec3f(
+                float(normal[0] > 0.0), float(normal[1] > 0.0), float(normal[2] > 0.0)
+            )
 
             dist1 = wp.dot(normal, corner - verts[0])
             dist2 = wp.dot(normal, wp.vec3f(1.0, 1.0, 1.0) - corner - verts[0])
 
-            edges = wp.transpose(wp.mat33(verts[1] - verts[0], verts[2] - verts[1], verts[0] - verts[2]))
+            edges = wp.transpose(
+                wp.mat33(verts[1] - verts[0], verts[2] - verts[1], verts[0] - verts[2])
+            )
             normal_edge0 = wp.mat33f(0.0)
             normal_edge1 = wp.mat33f(0.0)
             dist_edge = wp.mat33f(0.0)
@@ -89,7 +93,11 @@ class MeshBoundaryMasker(Operator):
                     normal_edge1[i][axis0] = sgn * edges[i][axis0]
 
                     dist_edge[i][axis0] = (
-                        -1.0 * (normal_edge0[i][axis0] * verts[i][axis0] + normal_edge1[i][axis0] * verts[i][axis0])
+                        -1.0
+                        * (
+                            normal_edge0[i][axis0] * verts[i][axis0]
+                            + normal_edge1[i][axis0] * verts[i][axis0]
+                        )
                         + wp.max(0.0, normal_edge0[i][axis0])
                         + wp.max(0.0, normal_edge1[i][axis0])
                     )
@@ -110,13 +118,20 @@ class MeshBoundaryMasker(Operator):
             normal_edge1: wp.mat33f,
             dist_edge: wp.mat33f,
         ):
-            if (wp.length(normal) > 0.0) and (wp.dot(normal, low) + dist1) * (wp.dot(normal, low) + dist2) <= 0.0:
+            if (wp.length(normal) > 0.0) and (wp.dot(normal, low) + dist1) * (
+                wp.dot(normal, low) + dist2
+            ) <= 0.0:
                 intersect = True
                 #  Loop over primary axis for projection
                 for ax0 in range(0, 3):
                     ax1 = (ax0 + 1) % 3
                     for i in range(0, 3):
-                        intersect = intersect and (normal_edge0[i][ax0] * low[ax0] + normal_edge1[i][ax0] * low[ax1] + dist_edge[i][ax0] >= 0.0)
+                        intersect = intersect and (
+                            normal_edge0[i][ax0] * low[ax0]
+                            + normal_edge1[i][ax0] * low[ax1]
+                            + dist_edge[i][ax0]
+                            >= 0.0
+                        )
 
                 return intersect
             else:
@@ -138,10 +153,18 @@ class MeshBoundaryMasker(Operator):
                 v = wp.transpose(wp.mat33f(v0, v1, v2))
 
                 # TODO: run this on triangles in advance
-                dist1, dist2, normal_edge0, normal_edge1, dist_edge = pre_compute(verts=v, normal=normal)
+                dist1, dist2, normal_edge0, normal_edge1, dist_edge = pre_compute(
+                    verts=v, normal=normal
+                )
 
                 if triangle_box_intersect(
-                    low=low, normal=normal, dist1=dist1, dist2=dist2, normal_edge0=normal_edge0, normal_edge1=normal_edge1, dist_edge=dist_edge
+                    low=low,
+                    normal=normal,
+                    dist1=dist1,
+                    dist2=dist2,
+                    normal_edge0=normal_edge0,
+                    normal_edge1=normal_edge1,
+                    dist_edge=dist_edge,
                 ):
                     return True
 
@@ -191,8 +214,12 @@ class MeshBoundaryMasker(Operator):
         bc_mask,
         missing_mask,
     ):
-        assert bc.mesh_vertices is not None, f'Please provide the mesh vertices for {bc.__class__.__name__} BC using keyword "mesh_vertices"!'
-        assert bc.indices is None, f"Please use IndicesBoundaryMasker operator if {bc.__class__.__name__} is imposed on known indices of the grid!"
+        assert bc.mesh_vertices is not None, (
+            f'Please provide the mesh vertices for {bc.__class__.__name__} BC using keyword "mesh_vertices"!'
+        )
+        assert bc.indices is None, (
+            f"Please use IndicesBoundaryMasker operator if {bc.__class__.__name__} is imposed on known indices of the grid!"
+        )
         assert bc.mesh_vertices.shape[1] == self.velocity_set.d, (
             "Mesh points must be reshaped into an array (N, 3) where N indicates number of points!"
         )
@@ -213,7 +240,9 @@ class MeshBoundaryMasker(Operator):
         bc.__dict__.pop("mesh_vertices", None)
 
         # Ensure this masker is called only for BCs that need implicit distance to the mesh
-        assert not bc.needs_mesh_distance, 'Please use "MeshDistanceBoundaryMasker" if this BC needs mesh distance!'
+        assert not bc.needs_mesh_distance, (
+            'Please use "MeshDistanceBoundaryMasker" if this BC needs mesh distance!'
+        )
 
         mesh_indices = np.arange(mesh_vertices.shape[0])
         mesh = wp.Mesh(

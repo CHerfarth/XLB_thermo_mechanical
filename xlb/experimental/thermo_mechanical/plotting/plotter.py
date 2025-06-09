@@ -21,7 +21,19 @@ def plot_single(data, x_label, y_label, title, name, color="blue", xlim=None, yl
 
 
 def plot_double(
-    data1, data2, x_label, y_label, title, name, color1="blue", color2="red", label1=None, label2=None, xlim=None, ylim=None, scatter=False
+    data1,
+    data2,
+    x_label,
+    y_label,
+    title,
+    name,
+    color1="blue",
+    color2="red",
+    label1=None,
+    label2=None,
+    xlim=None,
+    ylim=None,
+    scatter=False,
 ):
     data1 = data1.to_numpy()
     data2 = data2.to_numpy()

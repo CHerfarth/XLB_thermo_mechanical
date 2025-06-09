@@ -55,7 +55,9 @@ class Tile:
             self._buf_padding[ind] = self.allocate_array(shape)
 
         # Get slicing for array copies
-        self._slice_center = tuple([slice(pad, pad + shape) for (pad, shape) in zip(self.padding, self.shape)])
+        self._slice_center = tuple([
+            slice(pad, pad + shape) for (pad, shape) in zip(self.padding, self.shape)
+        ])
         self._slice_padding_to_array = {}
         self._slice_array_to_padding = {}
         self._padding_shape = {}

@@ -69,7 +69,9 @@ class KBC(Collision):
             shear = self.decompose_shear_d3q27_jax(fneq)
             delta_s = shear * rho
         else:
-            raise NotImplementedError("Velocity set not supported: {}".format(type(self.velocity_set)))
+            raise NotImplementedError(
+                "Velocity set not supported: {}".format(type(self.velocity_set))
+            )
 
         # Compute required constants based on the input omega (omega is the inverse relaxation time)
         beta = self.compute_dtype(0.5) * self.compute_dtype(omega)
@@ -77,9 +79,9 @@ class KBC(Collision):
 
         # Perform collision
         delta_h = fneq - delta_s
-        gamma = inv_beta - (2.0 - inv_beta) * self.entropic_scalar_product(delta_s, delta_h, feq) / (
-            self.epsilon + self.entropic_scalar_product(delta_h, delta_h, feq)
-        )
+        gamma = inv_beta - (2.0 - inv_beta) * self.entropic_scalar_product(
+            delta_s, delta_h, feq
+        ) / (self.epsilon + self.entropic_scalar_product(delta_h, delta_h, feq))
 
         fout = f - beta * (2.0 * delta_s + gamma[None, ...] * delta_h)
 
@@ -180,7 +182,9 @@ class KBC(Collision):
     def _construct_warp(self):
         # Raise error if velocity set is not supported
         if not (isinstance(self.velocity_set, D3Q27) or isinstance(self.velocity_set, D2Q9)):
-            raise NotImplementedError("Velocity set not supported for warp backend: {}".format(type(self.velocity_set)))
+            raise NotImplementedError(
+                "Velocity set not supported for warp backend: {}".format(type(self.velocity_set))
+            )
 
         # Set local constants TODO: This is a hack and should be fixed with warp update
         _u_vec = wp.vec(self.velocity_set.d, dtype=self.compute_dtype)
@@ -285,9 +289,9 @@ class KBC(Collision):
             # Perform collision
             delta_h = fneq - delta_s
             two = self.compute_dtype(2.0)
-            gamma = _inv_beta - (two - _inv_beta) * entropic_scalar_product(delta_s, delta_h, feq) / (
-                _epsilon + entropic_scalar_product(delta_h, delta_h, feq)
-            )
+            gamma = _inv_beta - (two - _inv_beta) * entropic_scalar_product(
+                delta_s, delta_h, feq
+            ) / (_epsilon + entropic_scalar_product(delta_h, delta_h, feq))
             fout = f - _beta * (two * delta_s + gamma * delta_h)
 
             return fout

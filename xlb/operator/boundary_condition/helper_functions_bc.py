@@ -7,7 +7,9 @@ from typing import Any
 class HelperFunctionsBC(object):
     def __init__(self, velocity_set=None, precision_policy=None, compute_backend=None):
         if compute_backend == ComputeBackend.JAX:
-            raise ValueError("This helper class contains helper functions only for the WARP implementation of some BCs not JAX!")
+            raise ValueError(
+                "This helper class contains helper functions only for the WARP implementation of some BCs not JAX!"
+            )
 
         # Set the default values from the global config
         self.velocity_set = velocity_set or DefaultConfig.velocity_set
@@ -78,7 +80,10 @@ class HelperFunctionsBC(object):
         ):
             if wp.static(_d == 3):
                 for l in range(_q):
-                    if missing_mask[l] == wp.uint8(1) and wp.abs(_c[0, l]) + wp.abs(_c[1, l]) + wp.abs(_c[2, l]) == 1:
+                    if (
+                        missing_mask[l] == wp.uint8(1)
+                        and wp.abs(_c[0, l]) + wp.abs(_c[1, l]) + wp.abs(_c[2, l]) == 1
+                    ):
                         return -_u_vec(_c_float[0, l], _c_float[1, l], _c_float[2, l])
             else:
                 for l in range(_q):

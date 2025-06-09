@@ -32,7 +32,8 @@ class Operator:
 
         # Updating JAX config in case fp64 is requested
         if self.compute_backend == ComputeBackend.JAX and (
-            precision_policy == PrecisionPolicy.FP64FP64 or precision_policy == PrecisionPolicy.FP64FP32
+            precision_policy == PrecisionPolicy.FP64FP64
+            or precision_policy == PrecisionPolicy.FP64FP32
         ):
             jax.config.update("jax_enable_x64", True)
 
@@ -53,7 +54,9 @@ class Operator:
 
     def __call__(self, *args, callback=None, **kwargs):
         method_candidates = [
-            (key, method) for key, method in self._backends.items() if key[0] == self.__class__.__name__ and key[1] == self.compute_backend
+            (key, method)
+            for key, method in self._backends.items()
+            if key[0] == self.__class__.__name__ and key[1] == self.compute_backend
         ]
         bound_arguments = None
         for key, backend_method in method_candidates:
@@ -71,7 +74,9 @@ class Operator:
                 traceback_str = traceback.format_exc()
                 continue  # This skips to the next candidate if binding fails
 
-        raise Exception(f"Error captured for backend with key {key} for operator {self.__class__.__name__}: {error}\n {traceback_str}")
+        raise Exception(
+            f"Error captured for backend with key {key} for operator {self.__class__.__name__}: {error}\n {traceback_str}"
+        )
 
     @property
     def supported_compute_backend(self):

@@ -25,9 +25,15 @@ K, mu, k, phi = sp.symbols("K mu k ph")
 
 compute_backend = ComputeBackend.WARP
 precision_policy = PrecisionPolicy.FP64FP64
-velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
+velocity_set = xlb.velocity_set.D2Q9(
+    precision_policy=precision_policy, compute_backend=compute_backend
+)
 
-xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
+xlb.init(
+    velocity_set=velocity_set,
+    default_backend=compute_backend,
+    default_precision_policy=precision_policy,
+)
 # initialize grid
 nodes_x = 80
 nodes_y = 80
@@ -162,7 +168,9 @@ tau_f = 0.5
 omega_12 = 1 / (tau_12 + 0.5)
 omega_21 = 1 / (tau_21 + 0.5)
 omega_f = 1 / (tau_f + 0.5)
-omega = KernelProvider().solid_vec(0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_f, 0.0)
+omega = KernelProvider().solid_vec(
+    0.0, 0.0, omega_11, omega_s, omega_d, omega_12, omega_21, omega_f, 0.0
+)
 
 f = np.zeros(shape=(9, 1, 1, 1), dtype=np.float64)
 force = np.zeros(shape=(2, 1, 1, 1), dtype=wp.float64)
@@ -171,7 +179,9 @@ for i in range(9):
 f_device = wp.from_numpy(f, dtype=wp.float64)
 force_device = wp.from_numpy(force, dtype=wp.float64)
 collision = SolidsCollision(omega)
-wp.launch(collision.warp_kernel, inputs=[f_device, force_device, omega, theta], dim=f_device.shape[1:])
+wp.launch(
+    collision.warp_kernel, inputs=[f_device, force_device, omega, theta], dim=f_device.shape[1:]
+)
 print("-------------------------------")
 print("With collision:")
 print(f_device.numpy()[1:, 0, 0, 0])

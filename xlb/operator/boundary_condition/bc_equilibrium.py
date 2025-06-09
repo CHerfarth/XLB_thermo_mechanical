@@ -40,7 +40,9 @@ class EquilibriumBC(BoundaryCondition):
         # Store the equilibrium information
         self.rho = rho
         self.u = u
-        self.equilibrium_operator = QuadraticEquilibrium() if equilibrium_operator is None else equilibrium_operator
+        self.equilibrium_operator = (
+            QuadraticEquilibrium() if equilibrium_operator is None else equilibrium_operator
+        )
         # Raise error if equilibrium operator is not a subclass of Equilibrium
         if not issubclass(type(self.equilibrium_operator), Equilibrium):
             raise ValueError("Equilibrium operator must be a subclass of Equilibrium")
@@ -69,7 +71,11 @@ class EquilibriumBC(BoundaryCondition):
         # Set local constants TODO: This is a hack and should be fixed with warp update
         _u_vec = wp.vec(self.velocity_set.d, dtype=self.compute_dtype)
         _rho = self.compute_dtype(self.rho)
-        _u = _u_vec(self.u[0], self.u[1], self.u[2]) if self.velocity_set.d == 3 else _u_vec(self.u[0], self.u[1])
+        _u = (
+            _u_vec(self.u[0], self.u[1], self.u[2])
+            if self.velocity_set.d == 3
+            else _u_vec(self.u[0], self.u[1])
+        )
 
         # Construct the functional for this BC
         @wp.func

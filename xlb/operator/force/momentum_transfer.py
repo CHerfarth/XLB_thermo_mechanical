@@ -73,7 +73,9 @@ class MomentumTransfer(Operator):
         # Give the input post-collision populations, streaming once and apply the BC the find post-stream values.
         f_post_collision = f_0
         f_post_stream = self.stream(f_post_collision)
-        f_post_stream = self.no_slip_bc_instance(f_post_collision, f_post_stream, bc_mask, missing_mask)
+        f_post_stream = self.no_slip_bc_instance(
+            f_post_collision, f_post_stream, bc_mask, missing_mask
+        )
 
         # Compute momentum transfer
         boundary = bc_mask == self.no_slip_bc_instance.id
@@ -144,7 +146,9 @@ class MomentumTransfer(Operator):
                 # Apply streaming (pull method)
                 timestep = 0
                 f_post_stream = self.stream.warp_functional(f_0, index)
-                f_post_stream = self.no_slip_bc_instance.warp_functional(index, timestep, _missing_mask, f_0, f_1, f_post_collision, f_post_stream)
+                f_post_stream = self.no_slip_bc_instance.warp_functional(
+                    index, timestep, _missing_mask, f_0, f_1, f_post_collision, f_post_stream
+                )
 
                 # Compute the momentum transfer
                 for d in range(self.velocity_set.d):

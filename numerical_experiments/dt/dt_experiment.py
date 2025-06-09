@@ -29,9 +29,15 @@ def write_results(norms_over_time, name):
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP32FP32
-    velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
+    velocity_set = xlb.velocity_set.D2Q9(
+        precision_policy=precision_policy, compute_backend=compute_backend
+    )
 
-    xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
+    xlb.init(
+        velocity_set=velocity_set,
+        default_backend=compute_backend,
+        default_precision_policy=precision_policy,
+    )
 
     # get command line arguments
     parser = argparse.ArgumentParser("convergence_study")
@@ -85,7 +91,9 @@ if __name__ == "__main__":
 
     # set boundary potential
     potential = lambda x, y: (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
-    boundary_array, boundary_values = bc.init_bc_from_lambda(potential, grid, dx, velocity_set, (manufactured_u, manufactured_v), x, y)
+    boundary_array, boundary_values = bc.init_bc_from_lambda(
+        potential, grid, dx, velocity_set, (manufactured_u, manufactured_v), x, y
+    )
     if args.include_bc == 0:
         potential = None
         bc_dirichlet = None
@@ -96,7 +104,16 @@ if __name__ == "__main__":
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
 
     # initialize stepper
-    stepper = SolidsStepper(grid, force_load, E, nu, dx, dt, boundary_conditions=boundary_array, boundary_values=boundary_values)
+    stepper = SolidsStepper(
+        grid,
+        force_load,
+        E,
+        nu,
+        dx,
+        dt,
+        boundary_conditions=boundary_array,
+        boundary_values=boundary_values,
+    )
 
     # startup grids
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)

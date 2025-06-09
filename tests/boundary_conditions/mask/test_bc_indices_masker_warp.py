@@ -8,7 +8,9 @@ from xlb.operator.boundary_masker import IndicesBoundaryMasker
 
 
 def init_xlb_env(velocity_set):
-    vel_set = velocity_set(precision_policy=xlb.PrecisionPolicy.FP32FP32, compute_backend=ComputeBackend.WARP)
+    vel_set = velocity_set(
+        precision_policy=xlb.PrecisionPolicy.FP32FP32, compute_backend=ComputeBackend.WARP
+    )
     xlb.init(
         default_precision_policy=xlb.PrecisionPolicy.FP32FP32,
         default_backend=ComputeBackend.WARP,
@@ -49,7 +51,9 @@ def test_indices_masker_warp(dim, velocity_set, grid_shape):
         indices = np.where((X - nr // 2) ** 2 + (Y - nr // 2) ** 2 < sphere_radius**2)
     else:
         X, Y, Z = np.meshgrid(x, y, z)
-        indices = np.where((X - nr // 2) ** 2 + (Y - nr // 2) ** 2 + (Z - nr // 2) ** 2 < sphere_radius**2)
+        indices = np.where(
+            (X - nr // 2) ** 2 + (Y - nr // 2) ** 2 + (Z - nr // 2) ** 2 < sphere_radius**2
+        )
 
     indices = [tuple(indices[i]) for i in range(velocity_set.d)]
 
@@ -69,11 +73,19 @@ def test_indices_masker_warp(dim, velocity_set, grid_shape):
     missing_mask = missing_mask.numpy()
 
     if len(grid_shape) == 2:
-        assert bc_mask.shape == (1,) + grid_shape + (1,), "bc_mask shape is incorrect got {}".format(bc_mask.shape)
-        assert missing_mask.shape == (velocity_set.q,) + grid_shape + (1,), "missing_mask shape is incorrect got {}".format(missing_mask.shape)
+        assert bc_mask.shape == (1,) + grid_shape + (1,), (
+            "bc_mask shape is incorrect got {}".format(bc_mask.shape)
+        )
+        assert missing_mask.shape == (velocity_set.q,) + grid_shape + (1,), (
+            "missing_mask shape is incorrect got {}".format(missing_mask.shape)
+        )
     else:
-        assert bc_mask.shape == (1,) + grid_shape, "bc_mask shape is incorrect got {}".format(bc_mask.shape)
-        assert missing_mask.shape == (velocity_set.q,) + grid_shape, "missing_mask shape is incorrect got {}".format(missing_mask.shape)
+        assert bc_mask.shape == (1,) + grid_shape, "bc_mask shape is incorrect got {}".format(
+            bc_mask.shape
+        )
+        assert missing_mask.shape == (velocity_set.q,) + grid_shape, (
+            "missing_mask shape is incorrect got {}".format(missing_mask.shape)
+        )
 
     if dim == 2:
         assert np.all(bc_mask[0, indices[0], indices[1]] == test_bc.id)

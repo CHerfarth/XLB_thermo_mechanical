@@ -126,9 +126,30 @@ relaxed_stats = relaxed_data.groupby("dim")["relaxed_time"].agg(["mean", "std"])
 
 # Plotting of Runtimes
 plt.figure(figsize=(8, 6))
-plt.errorbar(multigrid_stats["dim"], multigrid_stats["mean"], yerr=multigrid_stats["std"], fmt="o-", capsize=5, label="Multigrid Method")
-plt.errorbar(standard_stats["dim"], standard_stats["mean"], yerr=standard_stats["std"], fmt="s-", capsize=5, label="Standard Method")
-plt.errorbar(relaxed_stats["dim"], relaxed_stats["mean"], yerr=relaxed_stats["std"], fmt="s-", capsize=5, label="Relaxed Standard Method")
+plt.errorbar(
+    multigrid_stats["dim"],
+    multigrid_stats["mean"],
+    yerr=multigrid_stats["std"],
+    fmt="o-",
+    capsize=5,
+    label="Multigrid Method",
+)
+plt.errorbar(
+    standard_stats["dim"],
+    standard_stats["mean"],
+    yerr=standard_stats["std"],
+    fmt="s-",
+    capsize=5,
+    label="Standard Method",
+)
+plt.errorbar(
+    relaxed_stats["dim"],
+    relaxed_stats["mean"],
+    yerr=relaxed_stats["std"],
+    fmt="s-",
+    capsize=5,
+    label="Relaxed Standard Method",
+)
 
 # Add labels and legend
 plt.xlabel("Dimension")

@@ -10,7 +10,7 @@ current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
 log_file="log_"$current_date_time".txt"
 results_file="results_"$current_date_time".csv"
 
-repeated_measurements=3
+repeated_measurements=1
 
 echo "dim,MLUP/s" > $results_file
 

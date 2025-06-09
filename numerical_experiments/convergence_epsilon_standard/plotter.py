@@ -9,7 +9,18 @@ import argparse
 
 
 def draw_loglog_slope(
-    fig, ax, origin, width_inches, slope, color, inverted=False, polygon_kwargs=None, label=True, labelcolor=None, label_kwargs=None, zorder=None
+    fig,
+    ax,
+    origin,
+    width_inches,
+    slope,
+    color,
+    inverted=False,
+    polygon_kwargs=None,
+    label=True,
+    labelcolor=None,
+    label_kwargs=None,
+    zorder=None,
 ):
     """
     This function draws slopes or "convergence triangles" into loglog plots.
@@ -100,13 +111,37 @@ def draw_loglog_slope(
     ha_ylabel = "left" if not inverted else "right"
 
     # Label offset depending on inversion parameter
-    offset_xlabel = [0.0, -0.33 * label_kwargs["fontsize"]] if not inverted else [0.0, 0.33 * label_kwargs["fontsize"]]
-    offset_ylabel = [0.33 * label_kwargs["fontsize"], 0.0] if not inverted else [-0.33 * label_kwargs["fontsize"], 0.0]
+    offset_xlabel = (
+        [0.0, -0.33 * label_kwargs["fontsize"]]
+        if not inverted
+        else [0.0, 0.33 * label_kwargs["fontsize"]]
+    )
+    offset_ylabel = (
+        [0.33 * label_kwargs["fontsize"], 0.0]
+        if not inverted
+        else [-0.33 * label_kwargs["fontsize"], 0.0]
+    )
 
     # Draw the slope labels
-    ax.annotate("$1$", bottom_center, xytext=offset_xlabel, textcoords="offset points", ha="center", va=va_xlabel, zorder=zorder, **label_kwargs)
     ax.annotate(
-        f"${slope}$", right_center, xytext=offset_ylabel, textcoords="offset points", ha=ha_ylabel, va="center", zorder=zorder, **label_kwargs
+        "$1$",
+        bottom_center,
+        xytext=offset_xlabel,
+        textcoords="offset points",
+        ha="center",
+        va=va_xlabel,
+        zorder=zorder,
+        **label_kwargs,
+    )
+    ax.annotate(
+        f"${slope}$",
+        right_center,
+        xytext=offset_ylabel,
+        textcoords="offset points",
+        ha=ha_ylabel,
+        va="center",
+        zorder=zorder,
+        **label_kwargs,
     )
 
 
@@ -114,15 +149,18 @@ if __name__ == "__main__":
     # get command line arguments
     parser = argparse.ArgumentParser("plot_convergence")
     parser.add_argument("file", type=str)
+    parser.add_argument("E_scaled", type=float)
+    parser.add_argument("nu", type=float)
     args = parser.parse_args()
 
     data = pd.read_csv(args.file, skiprows=0, sep=",", engine="python", dtype=np.float64)
     print(data.head())
 
-    x_label = "Epsilon"
+    x_label = r"$\epsilon$"
     y_label = "Error"
-    title = "Convergence"
-    name = "convergence.png"
+    title = r"$\tilde{E} = $" + str(args.E_scaled) + r", $\nu = $" + str(args.nu)
+    name1 = "convergence.png"
+    name2 = "convergence.eps"
 
     # data = data.to_numpy()
     fig, ax = plt.subplots()
@@ -149,4 +187,5 @@ if __name__ == "__main__":
     # wrap up
     plt.legend()
     plt.tight_layout()
-    plt.savefig(name)
+    plt.savefig(name1)
+    plt.savefig(name2)

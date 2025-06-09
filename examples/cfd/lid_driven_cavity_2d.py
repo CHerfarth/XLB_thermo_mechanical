@@ -13,7 +13,9 @@ import numpy as np
 
 
 class LidDrivenCavity2D:
-    def __init__(self, omega, prescribed_vel, grid_shape, velocity_set, compute_backend, precision_policy):
+    def __init__(
+        self, omega, prescribed_vel, grid_shape, velocity_set, compute_backend, precision_policy
+    ):
         # initialize compute_backend
         xlb.init(
             velocity_set=velocity_set,
@@ -45,7 +47,9 @@ class LidDrivenCavity2D:
         box = self.grid.bounding_box_indices()
         box_no_edge = self.grid.bounding_box_indices(remove_edges=True)
         lid = box_no_edge["top"]
-        walls = [box["bottom"][i] + box["left"][i] + box["right"][i] for i in range(self.velocity_set.d)]
+        walls = [
+            box["bottom"][i] + box["left"][i] + box["right"][i] for i in range(self.velocity_set.d)
+        ]
         walls = np.unique(np.array(walls), axis=-1).tolist()
         return lid, walls
 
@@ -64,7 +68,9 @@ class LidDrivenCavity2D:
 
     def run(self, num_steps, post_process_interval=100):
         for i in range(num_steps):
-            self.f_0, self.f_1 = self.stepper(self.f_0, self.f_1, self.bc_mask, self.missing_mask, self.omega, i)
+            self.f_0, self.f_1 = self.stepper(
+                self.f_0, self.f_1, self.bc_mask, self.missing_mask, self.omega, i
+            )
             self.f_0, self.f_1 = self.f_1, self.f_0
 
             if i % post_process_interval == 0 or i == num_steps - 1:
@@ -81,7 +87,9 @@ class LidDrivenCavity2D:
         macro = Macroscopic(
             compute_backend=ComputeBackend.JAX,
             precision_policy=self.precision_policy,
-            velocity_set=xlb.velocity_set.D2Q9(precision_policy=self.precision_policy, compute_backend=ComputeBackend.JAX),
+            velocity_set=xlb.velocity_set.D2Q9(
+                precision_policy=self.precision_policy, compute_backend=ComputeBackend.JAX
+            ),
         )
 
         rho, u = macro(f_0)
@@ -104,7 +112,9 @@ if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP32FP32
 
-    velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
+    velocity_set = xlb.velocity_set.D2Q9(
+        precision_policy=precision_policy, compute_backend=compute_backend
+    )
 
     # Setting fluid viscosity and relaxation parameter.
     Re = 200.0
@@ -113,5 +123,7 @@ if __name__ == "__main__":
     visc = prescribed_vel * clength / Re
     omega = 1.0 / (3.0 * visc + 0.5)
 
-    simulation = LidDrivenCavity2D(omega, prescribed_vel, grid_shape, velocity_set, compute_backend, precision_policy)
+    simulation = LidDrivenCavity2D(
+        omega, prescribed_vel, grid_shape, velocity_set, compute_backend, precision_policy
+    )
     simulation.run(num_steps=50000, post_process_interval=1000)

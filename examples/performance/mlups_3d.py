@@ -14,11 +14,17 @@ from xlb.distribute import distribute
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="MLUPS for 3D Lattice Boltzmann Method Simulation (BGK)")
+    parser = argparse.ArgumentParser(
+        description="MLUPS for 3D Lattice Boltzmann Method Simulation (BGK)"
+    )
     parser.add_argument("cube_edge", type=int, help="Length of the edge of the cubic grid")
     parser.add_argument("num_steps", type=int, help="Number of timesteps for the simulation")
-    parser.add_argument("compute_backend", type=str, help="Backend for the simulation (jax or warp)")
-    parser.add_argument("precision", type=str, help="Precision for the simulation (e.g., fp32/fp32)")
+    parser.add_argument(
+        "compute_backend", type=str, help="Backend for the simulation (jax or warp)"
+    )
+    parser.add_argument(
+        "precision", type=str, help="Precision for the simulation (e.g., fp32/fp32)"
+    )
     return parser.parse_args()
 
 
@@ -35,7 +41,9 @@ def setup_simulation(args):
         raise ValueError("Invalid precision specified.")
 
     xlb.init(
-        velocity_set=xlb.velocity_set.D3Q19(precision_policy=precision_policy, compute_backend=compute_backend),
+        velocity_set=xlb.velocity_set.D3Q19(
+            precision_policy=precision_policy, compute_backend=compute_backend
+        ),
         default_backend=compute_backend,
         default_precision_policy=precision_policy,
     )
@@ -48,7 +56,10 @@ def run_simulation(compute_backend, precision_policy, grid_shape, num_steps):
     box_no_edge = grid.bounding_box_indices(remove_edges=True)
 
     lid = box_no_edge["top"]
-    walls = [box["bottom"][i] + box["left"][i] + box["right"][i] + box["front"][i] + box["back"][i] for i in range(len(grid.shape))]
+    walls = [
+        box["bottom"][i] + box["left"][i] + box["right"][i] + box["front"][i] + box["back"][i]
+        for i in range(len(grid.shape))
+    ]
     walls = np.unique(np.array(walls), axis=-1).tolist()
 
     boundary_conditions = [
@@ -67,7 +78,9 @@ def run_simulation(compute_backend, precision_policy, grid_shape, num_steps):
         stepper = distribute(
             stepper,
             grid,
-            xlb.velocity_set.D3Q19(precision_policy=precision_policy, compute_backend=compute_backend),
+            xlb.velocity_set.D3Q19(
+                precision_policy=precision_policy, compute_backend=compute_backend
+            ),
         )
 
     # Initialize fields
@@ -96,7 +109,12 @@ args = parse_arguments()
 compute_backend, precision_policy = setup_simulation(args)
 grid_shape = (args.cube_edge, args.cube_edge, args.cube_edge)
 
-elapsed_time = run_simulation(compute_backend=compute_backend, precision_policy=precision_policy, grid_shape=grid_shape, num_steps=args.num_steps)
+elapsed_time = run_simulation(
+    compute_backend=compute_backend,
+    precision_policy=precision_policy,
+    grid_shape=grid_shape,
+    num_steps=args.num_steps,
+)
 
 mlups = calculate_mlups(args.cube_edge, args.num_steps, elapsed_time)
 

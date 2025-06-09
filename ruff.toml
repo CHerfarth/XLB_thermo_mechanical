@@ -34,9 +34,9 @@ lint.select = [
 
 # unused-variable, shadowing a Python builtin module, Module imported but unused
 lint.ignore = ["F841", "A005", "F401"]
-line-length = 150
+line-length = 100
 
 exclude = [
   "docs/",
-  "xlb/experimental/",
+ # "xlb/experimental/",
 ]

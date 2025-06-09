@@ -125,7 +125,11 @@ class RegularizedBC(ZouHeBC):
 
     def _construct_warp(self):
         # load helper functions
-        bc_helper = HelperFunctionsBC(velocity_set=self.velocity_set, precision_policy=self.precision_policy, compute_backend=self.compute_backend)
+        bc_helper = HelperFunctionsBC(
+            velocity_set=self.velocity_set,
+            precision_policy=self.precision_policy,
+            compute_backend=self.compute_backend,
+        )
         # Set local constants
         _d = self.velocity_set.d
         _q = self.velocity_set.q

@@ -15,7 +15,9 @@ stats = data.groupby("dim")["MLUP/s"].agg(["mean", "std"]).reset_index()
 
 # Plotting
 plt.figure(figsize=(8, 6))
-plt.errorbar(stats["dim"], stats["mean"], yerr=stats["std"], fmt="o-", capsize=5, label="Standard LB")
+plt.errorbar(
+    stats["dim"], stats["mean"], yerr=stats["std"], fmt="o-", capsize=5, label="Standard LB"
+)
 
 # Add labels and legend
 plt.xlabel("Dimension")

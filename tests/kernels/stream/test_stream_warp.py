@@ -10,7 +10,9 @@ from xlb.grid import grid_factory
 
 
 def init_xlb_env(velocity_set):
-    vel_set = velocity_set(precision_policy=xlb.PrecisionPolicy.FP32FP32, compute_backend=ComputeBackend.WARP)
+    vel_set = velocity_set(
+        precision_policy=xlb.PrecisionPolicy.FP32FP32, compute_backend=ComputeBackend.WARP
+    )
     xlb.init(
         default_precision_policy=xlb.PrecisionPolicy.FP32FP32,
         default_backend=ComputeBackend.WARP,
@@ -72,9 +74,13 @@ def test_stream_operator_warp(dim, velocity_set, grid_shape):
     f_streamed = stream_op(f_initial_warp, f_streamed)
 
     if len(grid_shape) == 2:
-        assert jnp.allclose(f_streamed.numpy()[..., 0], np.array(expected)), "Streaming did not occur as expected"
+        assert jnp.allclose(f_streamed.numpy()[..., 0], np.array(expected)), (
+            "Streaming did not occur as expected"
+        )
     else:
-        assert jnp.allclose(f_streamed.numpy(), np.array(expected)), "Streaming did not occur as expected"
+        assert jnp.allclose(f_streamed.numpy(), np.array(expected)), (
+            "Streaming did not occur as expected"
+        )
 
 
 if __name__ == "__main__":

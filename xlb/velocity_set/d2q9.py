@@ -21,4 +21,6 @@ class D2Q9(VelocitySet):
         w = np.array([4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 9, 1 / 36, 1 / 36])
 
         # Call the parent constructor
-        super().__init__(2, 9, c, w, precision_policy=precision_policy, compute_backend=compute_backend)
+        super().__init__(
+            2, 9, c, w, precision_policy=precision_policy, compute_backend=compute_backend
+        )

@@ -20,9 +20,13 @@ smoothing_steps_per_iteration = args.smoothing_steps_per_iteration
 smoothing_factor = args.smoothing_factor
 
 
-multigrid_data = pd.read_csv("multigrid_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64)
+multigrid_data = pd.read_csv(
+    "multigrid_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64
+)
 print(multigrid_data.head())
-normal_data = pd.read_csv("normal_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64)
+normal_data = pd.read_csv(
+    "normal_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64
+)
 print(normal_data.head())
 
 
@@ -31,19 +35,37 @@ title = "Residual over Iteration for Multigrid LB"
 x_label = "Iteration"
 y_label = "Residual"
 fig, ax = plt.subplots()
-ax.plot(multigrid_data["iteration"], multigrid_data["residual_norm"], "-", color="green", label="Residual")
+ax.plot(
+    multigrid_data["iteration"],
+    multigrid_data["residual_norm"],
+    "-",
+    color="green",
+    label="Residual",
+)
 ax.grid(True)
 plt.yscale("log")
 ax.set_title(title)
 # plot expected speed of convergence
 slope = amplification_factor**smoothing_steps_per_iteration
 multigrid_data["slope_power"] = slope ** multigrid_data["iteration"]
-ax.plot(multigrid_data["iteration"], multigrid_data["slope_power"], "--", color="black", label="Expected Speed of Convergence {}".format(amplification_factor))
-#Actual rate of convergence
+ax.plot(
+    multigrid_data["iteration"],
+    multigrid_data["slope_power"],
+    "--",
+    color="black",
+    label="Expected Speed of Convergence {}".format(amplification_factor),
+)
+# Actual rate of convergence
 slope = utils.rate_of_convergence(multigrid_data, "residual_norm")
 multigrid_data["slope_power"] = slope ** multigrid_data["iteration"]
-ax.plot(multigrid_data["iteration"], multigrid_data["slope_power"], "--", color="red", label="Actual Speed of Convergence {}".format(slope**(1/smoothing_steps_per_iteration)))
-print("Actual rate of Convergence: {}".format(slope**(1/smoothing_steps_per_iteration)))
+ax.plot(
+    multigrid_data["iteration"],
+    multigrid_data["slope_power"],
+    "--",
+    color="red",
+    label="Actual Speed of Convergence {}".format(slope ** (1 / smoothing_steps_per_iteration)),
+)
+print("Actual rate of Convergence: {}".format(slope ** (1 / smoothing_steps_per_iteration)))
 
 ax.set_ylim((1e-11, 1e2))
 # calculate actual speed of convergence
@@ -55,9 +77,7 @@ plt.tight_layout()
 plt.savefig("residual_mg.png")
 
 
-
-
-'''# plot convergence residual per iteration for standard
+"""# plot convergence residual per iteration for standard
 title = "Residual over Iteration for Standard LB"
 x_label = "Iteration"
 y_label = "Residual"
@@ -77,4 +97,4 @@ plt.xlabel(x_label, labelpad=20, fontsize=12)
 plt.ylabel(y_label, labelpad=20, fontsize=12)
 plt.legend(loc="upper right")
 plt.tight_layout()
-plt.savefig("residual_standard.png")'''
+plt.savefig("residual_standard.png")"""

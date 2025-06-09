@@ -64,7 +64,9 @@ def test_conversion_to_moments():
         for i in range(9):
             f[i, 0, 0, 0] = float(i)
 
-    moments = wp.from_numpy(np.zeros(shape=(9), dtype=float), dtype=precision_policy.store_precision.wp_dtype)
+    moments = wp.from_numpy(
+        np.zeros(shape=(9), dtype=float), dtype=precision_policy.store_precision.wp_dtype
+    )
 
     @wp.kernel
     def get_moments(f: wp.array4d(dtype=Any), m: wp.array1d(dtype=Any)):

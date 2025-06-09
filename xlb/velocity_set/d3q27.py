@@ -29,4 +29,6 @@ class D3Q27(VelocitySet):
                 w[i] = 1.0 / 216.0
 
         # Initialize the Lattice
-        super().__init__(3, 27, c, w, precision_policy=precision_policy, compute_backend=compute_backend)
+        super().__init__(
+            3, 27, c, w, precision_policy=precision_policy, compute_backend=compute_backend
+        )

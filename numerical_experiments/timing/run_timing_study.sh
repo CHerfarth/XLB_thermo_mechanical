@@ -18,9 +18,9 @@ current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
 log_file="log_"$current_date_time".txt"
 results_file="results_"$current_date_time".csv"
 
-repeat_iterations=1
+repeat_iterations=5
 
-timing_cutoff=15
+timing_cutoff=40
 
 
 nu=$base_nu
@@ -92,13 +92,16 @@ do
 
                 rm tmp*
             done
-            python3 plotter.py $results_file $E $nu
-
-            mkdir plots 
-            mv runtimes.png plots/runtimes_E_"$E"_nu_"$nu".png
-
-            echo "Simulated with E $E and nu $nu"
+            
         done
+        python3 plotter.py $results_file $E $nu
+        mkdir plots 
+        mkdir data
+        mv runtimes.png plots/runtimes_E_"$E"_nu_"$nu".png
+        mv multigrid.png plots/only_multi_E_"$E"_nu_"$nu".png
+        mv $results_file data/results_E_"$E"_nu_"$nu".csv
+        echo "Simulated with E $E and nu $nu"
+
         E=$(echo "$E+$d_E" | bc -l)
     done
     nu=$(echo "$nu+$d_nu" | bc -l)

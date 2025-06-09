@@ -30,9 +30,15 @@ def write_results(norms_over_time, name):
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP64FP64
-    velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
+    velocity_set = xlb.velocity_set.D2Q9(
+        precision_policy=precision_policy, compute_backend=compute_backend
+    )
 
-    xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
+    xlb.init(
+        velocity_set=velocity_set,
+        default_backend=compute_backend,
+        default_precision_policy=precision_policy,
+    )
 
     # initiali1e grid
     nodes_x = 128
@@ -46,20 +52,26 @@ if __name__ == "__main__":
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     timesteps = 10
-    dt = dx*dx
+    dt = dx * dx
 
     # params
     E = 0.3
     nu = 0.8
 
     solid_simulation = SimulationParams()
-    solid_simulation.set_all_parameters(E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0)
+    solid_simulation.set_all_parameters(
+        E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0
+    )
     print("E: {}        nu: {}".format(solid_simulation.E, solid_simulation.nu))
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.sin(2*sympy.pi*y)#sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)
-    manufactured_v =sympy.sin(2*sympy.pi*y)#sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)
+    manufactured_u = sympy.sin(
+        2 * sympy.pi * y
+    )  # sympy.cos(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)
+    manufactured_v = sympy.sin(
+        2 * sympy.pi * y
+    )  # sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -105,8 +117,8 @@ if __name__ == "__main__":
         coarsest_level_iter=5000,
     )
     finest_level = multigrid_solver.get_finest_level()
-    #finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=39)
-    '''simulation_params = SimulationParams()
+    # finest_level.f_1 = utils.get_initial_guess_from_white_noise(finest_level.f_1.shape, precision_policy, dx, mean=0, seed=39)
+    """simulation_params = SimulationParams()
     mu = simulation_params.mu
     K = simulation_params.K
     theta = simulation_params.theta
@@ -121,16 +133,21 @@ if __name__ == "__main__":
     zero_host = utils.get_function_on_grid(zero, x, y, dx, grid)
     f_1_total = np.array([[f_1_host, f_1_host, f_1_host, f_1_host,f_1_host,f_1_host,f_1_host,f_1_host,f_1_host]])
     host_f_1 = np.transpose(f_1_total, (1, 2, 3, 0))  # swap dims to make array compatible with what grid_factory would have produced
-    finest_level.f_1 = wp.from_numpy(host_f_1, dtype=precision_policy.store_precision.wp_dtype)  # ...and move to device'''
+    finest_level.f_1 = wp.from_numpy(host_f_1, dtype=precision_policy.store_precision.wp_dtype)  # ...and move to device"""
     kernel_provider = KernelProvider()
-    wp.launch(kernel_provider.convert_moments_to_populations, inputs=[finest_level.f_1, finest_level.f_1], dim=finest_level.f_1.shape[1:])
-
+    wp.launch(
+        kernel_provider.convert_moments_to_populations,
+        inputs=[finest_level.f_1, finest_level.f_1],
+        dim=finest_level.f_1.shape[1:],
+    )
 
     for i in range(timesteps):
         residual_norm = finest_level.start_v_cycle(timestep=i, return_residual=True)
         residual_over_time.append(residual_norm)
         macroscopics = finest_level.get_macroscopics()
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(
+            macroscopics, expected_macroscopics, i, dx, norms_over_time
+        )
         # write out error norms
         # print(finest_level.f_1.numpy()[1,:,:,0])
         # print("-----------------------------------------------------------")

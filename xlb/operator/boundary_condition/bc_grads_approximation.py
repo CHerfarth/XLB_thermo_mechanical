@@ -85,7 +85,9 @@ class GradsApproximationBC(BoundaryCondition):
         #     if mesh_velocity_function is not None:
         #         # mesh is moving and/or deforming
 
-        assert self.compute_backend == ComputeBackend.WARP, "This BC is currently only implemented with the Warp backend!"
+        assert self.compute_backend == ComputeBackend.WARP, (
+            "This BC is currently only implemented with the Warp backend!"
+        )
 
     @Operator.register_backend(ComputeBackend.JAX)
     @partial(jit, static_argnums=(0))
@@ -104,7 +106,9 @@ class GradsApproximationBC(BoundaryCondition):
         _opp_indices = self.velocity_set.opp_indices
         _f_vec = wp.vec(self.velocity_set.q, dtype=self.compute_dtype)
         _u_vec = wp.vec(self.velocity_set.d, dtype=self.compute_dtype)
-        _u_wall = _u_vec(self.u[0], self.u[1], self.u[2]) if _d == 3 else _u_vec(self.u[0], self.u[1])
+        _u_wall = (
+            _u_vec(self.u[0], self.u[1], self.u[2]) if _d == 3 else _u_vec(self.u[0], self.u[1])
+        )
         # diagonal = wp.vec3i(0, 3, 5) if _d == 3 else wp.vec2i(0, 2)
 
         @wp.func
@@ -175,7 +179,10 @@ class GradsApproximationBC(BoundaryCondition):
                 cu *= self.compute_dtype(3.0)
 
                 # change f_post using the Grad's approximation
-                f_post[l] = rho * _w[l] * (self.compute_dtype(1.0) + cu) + _w[l] * self.compute_dtype(4.5) * QiPi
+                f_post[l] = (
+                    rho * _w[l] * (self.compute_dtype(1.0) + cu)
+                    + _w[l] * self.compute_dtype(4.5) * QiPi
+                )
 
             return f_post
 
@@ -201,7 +208,10 @@ class GradsApproximationBC(BoundaryCondition):
                     weight = self.compute_dtype(0.5)
 
                     # Use differentiable interpolated BB to find f_missing:
-                    f_post[l] = ((one - weight) * f_post[_opp_indices[l]] + weight * (f_pre[l] + f_pre[_opp_indices[l]])) / (one + weight)
+                    f_post[l] = (
+                        (one - weight) * f_post[_opp_indices[l]]
+                        + weight * (f_pre[l] + f_pre[_opp_indices[l]])
+                    ) / (one + weight)
 
                     # # Add contribution due to moving_wall to f_missing as is usual in regular Bouzidi BC
                     # cu = self.compute_dtype(0.0)
@@ -267,7 +277,9 @@ class GradsApproximationBC(BoundaryCondition):
                         for d in range(_d):
                             fluid_nbr_index[d] = index[d] + _c[d, l]
                         # The following is the post-collision values of the fluid neighbor cell
-                        _f_nbr[ll] = self.compute_dtype(f_0[ll, fluid_nbr_index[0], fluid_nbr_index[1], fluid_nbr_index[2]])
+                        _f_nbr[ll] = self.compute_dtype(
+                            f_0[ll, fluid_nbr_index[0], fluid_nbr_index[1], fluid_nbr_index[2]]
+                        )
 
                     # Compute the velocity vector at the fluid neighbouring cells
                     _, u_f = self.macroscopic.warp_functional(_f_nbr)
@@ -283,7 +295,10 @@ class GradsApproximationBC(BoundaryCondition):
                         u_target[d] += (weight * u_f[d] + _u_wall[d]) / (one + weight)
 
                     # Use differentiable interpolated BB to find f_missing:
-                    f_post[l] = ((one - weight) * f_post[_opp_indices[l]] + weight * (f_pre[l] + f_pre[_opp_indices[l]])) / (one + weight)
+                    f_post[l] = (
+                        (one - weight) * f_post[_opp_indices[l]]
+                        + weight * (f_pre[l] + f_pre[_opp_indices[l]])
+                    ) / (one + weight)
 
                     # Add contribution due to moving_wall to f_missing as is usual in regular Bouzidi BC
                     cu = self.compute_dtype(0.0)

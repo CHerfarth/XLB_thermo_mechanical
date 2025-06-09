@@ -16,9 +16,16 @@ def get_force_load(manufactured_displacement, x, y):
     K = params.K_unscaled
     man_u = manufactured_displacement[0]
     man_v = manufactured_displacement[1]
-    b_x = -mu * (sympy.diff(man_u, x, x) + sympy.diff(man_u, y, y)) - K * sympy.diff(sympy.diff(man_u, x) + sympy.diff(man_v, y), x)
-    b_y = -mu * (sympy.diff(man_v, x, x) + sympy.diff(man_v, y, y)) - K * sympy.diff(sympy.diff(man_u, x) + sympy.diff(man_v, y), y)
-    return (np.vectorize(sympy.lambdify([x, y], b_x, "numpy")), np.vectorize(sympy.lambdify([x, y], b_y, "numpy")))
+    b_x = -mu * (sympy.diff(man_u, x, x) + sympy.diff(man_u, y, y)) - K * sympy.diff(
+        sympy.diff(man_u, x) + sympy.diff(man_v, y), x
+    )
+    b_y = -mu * (sympy.diff(man_v, x, x) + sympy.diff(man_v, y, y)) - K * sympy.diff(
+        sympy.diff(man_u, x) + sympy.diff(man_v, y), y
+    )
+    return (
+        np.vectorize(sympy.lambdify([x, y], b_x, "numpy")),
+        np.vectorize(sympy.lambdify([x, y], b_y, "numpy")),
+    )
 
 
 def get_function_on_grid(f, x, y, dx, grid):
@@ -42,10 +49,11 @@ def get_error_norms(current_macroscopics, expected_macroscopics, dx, timestep=0)
     # save_fields_vtk(fields, timestep=timestep, prefix="error")
     return l2_disp, linf_disp, l2_stress, linf_stress
 
+
 def rmsd(array):
     vector = array.flatten
     n = vector.size()
-    return math.sqrt((1/n)*np.linalg.norm(vector))
+    return math.sqrt((1 / n) * np.linalg.norm(vector))
 
 
 def get_expected_stress(manufactured_displacement, x, y):
@@ -63,7 +71,9 @@ def get_expected_stress(manufactured_displacement, x, y):
     return s_xx, s_yy, s_xy
 
 
-def restrict_solution_to_domain(array, potential, dx):  # ToDo: make more efficient (fancy numpy funcs)
+def restrict_solution_to_domain(
+    array, potential, dx
+):  # ToDo: make more efficient (fancy numpy funcs)
     if potential == None:
         return array
     for i in range(array.shape[1]):
@@ -81,14 +91,23 @@ def output_image(macroscopics, timestep, name, potential=None):
     s_xy = macroscopics[4, :, :, 0]
     # output as vtk files
     dis_mag = np.sqrt(np.square(dis_x) + np.square(dis_y))
-    fields = {"dis_x": dis_x, "dis_y": dis_y, "dis_mag": dis_mag, "s_xx": s_xx, "s_yy": s_yy, "s_xy": s_xy}
+    fields = {
+        "dis_x": dis_x,
+        "dis_y": dis_y,
+        "dis_mag": dis_mag,
+        "s_xx": s_xx,
+        "s_yy": s_yy,
+        "s_xy": s_xy,
+    }
     save_fields_vtk(fields, timestep=timestep, prefix=name)
     save_image(dis_mag, timestep)
 
 
 def process_error(macroscopics, expected_macroscopics, timestep, dx, norms_over_time):
     # calculate error to expected solution
-    l2_disp, linf_disp, l2_stress, linf_stress = get_error_norms(macroscopics, expected_macroscopics, dx, timestep)
+    l2_disp, linf_disp, l2_stress, linf_stress = get_error_norms(
+        macroscopics, expected_macroscopics, dx, timestep
+    )
     norms_over_time.append((timestep, l2_disp, linf_disp, l2_stress, linf_stress))
     return l2_disp, linf_disp, l2_stress, linf_stress
 
@@ -102,10 +121,12 @@ def get_initial_guess_from_white_noise(shape, precision_policy, dx, mean=0, seed
     # create white noise array on host
     host = rng.normal(loc=mean, scale=1.0, size=shape)
 
-    #host[2:, :, :, :] = np.zeros_like(host[2:, :, :, :])
+    # host[2:, :, :, :] = np.zeros_like(host[2:, :, :, :])
     # manually set to expected mean
     for l in range(9):
-        host[l, :, :, 0] = host[l, :, :, 0] - np.full(shape=host[l, :, :, 0].shape, fill_value=(np.sum(host[l, :, :, 0]) * dx * dx - mean))
+        host[l, :, :, 0] = host[l, :, :, 0] - np.full(
+            shape=host[l, :, :, 0].shape, fill_value=(np.sum(host[l, :, :, 0]) * dx * dx - mean)
+        )
 
     # load onto device
     device = wp.from_numpy(host, dtype=precision_policy.store_precision.wp_dtype)
@@ -125,95 +146,120 @@ def last_n_avg(data, n):
     val = val * weight
     return val
 
-def plot_3d_wireframe(data, name='wireframe', timestep=0, stride=5, zlim=(-1,1)):
+
+def plot_3d_wireframe(data, name="wireframe", timestep=0, stride=5, zlim=(-1, 1)):
     """Create 3D wireframe plot"""
-    output_file = name+'_'+str(timestep)+'.png'
+    output_file = name + "_" + str(timestep) + ".png"
     fig = plt.figure(figsize=(12, 9))
-    ax = fig.add_subplot(111, projection='3d')
-    
+    ax = fig.add_subplot(111, projection="3d")
+
     # Create coordinate arrays
     x = np.arange(data.shape[1])
     y = np.arange(data.shape[0])
     X, Y = np.meshgrid(x, y)
-    
+
     # Create wireframe plot
     ax.plot_wireframe(X, Y, data, rstride=stride, cstride=stride, alpha=0.7)
     ax.set_zlim(zlim)
-    
-    ax.set_xlabel('X Index')
-    ax.set_ylabel('Y Index')
-    ax.set_zlabel('Value')
-    ax.set_title('3D Wireframe Plot')
-    
-    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+
+    ax.set_xlabel("X Index")
+    ax.set_ylabel("Y Index")
+    ax.set_zlabel("Value")
+    ax.set_title("3D Wireframe Plot")
+
+    plt.savefig(output_file, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"Saved: {output_file}")
 
-def plot_3d_surface(data, name='surface', timestep=0, colormap='viridis', zlim=None):
+
+def plot_3d_surface(data, name="surface", timestep=0, colormap="viridis", zlim=None):
     """Create 3D surface plot"""
-    output_file = name+'_'+str(timestep)+'.png'
+    output_file = name + "_" + str(timestep) + ".png"
     fig = plt.figure(figsize=(12, 9))
-    ax = fig.add_subplot(111, projection='3d')
-    
+    ax = fig.add_subplot(111, projection="3d")
+
     # Create coordinate arrays
     x = np.arange(data.shape[1])
     y = np.arange(data.shape[0])
     X, Y = np.meshgrid(x, y)
-    
+
     # Create surface plot
     if zlim != None:
-        surf = ax.plot_surface(X, Y, data, cmap=colormap, vmin=zlim[0], vmax=zlim[1], 
-                            alpha=0.9, linewidth=0, antialiased=True)
+        surf = ax.plot_surface(
+            X,
+            Y,
+            data,
+            cmap=colormap,
+            vmin=zlim[0],
+            vmax=zlim[1],
+            alpha=0.9,
+            linewidth=0,
+            antialiased=True,
+        )
         ax.set_zlim(zlim)
     else:
-        surf = ax.plot_surface(X, Y, data, cmap=colormap, 
-                            alpha=0.9, linewidth=0, antialiased=True)
+        surf = ax.plot_surface(X, Y, data, cmap=colormap, alpha=0.9, linewidth=0, antialiased=True)
 
-    
     # Add color bar
     fig.colorbar(surf, shrink=0.5, aspect=20)
-    
-    ax.set_xlabel('X Index')
-    ax.set_ylabel('Y Index')
-    ax.set_zlabel('Value')
-    ax.set_title('3D Surface Plot')
-    
-    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+
+    ax.set_xlabel("X Index")
+    ax.set_ylabel("Y Index")
+    ax.set_zlabel("Value")
+    ax.set_title("3D Surface Plot")
+
+    plt.savefig(output_file, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"Saved: {output_file}")
 
-def plot_x_slice(array1, dx1, array2=None, dx2=None, zlim=None, name='slice', timestep=0, y_index=None, xlabel='x', ylabel='val', title='Slice along x-Axis', label1='Array 1', label2='Array 2'):
+
+def plot_x_slice(
+    array1,
+    dx1,
+    array2=None,
+    dx2=None,
+    zlim=None,
+    name="slice",
+    timestep=0,
+    y_index=None,
+    xlabel="x",
+    ylabel="val",
+    title="Slice along x-Axis",
+    label1="Array 1",
+    label2="Array 2",
+):
     """
     Plots a slice of a 2D array along the x-axis at a given y_index.
     If y_index is None, uses the middle row.
     """
-    output_file = name+'_'+str(timestep)+'.png'
+    output_file = name + "_" + str(timestep) + ".png"
     if y_index is None:
         y_index_1 = array1.shape[0] // 2  # Middle row
         if dx2 != None:
             y_index_2 = array2.shape[0] // 2  # Middle row
 
     plt.figure()
-    x1 = np.arange(array1.shape[1])*dx1 +0.5*dx1
-    plt.plot(x1, array1[y_index_1, :], '-d', label=label1)
+    x1 = np.arange(array1.shape[1]) * dx1 + 0.5 * dx1
+    plt.plot(x1, array1[y_index_1, :], "-d", label=label1)
 
     if dx2 != None:
-        x2 = np.arange(array2.shape[1])*dx2 +0.5*dx2
-        plt.plot(x2, array2[y_index_2, :], '-s', label=label2)
-    
-    if dx2 == dx1:
-        plt.plot(x1, (array1 + array2)[y_index_1, :], '-o', label='combined+')
-        #plt.plot(x1, (array1 - array2)[y_index_1, :], '-o', label='combined-')
+        x2 = np.arange(array2.shape[1]) * dx2 + 0.5 * dx2
+        plt.plot(x2, array2[y_index_2, :], "-s", label=label2)
 
-    if zlim!=None:
+    if dx2 == dx1:
+        plt.plot(x1, (array1 + array2)[y_index_1, :], "-o", label="combined+")
+        # plt.plot(x1, (array1 - array2)[y_index_1, :], '-o', label='combined-')
+
+    if zlim != None:
         plt.ylim(zlim)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(f"{title} (y={y_index})")
     plt.legend()
     plt.grid(True)
-    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    plt.savefig(output_file, dpi=150, bbox_inches="tight")
     plt.close()
+
 
 def rate_of_convergence(data, column_header, min=None, max=None):
     if min is not None and max is not None:
@@ -224,8 +270,8 @@ def rate_of_convergence(data, column_header, min=None, max=None):
         filtered = [row for row in data[column_header] if row < max]
     else:
         filtered = [row for row in data[column_header]]
-    
+
     rates = list()
     for i in range(len(filtered) - 1):
-        rates.append(filtered[i+1]/filtered[i])
-    return statistics.median(rates) 
+        rates.append(filtered[i + 1] / filtered[i])
+    return statistics.median(rates)

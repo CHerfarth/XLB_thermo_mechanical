@@ -29,9 +29,15 @@ def write_results(norms_over_time, name, iteration):
 if __name__ == "__main__":
     compute_backend = ComputeBackend.WARP
     precision_policy = PrecisionPolicy.FP32FP32
-    velocity_set = xlb.velocity_set.D2Q9(precision_policy=precision_policy, compute_backend=compute_backend)
+    velocity_set = xlb.velocity_set.D2Q9(
+        precision_policy=precision_policy, compute_backend=compute_backend
+    )
 
-    xlb.init(velocity_set=velocity_set, default_backend=compute_backend, default_precision_policy=precision_policy)
+    xlb.init(
+        velocity_set=velocity_set,
+        default_backend=compute_backend,
+        default_precision_policy=precision_policy,
+    )
 
     # get command line arguments
     parser = argparse.ArgumentParser("error_mode_study")
@@ -95,7 +101,9 @@ if __name__ == "__main__":
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
 
     # initialize stepper
-    stepper = SolidsStepper(grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values)
+    stepper = SolidsStepper(
+        grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values
+    )
 
     # startup grids
     f_1 = np.zeros(shape=(9, nodes_x, nodes_y, 1))

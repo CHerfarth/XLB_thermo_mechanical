@@ -35,7 +35,10 @@ class VelocitySet(object):
         self.compute_backend = compute_backend
 
         # Updating JAX config in case fp64 is requested
-        if compute_backend == ComputeBackend.JAX and (precision_policy == PrecisionPolicy.FP64FP64 or precision_policy == PrecisionPolicy.FP64FP32):
+        if compute_backend == ComputeBackend.JAX and (
+            precision_policy == PrecisionPolicy.FP64FP64
+            or precision_policy == PrecisionPolicy.FP64FP32
+        ):
             jax.config.update("jax_enable_x64", True)
 
         # Create all properties in NumPy first

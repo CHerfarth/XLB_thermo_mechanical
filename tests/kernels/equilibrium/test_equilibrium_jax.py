@@ -8,7 +8,9 @@ from xlb import DefaultConfig
 
 
 def init_xlb_env(velocity_set):
-    vel_set = velocity_set(precision_policy=xlb.PrecisionPolicy.FP32FP32, compute_backend=ComputeBackend.JAX)
+    vel_set = velocity_set(
+        precision_policy=xlb.PrecisionPolicy.FP32FP32, compute_backend=ComputeBackend.JAX
+    )
     xlb.init(
         default_precision_policy=xlb.PrecisionPolicy.FP32FP32,
         default_backend=ComputeBackend.JAX,
@@ -40,12 +42,16 @@ def test_quadratic_equilibrium_jax(dim, velocity_set, grid_shape):
 
     # Test sum of f_eq across cardinality at each point
     sum_f_eq = np.sum(f_eq, axis=0)
-    assert np.allclose(sum_f_eq, 1.0), "Sum of f_eq should be 1.0 across all directions at each grid point"
+    assert np.allclose(sum_f_eq, 1.0), (
+        "Sum of f_eq should be 1.0 across all directions at each grid point"
+    )
 
     # Test that each direction matches the expected weights
     weights = DefaultConfig.velocity_set.w
     for i, weight in enumerate(weights):
-        assert np.allclose(f_eq[i, ...], weight), f"Direction {i} in f_eq does not match the expected weight"
+        assert np.allclose(f_eq[i, ...], weight), (
+            f"Direction {i} in f_eq does not match the expected weight"
+        )
 
 
 if __name__ == "__main__":
