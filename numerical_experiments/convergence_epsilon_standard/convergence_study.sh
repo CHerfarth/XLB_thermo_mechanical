@@ -62,4 +62,4 @@ do
     echo "Iteration $i done"
 done
 
-python3 $2 $results_file
+python3 $2 $results_file $E_scaled $nu

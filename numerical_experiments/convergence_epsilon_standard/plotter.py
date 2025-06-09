@@ -149,14 +149,16 @@ if __name__ == "__main__":
     # get command line arguments
     parser = argparse.ArgumentParser("plot_convergence")
     parser.add_argument("file", type=str)
+    parser.add_argument("E_scaled", type=float)
+    parser.add_argument("nu", type=float)
     args = parser.parse_args()
 
     data = pd.read_csv(args.file, skiprows=0, sep=",", engine="python", dtype=np.float64)
     print(data.head())
 
-    x_label = "Epsilon"
+    x_label = r"$\epsilon$"
     y_label = "Error"
-    title = "Convergence"
+    title = r"$\tilde{E} = $" + str(args.E_scaled) + r", $\nu = $" + str(args.nu)
     name = "convergence.png"
 
     # data = data.to_numpy()
