@@ -20,7 +20,7 @@ results_file="results_"$current_date_time".csv"
 
 repeat_iterations=5
 
-timing_cutoff=2 #40
+timing_cutoff=40
 
 
 nu=$base_nu
@@ -99,7 +99,7 @@ do
         mkdir data
         mv runtimes.png plots/runtimes_E_"$E"_nu_"$nu".png
         mv multigrid.png plots/only_multi_E_"$E"_nu_"$nu".png
-        mv $results_file data/results_"$E"_nu_"$nu".csv
+        mv $results_file data/results_E_"$E"_nu_"$nu".csv
         echo "Simulated with E $E and nu $nu"
 
         E=$(echo "$E+$d_E" | bc -l)
