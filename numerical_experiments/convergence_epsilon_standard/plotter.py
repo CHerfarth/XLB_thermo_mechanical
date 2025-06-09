@@ -159,7 +159,8 @@ if __name__ == "__main__":
     x_label = r"$\epsilon$"
     y_label = "Error"
     title = r"$\tilde{E} = $" + str(args.E_scaled) + r", $\nu = $" + str(args.nu)
-    name = "convergence.png"
+    name1 = "convergence.png"
+    name2 = "convergence.eps"
 
     # data = data.to_numpy()
     fig, ax = plt.subplots()
@@ -186,4 +187,5 @@ if __name__ == "__main__":
     # wrap up
     plt.legend()
     plt.tight_layout()
-    plt.savefig(name)
+    plt.savefig(name1)
+    plt.savefig(name2)
