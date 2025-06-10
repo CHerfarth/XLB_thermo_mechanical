@@ -156,7 +156,7 @@ class SolidsRelaxedStepper(Stepper):
             _f_out = vec()
             for l in range(self.velocity_set.q):
                 _f_out[l] = (
-                    gamma * (_f_new_post_collision[l] - defect_vec[l])
+                    gamma * (_f_new_post_collision[l] + defect_vec[l])
                     + (self.compute_dtype(1) - gamma) * _f_post_collision[l]
                 )
             return _f_out

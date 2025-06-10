@@ -4,10 +4,10 @@ nodes_x=16
 nodes_y=16
 timesteps_mg=100
 timesteps_standard=10000
-coarsest_level_iter=5000
+coarsest_level_iter=20000
 iterations=4
 
-E=0.8
+E=0.4
 nu=0.5
 
 for ((i=0; i<iterations; i++))
@@ -35,7 +35,7 @@ do
     echo "Expected amplification factor $amplification"
     #echo "Expected smoothing factor standard LB $smoothing"
 
-    python3 plotter.py $amplification 2 $smoothing
+    python3 plotter.py $amplification 4 $smoothing
 
 
     rm tmp*

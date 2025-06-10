@@ -178,6 +178,12 @@ class Level(Operator):
         for i in range(self.v2):
             self.stepper(self.f_1, self.f_2, self.defect_correction)
             self.f_1, self.f_2 = self.f_2, self.f_1
+        
+        #for calculating WUs
+        benchmark_data = BenchmarkData()
+        benchmark_data.wu += (self.v1+self.v2)*0.25**self.level_num
+        if coarse is not None:
+            benchmark_data.wu += self.coarsest_level_iter*0.25**self.level_num
 
         if return_residual:
             return self.stepper.get_residual_norm(self.f_1)

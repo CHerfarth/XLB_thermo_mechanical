@@ -24,10 +24,10 @@ multigrid_data = pd.read_csv(
     "multigrid_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64
 )
 print(multigrid_data.head())
-normal_data = pd.read_csv(
-    "normal_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64
-)
-print(normal_data.head())
+#normal_data = pd.read_csv(
+#    "normal_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64
+#)
+#print(normal_data.head())
 
 
 # plot convergence residual per iteration for multigrid
@@ -53,8 +53,9 @@ ax.plot(
     multigrid_data["slope_power"],
     "--",
     color="black",
-    label="Expected Speed of Convergence {}".format(amplification_factor),
+    label="Expected Speed of Convergence {}".format(slope),
 )
+print("Expected rate of Convergence: {}".format(slope))
 # Actual rate of convergence
 slope = utils.rate_of_convergence(multigrid_data, "residual_norm")
 multigrid_data["slope_power"] = slope ** multigrid_data["iteration"]
@@ -63,9 +64,9 @@ ax.plot(
     multigrid_data["slope_power"],
     "--",
     color="red",
-    label="Actual Speed of Convergence {}".format(slope ** (1 / smoothing_steps_per_iteration)),
+    label="Actual Speed of Convergence {}".format(slope),
 )
-print("Actual rate of Convergence: {}".format(slope ** (1 / smoothing_steps_per_iteration)))
+print("Actual rate of Convergence: {}".format(slope))
 
 ax.set_ylim((1e-11, 1e2))
 # calculate actual speed of convergence

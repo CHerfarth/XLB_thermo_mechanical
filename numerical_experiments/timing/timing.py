@@ -123,21 +123,22 @@ if __name__ == "__main__":
     converged = 0
     runtime = 0.0
     i = 0
-    timesteps = args.max_timesteps_multi
-    benchmark_data = BenchmarkData()
-    benchmark_data.wu = 0.0
-    multigrid_solver = MultigridSolver(
-        nodes_x=nodes_x,
-        nodes_y=nodes_y,
-        length_x=length_x,
-        length_y=length_y,
-        dt=dt,
-        force_load=force_load,
-        gamma=gamma,
-        v1=3,
-        v2=3,
-        max_levels=None,
-    )
+    if args.test_multigrid:
+        timesteps = args.max_timesteps_multi
+        benchmark_data = BenchmarkData()
+        benchmark_data.wu = 0.0
+        multigrid_solver = MultigridSolver(
+            nodes_x=nodes_x,
+            nodes_y=nodes_y,
+            length_x=length_x,
+            length_y=length_y,
+            dt=dt,
+            force_load=force_load,
+            gamma=gamma,
+            v1=3,
+            v2=3,
+            max_levels=None,
+        )
     # ------------set initial guess to white noise------------------------
     # --------------------------------------------------------------------
     wp.synchronize()
@@ -152,12 +153,12 @@ if __name__ == "__main__":
                 break
         end = time.time()
         runtime = end - start
+        del multigrid_solver
 
     print("Multigrid_Converged: {}".format(converged))
     print("Multigrid_Time: {}".format(runtime))
     print("Multigrid_Iterations: {}".format(i))
 
-    del multigrid_solver
 
     # ------------------------------------- collect data for normal LB ----------------------------------
     solid_simulation = SimulationParams()
@@ -169,14 +170,14 @@ if __name__ == "__main__":
     converged = 0
     runtime = 0.0
     i = 0
-    # initialize stepper
-    stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
-    # startup grids
-    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-
     if args.test_standard:
+        # initialize stepper
+        stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
+        # startup grids
+        f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+
         wp.synchronize()
         start = time.time()
 
@@ -206,29 +207,14 @@ if __name__ == "__main__":
 
         end = time.time()
         runtime = end - start
+        del f_1
+        del f_2
+        del residual
 
     print("Standard_Converged: {}".format(converged))
     print("Standard_Time: {}".format(runtime))
     print("Standard_Iterations: {}".format(i))
-    norms_over_time = list()
-    macroscopics = stepper.get_macroscopics(f=f_1, output_array=f_2).numpy()
-    utils.process_error(
-        macroscopics=macroscopics,
-        expected_macroscopics=expected_macroscopics,
-        timestep=0,
-        dx=dx,
-        norms_over_time=norms_over_time,
-    )
-    last_norms = norms_over_time[len(norms_over_time) - 1]
-    print("Final error L2_disp: {}".format(last_norms[1]))
-    print("Final error Linf_disp: {}".format(last_norms[2]))
-    print("Final error L2_stress: {}".format(last_norms[3]))
-    print("Final error Linf_stress: {}".format(last_norms[4]))
-    print("in {} timesteps".format(last_norms[0]))
 
-    del f_1
-    del f_2
-    del residual
 
     # ------------------------------------- collect data for relaxed LB ----------------------------------
     solid_simulation = SimulationParams()
@@ -240,19 +226,19 @@ if __name__ == "__main__":
     converged = 0
     runtime = 0.0
     i = 0
-    # initialize stepper
-    stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
-    # startup grids
-    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    # set initial guess from white noise
-    # f_1 = utils.get_initial_guess_from_white_noise(f_1.shape, precision_policy, dx, mean=0, seed=31)
-
-    benchmark_data = BenchmarkData()
-    benchmark_data.wu = 0.0
-
     if args.test_relaxed:
+        # initialize stepper
+        stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
+        # startup grids
+        f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        # set initial guess from white noise
+        # f_1 = utils.get_initial_guess_from_white_noise(f_1.shape, precision_policy, dx, mean=0, seed=31)
+
+        benchmark_data = BenchmarkData()
+        benchmark_data.wu = 0.0
+
         wp.synchronize()
         start = time.time()
 
@@ -284,11 +270,11 @@ if __name__ == "__main__":
 
         end = time.time()
         runtime = end - start
+        del f_1
+        del f_2
+        del residual
 
     print("Relaxed_Converged: {}".format(converged))
     print("Relaxed_Time: {}".format(runtime))
     print("Relaxed_Iterations: {}".format(i))
 
-    del f_1
-    del f_2
-    del residual

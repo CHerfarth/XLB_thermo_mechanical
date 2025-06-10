@@ -16,10 +16,11 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 import xlb.experimental.thermo_mechanical.solid_bounceback as bc
 from xlb.utils import save_fields_vtk, save_image
 from xlb.experimental.thermo_mechanical.solid_simulation_params import SimulationParams
-from xlb.experimental.thermo_mechanical.multigrid import MultigridSolver
+from xlb.experimental.thermo_mechanical.multigrid_solver import MultigridSolver
 from xlb.experimental.thermo_mechanical.benchmark_data import BenchmarkData
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import argparse
+import pandas as pd
 
 
 def write_results(data_over_wu, name):
@@ -110,6 +111,8 @@ if __name__ == "__main__":
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
     expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
 
+    macroscopics = grid.create_field(cardinality=9, dtype=precision_policy.store_precision)
+
     # -------------------------------------- collect data for multigrid----------------------------
     data_over_wu = list()
     residuals = list()
@@ -128,22 +131,16 @@ if __name__ == "__main__":
         max_levels=None,
         coarsest_level_iter=args.coarsest_level_iter,
     )
-    finest_level = multigrid_solver.get_finest_level()
-
-    # ------------set initial guess to white noise------------------------
-    finest_level.f_1 = utils.get_initial_guess_from_white_noise(
-        finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31
-    )
 
     converged = 2
 
     wp.synchronize()
     for i in range(timesteps):
-        residual_norm = np.linalg.norm(finest_level.start_v_cycle(return_residual=True))
+        residual_norm = np.linalg.norm(multigrid_solver.start_v_cycle(return_residual=True))
         residuals.append(residual_norm)
-        macroscopics = finest_level.get_macroscopics()
+        multigrid_solver.get_macroscopics(output_array=macroscopics)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(
-            macroscopics, expected_macroscopics, i, dx, list()
+            macroscopics.numpy(), expected_macroscopics, i, dx, list()
         )
         data_over_wu.append((
             benchmark_data.wu,
@@ -154,15 +151,24 @@ if __name__ == "__main__":
             l2_stress,
             linf_stress,
         ))
-        if residual_norm < 1e-11:
+        if residual_norm < 1e-10:
             converged = 1
             break
         if residual_norm > 1e10:
             converged = 0
             break
 
-    print(l2_disp, linf_disp, l2_stress, linf_stress)
-    print(residual_norm)
+    headers = [
+        "wu",
+        "iteration",
+        "residual_norm",
+        "l2_disp",
+        "linf_disp",
+        "l2_stress",
+        "linf_stress",
+    ]
+    df = pd.DataFrame(data_over_wu, columns=headers)
     write_results(data_over_wu, "multigrid_results.csv")
     print("Converged: {}".format(converged))
-    print("Rate of Convergence: {}".format(0.0))
+    print("Rate of Convergence: {}".format(utils.rate_of_convergence(df, 'residual_norm')))
+    print("WU per iteration {}".format(benchmark_data.wu/(i+1)))
