@@ -58,7 +58,7 @@ class SolidBaredMoments(Operator):
             bared_m[1] += zero_p_five * force_y
 
             m_eq = calc_equilibrium(bared_m, theta)  # do something with this?
-            for l in range(2, self.velocity_set.q):
+            for l in range(self.velocity_set.q):
                bared_m[l] = zero_p_five*omega[l]*m_eq[l] + (self.compute_dtype(1)-zero_p_five*omega[l])*bared_m[l] 
             return bared_m
 
@@ -87,7 +87,6 @@ class SolidBaredMoments(Operator):
     def warp_implementation(self, f, output_array, force):
         params = SimulationParams()
         theta = params.theta
-        kappa = float(params.kappa)
         wp.launch(
             self.warp_kernel,
             inputs=[output_array, f, force, self.omega, theta],

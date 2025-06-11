@@ -133,7 +133,7 @@ if __name__ == "__main__":
         gamma=0.8,
         v1=3,
         v2=3,
-        max_levels=None,
+        max_levels=1,
         coarsest_level_iter=100,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
@@ -161,4 +161,5 @@ if __name__ == "__main__":
     print("Final error Linf_disp: {}".format(linf_disp))
     print("Final error L2_stress: {}".format(l2_stress))
     print("Final error Linf_stress: {}".format(linf_stress))
+    print("Residual norm: {}".format(residual_norm))
     #write_results(data_over_wu, "nodes_{}_results.csv".format(nodes_x))

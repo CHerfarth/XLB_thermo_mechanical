@@ -133,11 +133,11 @@ if __name__ == "__main__":
         gamma=0.8,
         v1=2,
         v2=2,
-        max_levels=None,
+        max_levels=2,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
         potential=potential_sympy,
-        coarsest_level_iter=100,
+        coarsest_level_iter=1000,
     )
 
     for i in range(timesteps):
@@ -179,6 +179,7 @@ if __name__ == "__main__":
     # startup grids
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    macroscopics = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     # set initial guess from white noise
     # f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=3, seed=31)
@@ -201,7 +202,7 @@ if __name__ == "__main__":
         wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:])
         residual_norm = np.linalg.norm(residual.numpy())
         residuals.append(residual_norm)
-        macroscopics = stepper.get_macroscopics(macroscopics, f_1)
+        stepper.get_macroscopics(f_1, output_array=macroscopics)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(
             macroscopics.numpy(), expected_macroscopics, i, dx, list()
         )

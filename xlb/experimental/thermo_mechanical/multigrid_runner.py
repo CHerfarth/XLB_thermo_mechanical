@@ -42,7 +42,7 @@ if __name__ == "__main__":
     # wp.config.verbose = True
 
     # initiali1e grid
-    nodes_x = 64
+    nodes_x = 32
     nodes_y = nodes_x
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
@@ -66,8 +66,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * y)  # + 3
-    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * y)  # + 3
+    manufactured_u = sympy.cos(2 * sympy.pi * y)# * sympy.sin(2 * sympy.pi * y)  # + 3
+    manufactured_v = sympy.cos(2 * sympy.pi * y)# * sympy.sin(2 * sympy.pi * y)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -105,19 +105,23 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=5,
+        v1=0,
         v2=5,
-        max_levels=None,
+        max_levels=2,
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
         potential=potential_sympy,
-        coarsest_level_iter=5000,
+        coarsest_level_iter=1000,
     )
 
-    for i in range(100):
-        multigrid_solver.start_v_cycle()
+    for i in range(5):
+        res = multigrid_solver.start_v_cycle(return_residual=True, timestep=i)
         multigrid_solver.get_macroscopics(output_array=macroscopics)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.get_error_norms(
             macroscopics.numpy(), expected_macroscopics, dx, i
         )
-        print(l2_disp)
+        #print(l2_disp)
+        #print(multigrid_solver.get_finest_level().f_1.numpy()[4,:,:,0])
+        #print(macroscopics.numpy()[3,:,:,0])
+        #print(expected_macroscopics[3,:,:])
+        #print(res)

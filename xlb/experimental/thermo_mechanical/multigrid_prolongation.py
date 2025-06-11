@@ -43,12 +43,12 @@ class Prolongation(Operator):
             # scale necessary components of m
             m_out[0] = self.compute_dtype(1) * m_out[0]
             m_out[1] = self.compute_dtype(1) * m_out[1]
-            m_out[2] = self.compute_dtype(0.5) * m_out[2]*self.compute_dtype(2)
-            m_out[3] = self.compute_dtype(0.5) * m_out[3]*self.compute_dtype(2)
-            m_out[4] = self.compute_dtype(0.5) * m_out[4]*self.compute_dtype(2)
+            m_out[2] = self.compute_dtype(0.5) * m_out[2]
+            m_out[3] = self.compute_dtype(0.5) * m_out[3]
+            m_out[4] = self.compute_dtype(0.5) * m_out[4]
             m_out[5] = self.compute_dtype(1) * m_out[5]
             m_out[6] = self.compute_dtype(1) * m_out[6]
-            m_out[7] = self.compute_dtype(0.5) * m_out[7]*self.compute_dtype(2)
+            m_out[7] = self.compute_dtype(0.5) * m_out[7]
             m_out[8] = self.compute_dtype(1) * m_out[8]
 
             f_out = calc_populations(m_out)
