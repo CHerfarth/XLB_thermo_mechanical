@@ -1,1 +1,1 @@
-rm -rf log* tmp* nodes* *csv
+rm -rf log* tmp* nodes* *csv nohup*

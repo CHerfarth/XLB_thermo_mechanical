@@ -116,17 +116,65 @@ def get_initial_guess_from_white_noise(shape, precision_policy, dx, mean=0, seed
     kernel_provider = KernelProvider()
     convert_moments_to_populations = kernel_provider.convert_moments_to_populations
 
+    params = SimulationParams()
+    theta = params.theta
+    dx = params.dx
+    mu = params.mu_unscaled
+    lamb = params.lamb_unscaled
+    L = params.L
+    T = params.T
+    kappa = params.kappa
+
     rng = np.random.default_rng(seed)
 
     # create white noise array on host
     host = rng.normal(loc=mean, scale=1.0, size=shape)
+    host[2:, :, :, :] = np.zeros_like(host[2:, :, :, :])
+    #calculate infinitesimal strain tensor
+    u_x = host[0,:,:,0]
+    u_y = host[0,:,:,0]
+    e_xx = np.gradient(u_x, dx, axis=0)
+    e_yy = np.gradient(u_y, dx, axis=1)
+    dux_dy = np.gradient(u_x, dx, axis=1)
+    duy_dx = np.gradient(u_y, dx, axis=0)
+    e_xy = 0.5*(dux_dy + duy_dx)
 
-    # host[2:, :, :, :] = np.zeros_like(host[2:, :, :, :])
+    s_xx = lamb*(e_xx + e_yy) + 2*mu*e_xx
+    s_yy = lamb*(e_xx + e_yy) + 2*mu*e_yy
+    s_xy = 2*mu*e_xy
+
+    s_s = s_xx + s_yy
+    s_d = s_xx - s_yy
+    
+    s_s = s_s #* T / (L*kappa)
+    s_d = s_d #* T /(L*kappa)
+    s_xy = s_xy# * T / (L*kappa)
+    #set all other moments consistent to first order moments
+    mu = params.mu
+    lamb = params.lamb
+    K = params.K
+
+    tau_11 = mu/theta
+    tau_s = 2*K/(1+theta)
+    tau_d = 2*mu/(1-theta)
+    tau_f = 0.5
+
+
+    host[2, :, :, 0] = -(1 + 1/(2*tau_11))*s_xy
+    host[3,:,:,0] = -(1+1/tau_s)*s_s
+    host[4,:,:,0] = -(1+1/tau_d)*s_d
+    host[5,:,:,0] = theta*u_x
+    host[6,:,:,0] = theta*u_y
+    host[7,:,:,0] = ((-theta*(1+2*tau_f))/((1+theta)*(tau_s-tau_f)))*s_s
+
     # manually set to expected mean
-    for l in range(9):
+    for l in range(2):
         host[l, :, :, 0] = host[l, :, :, 0] - np.full(
-            shape=host[l, :, :, 0].shape, fill_value=(np.sum(host[l, :, :, 0]) * dx * dx - mean)
+            shape=host[l, :, :, 0].shape, fill_value=(np.sum(host[l, :, :, 0]/(host.shape[1]*host.shape[2])) - mean)
         )
+    
+    print(np.sum(host[0,:,:,0]))
+    print(np.sum(host[1,:,:,0]))
 
     # load onto device
     device = wp.from_numpy(host, dtype=precision_policy.store_precision.wp_dtype)

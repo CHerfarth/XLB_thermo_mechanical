@@ -140,6 +140,9 @@ if __name__ == "__main__":
         coarsest_level_iter=1000,
     )
 
+    finest_level = multigrid_solver.get_finest_level()
+    finest_level.f_1 = utils.get_initial_guess_from_white_noise(shape=finest_level.f_1.shape, precision_policy=precision_policy, dx=dx)
+
     for i in range(timesteps):
         residual_norm = multigrid_solver.start_v_cycle(return_residual=True)
         residuals.append(residual_norm)

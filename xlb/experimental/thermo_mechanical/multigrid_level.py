@@ -159,31 +159,17 @@ class Level(Operator):
 
             coarse(multigrid)
 
-            wp.launch(self.copy_populations, inputs=[self.f_1, self.f_3, 9], dim=self.f_1.shape[1:])
-            #print(coarse.f_1.numpy())
             self.prolongation(
                 fine=self.f_1, coarse=coarse.f_1
             )  # prolongate error approx back to fine grid and add it to current solution
-            wp.launch(self.copy_populations, inputs=[self.f_3, self.f_4, 9], dim=self.f_1.shape[1:])
-            wp.launch(self.subtract_populations, inputs=[self.f_4, self.f_1, self.f_5, 9], dim=self.f_1.shape[1:])
-            wp.launch(self.convert_populations_to_moments, inputs=[self.f_3, self.f_3], dim=self.f_1.shape[1:])
-            wp.launch(self.convert_populations_to_moments, inputs=[self.f_5, self.f_5], dim=self.f_3.shape[1:])
-            macroscopics = self.f_3.numpy()
-            error_macroscopics = self.f_5.numpy()
-            utils.plot_x_slice(array1=macroscopics[7,:,:,0], array2=error_macroscopics[7,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_f', label1='current', label2='error')
-            utils.plot_x_slice(array1=macroscopics[6,:,:,0], array2=error_macroscopics[6,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_21', label1='current', label2='error')
-            utils.plot_x_slice(array1=macroscopics[5,:,:,0], array2=error_macroscopics[5,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_12', label1='current', label2='error')
-            utils.plot_x_slice(array1=macroscopics[4,:,:,0], array2=error_macroscopics[4,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_d', label1='current', label2='error')
-            utils.plot_x_slice(array1=macroscopics[3,:,:,0], array2=error_macroscopics[3,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_s', label1='current', label2='error')
-            utils.plot_x_slice(array1=macroscopics[2,:,:,0], array2=error_macroscopics[2,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_11', label1='current', label2='error')
-            utils.plot_x_slice(array1=macroscopics[1,:,:,0], array2=error_macroscopics[1,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_01', label1='current', label2='error')
-            utils.plot_x_slice(array1=macroscopics[0,:,:,0], array2=error_macroscopics[0,:,:,0], dx1=self.dx, dx2=self.dx, timestep=timestep, name='m_10', label1='current', label2='error')
+            self.set_params()
+            
         else:
             for i in range(self.coarsest_level_iter):
                 self.stepper(self.f_1, self.f_2, self.defect_correction)
         
-        #for i in range(self.v2):
-        #    self.stepper(self.f_1, self.f_2, self.defect_correction)
+        for i in range(self.v2):
+            self.stepper(self.f_1, self.f_2, self.defect_correction)
         
         #for calculating WUs
         benchmark_data = BenchmarkData()

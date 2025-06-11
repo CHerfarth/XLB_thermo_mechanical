@@ -54,10 +54,11 @@ if __name__ == "__main__":
     parser.add_argument("nodes_x", type=int)
     parser.add_argument("nodes_y", type=int)
     parser.add_argument("timesteps_mg", type=int)
-    parser.add_argument("timesteps_standard", type=int)
     parser.add_argument("coarsest_level_iter", type=int)
     parser.add_argument("E", type=float)
     parser.add_argument("nu", type=float)
+    parser.add_argument("v1", type=int)
+    parser.add_argument("v2", type=int)
     args = parser.parse_args()
 
     # initiali1e grid
@@ -72,7 +73,6 @@ if __name__ == "__main__":
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     timesteps_mg = args.timesteps_mg
-    timesteps_standard = args.timesteps_standard
     dt = dx * dx
 
     # params
@@ -88,8 +88,9 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * x)
+    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
     manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
+    
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -125,17 +126,17 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=2,
-        v2=0,
+        v1=args.v1,
+        v2=args.v2,
         max_levels=2,
         coarsest_level_iter=args.coarsest_level_iter,
     )
 
     # ------------set initial guess to white noise------------------------
     finest_level = multigrid_solver.get_finest_level()
-    #finest_level.f_1 = utils.get_initial_guess_from_white_noise(
-    #    finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31
-    #)
+    finest_level.f_1 = utils.get_initial_guess_from_white_noise(
+        finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31
+    )
 
     wp.synchronize()
     for i in range(timesteps_mg):
@@ -160,57 +161,3 @@ if __name__ == "__main__":
     print(l2_disp, linf_disp, l2_stress, linf_stress)
     print(residual_norm)
     write_results(data_over_wu, "multigrid_results.csv")
-
-    # ------------------------------------- collect data for normal LB ----------------------------------
-
-    '''solid_simulation = SimulationParams()
-    solid_simulation.set_all_parameters(
-        E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0
-    )
-
-    # initialize stepper
-    stepper = SolidsStepper(grid, force_load, boundary_conditions=None, boundary_values=None)
-
-    # startup grids
-    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-
-    data_over_wu = list()  # to track error over time
-    residuals = list()
-    benchmark_data = BenchmarkData()
-    benchmark_data.wu = 0.0
-
-    kernel_provider = KernelProvider()
-    copy_populations = kernel_provider.copy_populations
-    subtract_populations = kernel_provider.subtract_populations
-
-    l2, linf = 0, 0
-    for i in range(timesteps_standard):
-        benchmark_data.wu += 1
-        wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
-        stepper(f_1, f_3)
-        f_1, f_2, f_3 = f_3, f_1, f_2
-        wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_3.shape[1:])
-        residual_norm = np.linalg.norm(residual.numpy())
-        residuals.append(residual_norm)
-        macroscopics = stepper.get_macroscopics_host(f_1)
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(
-            macroscopics, expected_macroscopics, i, dx, list()
-        )
-        data_over_wu.append((
-            benchmark_data.wu,
-            i,
-            residual_norm,
-            l2_disp,
-            linf_disp,
-            l2_stress,
-            linf_stress,
-        ))
-        if residual_norm < 1e-11:
-            break
-
-    print(l2_disp, linf_disp, l2_stress, linf_stress)
-    print(residual_norm)
-    write_results(data_over_wu, "normal_results.csv")'''
