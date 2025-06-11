@@ -3,9 +3,8 @@
 epsilon=1.0
 nodes_x=16
 nodes_y=16
-timesteps=1000
-dt=0.001
-iterations=4
+timesteps=4000
+iterations=5
 
 #for bookkeeping
 current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
@@ -19,9 +18,9 @@ echo "epsilon,error_L2_disp,error_Linf_disp,error_L2_stress,error_Linf_stress" >
 for ((i=0; i<iterations; i++))
 do
     echo "--------------------"
-    echo "Simulating with $nodes_x nodes and timestep of size $dt, # of timesteps: $timesteps     --->  epsilon = $epsilon"
+    echo "Simulating with $nodes_x nodes, # of timesteps: $timesteps     --->  epsilon = $epsilon"
 
-    python3 $1 $nodes_x $nodes_y $timesteps $dt $3 $4 >  tmp_1.txt 
+    python3 $1 $nodes_x $nodes_y $timesteps $3 $4 >  tmp_1.txt 
     cat tmp_1.txt >> $log_file #write to log
 
     cat tmp_1.txt | grep "E_scaled" > tmp_2.txt
@@ -56,7 +55,6 @@ do
     epsilon=$(echo "$epsilon*0.5" |bc -l)
     nodes_x=$((nodes_x*2))
     nodes_y=$((nodes_y*2))
-    dt=$(echo "$dt*0.25"|bc -l)
     timesteps=$((timesteps*4))
 
     echo "Iteration $i done"

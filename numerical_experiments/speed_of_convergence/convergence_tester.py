@@ -125,7 +125,7 @@ if __name__ == "__main__":
         dt=dt,
         force_load=force_load,
         gamma=0.8,
-        v1=4,
+        v1=2,
         v2=0,
         max_levels=2,
         coarsest_level_iter=args.coarsest_level_iter,
@@ -139,7 +139,7 @@ if __name__ == "__main__":
 
     wp.synchronize()
     for i in range(timesteps_mg):
-        residual_norm = np.linalg.norm(multigrid_solver.start_v_cycle(return_residual=True))
+        residual_norm = multigrid_solver.start_v_cycle(return_residual=True)
         residuals.append(residual_norm)
         multigrid_solver.get_macroscopics(output_array=macroscopics)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(

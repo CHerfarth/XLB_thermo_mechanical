@@ -141,8 +141,14 @@ class Level(Operator):
         for i in range(self.v1):
             self.stepper(self.f_1, self.f_2, self.defect_correction)
             self.f_1, self.f_2 = self.f_2, self.f_1
+        
+        #f_1 now contains the post-collision population
+        #however, for calculating the defect correction we need the defect correction to be set on the post-streaming population
+        self.stepper.stream(self.f_1, self.f_2)
+        self.f_1, self.f_2 = self.f_2, self.f_1
 
         coarse = multigrid.get_next_level(self.level_num)
+        #print("On level {}".format(self.level_num))
 
         if coarse is not None:
             wp.launch(
@@ -166,14 +172,33 @@ class Level(Operator):
             wp.launch(self.set_population_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:])
 
             coarse(multigrid)
+            coarse.stepper.stream(coarse.f_1, coarse.f_2)
 
             self.prolongation(
-                fine=self.f_1, coarse=coarse.f_1
+                fine=self.f_1, coarse=coarse.f_2
             )  # prolongate error approx back to fine grid and add it to current solution
         else:
+            #print("Running {} extra iterations".format(self.coarsest_level_iter))
             for i in range(self.coarsest_level_iter):
                 self.stepper(self.f_1, self.f_2, self.defect_correction)
                 self.f_1, self.f_2 = self.f_2, self.f_1
+            '''wp.launch(
+                self.warp_kernel,
+                inputs=[
+                    self.f_1,
+                    self.f_2,
+                    self.defect_correction,
+                    self.stepper.force,
+                    self.stepper.omega,
+                    theta,
+                    self.gamma,
+                ],
+                dim=self.f_2.shape[1:],
+            )  # f_2 now contains the residual
+            print(self.f_2.numpy()[1,:,:,0])
+            return np.linalg.norm(self.f_2.numpy())'''
+        
+        self.stepper.collide(self.f_1, self.f_1)
 
         for i in range(self.v2):
             self.stepper(self.f_1, self.f_2, self.defect_correction)

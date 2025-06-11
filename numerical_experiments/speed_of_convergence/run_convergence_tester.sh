@@ -4,7 +4,7 @@ nodes_x=16
 nodes_y=16
 timesteps_mg=100
 timesteps_standard=10000
-coarsest_level_iter=20000
+coarsest_level_iter=5000
 iterations=4
 
 E=0.4
@@ -12,7 +12,7 @@ nu=0.5
 
 for ((i=0; i<iterations; i++))
 do
-    python3 convergence_tester.py $nodes_x $nodes_y $timesteps_mg $timesteps_standard $coarsest_level_iter $E $nu> tmp_1.txt
+    python3 convergence_tester.py $nodes_x $nodes_y $timesteps_mg $timesteps_standard $coarsest_level_iter $E $nu | tee tmp_1.txt
     cat tmp_1.txt > log.txt
 
 
@@ -35,7 +35,7 @@ do
     echo "Expected amplification factor $amplification"
     #echo "Expected smoothing factor standard LB $smoothing"
 
-    python3 plotter.py $amplification 4 $smoothing
+    python3 plotter.py $amplification 2 $smoothing
 
 
     rm tmp*

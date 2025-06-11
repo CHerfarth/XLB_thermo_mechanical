@@ -44,7 +44,6 @@ if __name__ == "__main__":
     parser.add_argument("nodes_x", type=int)
     parser.add_argument("nodes_y", type=int)
     parser.add_argument("timesteps", type=int)
-    parser.add_argument("dt", type=float)
     parser.add_argument("include_bc", type=int)
     parser.add_argument("bc_indicator", type=int)
     args = parser.parse_args()
@@ -61,11 +60,11 @@ if __name__ == "__main__":
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     timesteps = args.timesteps
-    dt = args.dt
+    dt = dx*dx
 
     # get params
-    E = 0.85 * 2.5
-    nu = 0.8
+    E = 0.5 
+    nu =0.5 
 
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(

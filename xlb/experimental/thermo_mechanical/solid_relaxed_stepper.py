@@ -149,14 +149,14 @@ class SolidsRelaxedStepper(Stepper):
         ):
             index = wp.vec3i(i, j, k)
             _f_post_collision = read_local_population(f_1, i, j)
-            _f_post_stream = self.stream.warp_functional(f_1, index)
+            _f_post_stream = self.stream.warp_functional(f_1, index) - defect_vec
             _f_new_post_collision = self.collision.warp_functional(
                 f_vec=_f_post_stream, force_x=force_x, force_y=force_y, omega=omega, theta=theta
             )
             _f_out = vec()
             for l in range(self.velocity_set.q):
                 _f_out[l] = (
-                    gamma * (_f_new_post_collision[l] + defect_vec[l])
+                    gamma * (_f_new_post_collision[l])
                     + (self.compute_dtype(1) - gamma) * _f_post_collision[l]
                 )
             return _f_out
@@ -205,7 +205,7 @@ class SolidsRelaxedStepper(Stepper):
             _zero_vec = vec()
             for l in range(self.velocity_set.q):
                 _zero_vec[l] = self.compute_dtype(0)
-
+            
             force_x = self.compute_dtype(force[0, i, j, 0])
             force_y = self.compute_dtype(force[1, i, j, 0])
 
@@ -259,9 +259,10 @@ class SolidsRelaxedStepper(Stepper):
         return math.sqrt(1 / (f.shape[0] * f.shape[1] * f.shape[2]) * res_norm.numpy()[0])
 
     def get_macroscopics(self, f, output_array):
-        bared_moments = self.bared_moments(f=f, output_array=output_array, force=self.force)
+        self.stream(f, output_array)
+        self.bared_moments(f=output_array, output_array=output_array, force=self.force)
         return self.macroscopic(
-            bared_moments=bared_moments, output_array=bared_moments, force=self.force
+            bared_moments=output_array, output_array=output_array, force=self.force
         )
 
     def add_boundary_conditions(self, boundary_conditions, boundary_values):
@@ -273,3 +274,7 @@ class SolidsRelaxedStepper(Stepper):
             precision_policy=self.precision_policy,
             compute_backend=self.compute_backend,
         )
+
+    def collide(self, f_1, f_2):
+        self.collision(f_1, f_2, self.force, self.omega)
+    

@@ -103,4 +103,4 @@ class SolidsCollision(Collision):
             inputs=[f, f_out, force, omega, theta],
             dim=f.shape[1:],
         )
-        return fout
+        return f_out

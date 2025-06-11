@@ -111,7 +111,7 @@ class Prolongation(Operator):
             _f_old = read_local_population(fine, i, j)
             _f_out = vec()
             for l in range(self.velocity_set.q):
-                _f_out[l] = _f_old[l] - _error_approx[l]
+                _f_out[l] = _f_old[l] + _error_approx[l]
 
             write_population_to_global(fine, _f_out, i, j)
 

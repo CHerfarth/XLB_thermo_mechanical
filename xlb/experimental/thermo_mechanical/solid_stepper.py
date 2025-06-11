@@ -230,9 +230,10 @@ class SolidsStepper(Stepper):
             )
 
     def get_macroscopics(self, f, output_array):
-        bared_moments = self.bared_moments(f=f, output_array=output_array, force=self.force)
+        self.stream(f, output_array)
+        self.bared_moments(f=output_array, output_array=output_array, force=self.force)
         return self.macroscopic(
-            bared_moments=bared_moments, output_array=bared_moments, force=self.force
+            bared_moments=output_array, output_array=output_array, force=self.force
         )
 
     def add_boundary_conditions(self, boundary_conditions, boundary_values):
@@ -244,3 +245,6 @@ class SolidsStepper(Stepper):
             precision_policy=self.precision_policy,
             compute_backend=self.compute_backend,
         )
+    
+    def collide(self, f_1, f_2):
+        self.collision(f_1, f_2, self.force, self.omega)

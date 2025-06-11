@@ -54,16 +54,12 @@ class SolidBaredMoments(Operator):
             zero_p_five = self.compute_dtype(0.5)
 
             # apply half-forcing and get displacement
-            bared_m[0] += -zero_p_five * force_x
-            bared_m[1] += -zero_p_five * force_y
+            bared_m[0] += zero_p_five * force_x
+            bared_m[1] += zero_p_five * force_y
 
             m_eq = calc_equilibrium(bared_m, theta)  # do something with this?
             for l in range(2, self.velocity_set.q):
-                tau = (self.compute_dtype(1) / omega[l]) - self.compute_dtype(0.5)
-                if not (wp.abs(omega[l] - self.compute_dtype(1)) < self.compute_dtype(1e-7)):
-                    bared_m[l] = (
-                        self.compute_dtype(1) - tau * omega[l] / (self.compute_dtype(1) - omega[l])
-                    ) * m_eq[l] + (tau / (self.compute_dtype(1) - omega[l]) - tau) * bared_m[l]
+               bared_m[l] = zero_p_five*omega[l]*m_eq[l] + (self.compute_dtype(1)-zero_p_five*omega[l])*bared_m[l] 
             return bared_m
 
         @wp.kernel
