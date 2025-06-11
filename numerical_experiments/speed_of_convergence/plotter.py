@@ -24,10 +24,10 @@ multigrid_data = pd.read_csv(
     "multigrid_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64
 )
 print(multigrid_data.head())
-#normal_data = pd.read_csv(
+# normal_data = pd.read_csv(
 #    "normal_results.csv", skiprows=0, sep=",", engine="python", dtype=np.float64
-#)
-#print(normal_data.head())
+# )
+# print(normal_data.head())
 
 
 # plot convergence residual per iteration for multigrid

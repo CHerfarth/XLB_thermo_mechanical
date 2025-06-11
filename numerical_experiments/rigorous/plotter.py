@@ -35,6 +35,7 @@ def plot_convergence(nu):
     plt.title("Convergence for nu={}".format(nu))
     plt.savefig("nu_{}_convergence.png".format(nu))
 
+
 def plot_efficiency(nu):
     df = data[data["nu"] == nu]
     df = df[df["converged"] == 1]
@@ -45,7 +46,7 @@ def plot_efficiency(nu):
     x = df["v1"]
     y = df["v2"]
     z = df["E"]
-    c = -df["WU_per_iteration"]/np.log(df["rate"])
+    c = -df["WU_per_iteration"] / np.log(df["rate"])
     sc = ax.scatter(x, y, z, c=c, cmap="viridis")
 
     ax.set_xlabel("v1")
@@ -59,4 +60,3 @@ def plot_efficiency(nu):
 for nu in data["nu"].unique():
     plot_convergence(nu)
     plot_efficiency(nu)
-

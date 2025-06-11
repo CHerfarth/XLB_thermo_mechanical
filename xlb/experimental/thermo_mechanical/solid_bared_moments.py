@@ -59,7 +59,10 @@ class SolidBaredMoments(Operator):
 
             m_eq = calc_equilibrium(bared_m, theta)  # do something with this?
             for l in range(self.velocity_set.q):
-               bared_m[l] = zero_p_five*omega[l]*m_eq[l] + (self.compute_dtype(1)-zero_p_five*omega[l])*bared_m[l] 
+                bared_m[l] = (
+                    zero_p_five * omega[l] * m_eq[l]
+                    + (self.compute_dtype(1) - zero_p_five * omega[l]) * bared_m[l]
+                )
             return bared_m
 
         @wp.kernel

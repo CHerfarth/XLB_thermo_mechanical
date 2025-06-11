@@ -141,7 +141,9 @@ if __name__ == "__main__":
     )
 
     finest_level = multigrid_solver.get_finest_level()
-    finest_level.f_1 = utils.get_initial_guess_from_white_noise(shape=finest_level.f_1.shape, precision_policy=precision_policy, dx=dx)
+    finest_level.f_1 = utils.get_initial_guess_from_white_noise(
+        shape=finest_level.f_1.shape, precision_policy=precision_policy, dx=dx
+    )
 
     for i in range(timesteps):
         residual_norm = multigrid_solver.start_v_cycle(return_residual=True)
@@ -182,7 +184,9 @@ if __name__ == "__main__":
     # startup grids
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    macroscopics = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    macroscopics = grid.create_field(
+        cardinality=velocity_set.q, dtype=precision_policy.store_precision
+    )
     residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     # set initial guess from white noise
     # f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=3, seed=31)

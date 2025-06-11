@@ -22,10 +22,7 @@ from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import argparse
 
 
-
 if __name__ == "__main__":
-    
-
     parser = argparse.ArgumentParser("LUPs speed test")
     parser.add_argument("nodes_x", type=int)
     parser.add_argument("nodes_y", type=int)
@@ -97,17 +94,17 @@ if __name__ == "__main__":
     ])
 
     # set boundary potential
-    #potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
-    #potential = sympy.lambdify([x, y], potential_sympy)
-    #indicator = lambda x, y: -1
-    #boundary_array, boundary_values = bc.init_bc_from_lambda(
+    # potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
+    # potential = sympy.lambdify([x, y], potential_sympy)
+    # indicator = lambda x, y: -1
+    # boundary_array, boundary_values = bc.init_bc_from_lambda(
     #    potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
-    #)
+    # )
     boundary_array, boundary_values = None, None
 
     # adjust expected solution
-    #expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
-    #expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
+    # expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
+    # expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
 
     # ------------------------------------- collect data for normal LB ----------------------------------
 
