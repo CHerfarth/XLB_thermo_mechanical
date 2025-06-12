@@ -56,7 +56,7 @@ class Prolongation(Operator):
             return f_out
 
         @wp.kernel
-        def kernel(
+        def kernel_no_bc(
             fine: wp.array4d(dtype=self.store_dtype),
             coarse: wp.array4d(dtype=self.store_dtype),
             coarse_nodes_x: wp.int32,
@@ -116,15 +116,117 @@ class Prolongation(Operator):
                 _f_out[l] = _f_old[l] + _error_approx[l]
 
             write_population_to_global(fine, _f_out, i, j)
+        
 
-        return functional, kernel
+        @wp.kernel
+        def kernel_with_bc(
+            fine: wp.array4d(dtype=self.store_dtype),
+            coarse: wp.array4d(dtype=self.store_dtype),
+            coarse_nodes_x: wp.int32,
+            coarse_nodes_y: wp.int32,
+            coarse_boundary_array: wp.array4d(dtype=wp.int8),
+        ):
+            i, j, k = wp.tid()
+
+            coarse_i = i / 2
+            coarse_j = j / 2  # rounds down
+
+            res_i = i - coarse_i * 2
+            res_j = j - coarse_j * 2
+
+            _f_a = read_local_population(coarse, coarse_i, coarse_j)
+            _f_b = _f_a
+            _f_c = _f_a
+            _f_d = _f_a
+
+            # Coding: f_a closest coarsepoint to new fine point
+            #  f_b, f_c along edges of coarse square
+            #  f_d along diagonal
+
+            shift_x = 0
+            shift_y = 0
+
+            if res_i == 0 and res_j == 0:
+                shift_x = -1
+                shift_y = -1
+            elif res_i == 0 and res_j == 1:
+                shift_x = -1
+                shift_y = 1
+            elif res_i == 1 and res_j == 0:
+                shift_x = 1
+                shift_y = -1
+            else:
+                shift_x = 1
+                shift_y = 1
+
+            _f_b = read_local_population(
+                coarse, wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x), coarse_j
+            )
+            _f_c = read_local_population(
+                coarse, coarse_i, wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y)
+            )
+            _f_d = read_local_population(
+                coarse,
+                wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x),
+                wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y),
+            )
+
+            domain_a, domain_b, domain_c, domain_d = True, True, True, True
+
+            # check for boundary
+            if coarse_boundary_array[0, coarse_i, coarse_j, 0] == wp.int8(0):
+                domain_a = False
+            if coarse_boundary_array[
+                0, wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x), coarse_j, 0
+            ] == wp.int8(0):
+                domain_b = False
+            if coarse_boundary_array[
+                0, coarse_i, wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y), 0
+            ] == wp.int8(0):
+                domain_c = False
+            if coarse_boundary_array[
+                0,
+                wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x),
+                wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y),
+                0,
+            ] == wp.int8(0):
+                domain_d = False
+
+            if (domain_a and domain_b and domain_c and domain_d):
+                _error_approx = functional(f_a=_f_a, f_b=_f_b, f_c=_f_c, f_d=_f_d)
+            elif domain_a:
+                _error_approx = functional(f_a=_f_a, f_b=_f_a, f_c=_f_a, f_d=_f_a)
+            elif domain_b:
+                _error_approx = functional(f_a=_f_b, f_b=_f_b, f_c=_f_b, f_d=_f_b)
+            elif domain_c:
+                _error_approx = functional(f_a=_f_c, f_b=_f_c, f_c=_f_c, f_d=_f_c)
+            elif domain_d:
+                _error_approx = functional(f_a=_f_d, f_b=_f_d, f_c=_f_d, f_d=_f_d)
+            else:
+                _error_approx = vec()
+                for l in range(self.velocity_set.q):
+                    _error_approx[l] += self.compute_dtype(0)
+
+            _f_old = read_local_population(fine, i, j)
+            _f_out = vec()
+            for l in range(self.velocity_set.q):
+                _f_out[l] = _f_old[l] + _error_approx[l]
+
+            write_population_to_global(fine, _f_out, i, j)
+
+        return functional, (kernel_no_bc, kernel_with_bc)
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, fine, coarse):
+    def warp_implementation(self, fine, coarse, coarse_boundary_array=None):
         coarse_nodes_x = coarse.shape[1]
         coarse_nodes_y = coarse.shape[2]
-        wp.launch(
-            self.warp_kernel,
-            inputs=[fine, coarse, coarse_nodes_x, coarse_nodes_y],
-            dim=fine.shape[1:],
-        )
+        if coarse_boundary_array is None:
+            wp.launch(
+                self.warp_kernel[0],
+                inputs=[fine, coarse, coarse_nodes_x, coarse_nodes_y],
+                dim=fine.shape[1:],
+            )
+        else:
+            wp.launch(
+                self.warp_kernel[1], inputs=[fine, coarse, coarse_nodes_x, coarse_nodes_y, coarse_boundary_array], dim=fine.shape[1:]
+            )

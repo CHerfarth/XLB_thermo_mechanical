@@ -322,7 +322,7 @@ class SolidsDirichlet(Operator):
                         )
             return f_out_vec
 
-        """@wp.kernel
+        @wp.kernel
         def kernel(
             f_out: wp.array4d(dtype=self.store_dtype),
             f_post_stream: wp.array4d(dtype=self.store_dtype),
@@ -331,48 +331,21 @@ class SolidsDirichlet(Operator):
             boundary_array: wp.array4d(dtype=wp.int8),
             boundary_values: wp.array4d(dtype=self.store_dtype),
             force: wp.array4d(dtype=self.store_dtype),
-            bared_moments: wp.array4d(dtype=self.store_dtype),
             K: self.compute_dtype,
             mu: self.compute_dtype,
             theta: self.compute_dtype,
         ):
             i, j, k = wp.tid()  # for 2d k will equal 1
-            f_post_stream_vec = read_local_population(f_post_stream, i, j)
-            f_post_collision_vec = read_local_population(f_post_collision, i, j)
-            f_previous_post_collision_vec = read_local_population(f_previous_post_collision, i, j)
-            bared_m_vec = read_local_population(bared_moments, i, j)
+            _f_post_stream_vec = read_local_population(f_post_stream, i, j)
+            _f_post_collision_vec = read_local_population(f_post_collision, i, j)
+            _f_previous_post_collision_vec = read_local_population(f_previous_post_collision, i, j)
+            _bared_m_vec = read_local_population(bared_moments, i, j)
             force_x = self.compute_dtype(force[0,i,j,0])
             force_y = self.compute_dtype(force[1,i,j,0])
+            _f_out = functional(f_post_stream_vec=_f_post_stream_vec, f_post_collision_vec=_f_post_collision_vec, f_previous_post_collision_vec=_f_previous_post_collision_vec, i=i, j=j, boundary_info=boundary_array, boundary_vals=boundary_values, force_x=force_x, force_y=force_y, bared_m_vec=_bared_m_vec, K=K, mu=mu, theta=theta)
 
-            f_out_vec = f_post_stream_vec
-            #-------------outside domain--------------
-            if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
-                for l in range(self.velocity_set.q):
-                    f_out_vec[l] = self.compute_dtype(wp.nan)
-            #-------------Dirichlet BC---------------
-            elif boundary_array[0, i, j, 0] == wp.int8(2):  # for boundary nodes: check which directions need to be given by dirichlet BC
-                for l in range(self.velocity_set.q):
-                    if boundary_array[l + 1, i, j, 0] == wp.int8(
-                        1
-                    ):  # this means the interior node is connected to a ghost node in direction l; the bounce back bc needs to be applied
-                        # get values from value array
-                        u_x = self.compute_dtype(boundary_values[l * 7, i, j, 0])
-                        u_y = self.compute_dtype(boundary_values[l * 7 + 1, i, j, 0])
-                        q_ij = self.compute_dtype(boundary_values[l * 7 + 6, i, j, 0])
-                        f_out_vec = dirichlet_functional(old_direction=l, f_current_vec=f_out_vec, f_previous_post_collision_vec=f_previous_post_collision_vec, bared_m_vec=bared_m_vec, u_x=u_x, u_y=u_y, q_ij=q_ij, K=K, mu=mu)
-            #-------------VN BC--------------------
-            elif boundary_array[0, i, j, 0] == wp.int8(3):  # for boundary nodes: check which directions need to be given VN BC
-                for l in range(q):
-                    if boundary_array[l + 1, i, j, 0] == wp.int8(1):
-                        # print("Calling Von Neumann")
-                        n_x = self.compute_dtype(boundary_values[l * 7, i, j, 0])
-                        n_y = self.compute_dtype(boundary_values[l * 7 + 1, i, j, 0])
-                        T_x = self.compute_dtype(boundary_values[l * 7 + 2, i, j, 0])
-                        T_y = self.compute_dtype(boundary_values[l * 7 + 3, i, j, 0])
-                        q_ij = self.compute_dtype(boundary_values[l * 7 + 6, i, j, 0])
-                        f_out_vec = vn_functional(old_direction=l, f_post_stream_vec=f_out_vec, f_post_collision_vec=f_post_collision_vec,
-                        bared_m_vec = bared_m_vec, n_x=n_x, n_y=n_y, T_x=T_x, T_y=T_y, q_ij=q_ij, force_x=force_x, force_y=force_y, K=K, mu=mu, tau_t=self.compute_dtype(0.5), theta=theta)
-            write_population_to_global(f_out, f_out_vec, i, j)"""
+
+            write_population_to_global(f_out, f_out_vec, i, j)
 
         return functional, None
 

@@ -180,7 +180,7 @@ if __name__ == "__main__":
     ax.set_title(title)
 
     # plot convergence triangle
-    draw_loglog_slope(fig, ax, (0.6, 0.6), 1, 2, "black", inverted=True)
+    draw_loglog_slope(fig, ax, (0.6, 0.3), 1, 2, "black", inverted=True)
     plt.xlabel(x_label, labelpad=20, fontsize=12)
     plt.ylabel(y_label, labelpad=20, fontsize=12)
 

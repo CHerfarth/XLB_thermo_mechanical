@@ -49,6 +49,7 @@ class Level(Operator):
         self.dx = dx
         self.dt = dt
         self.set_params()
+        self.boundary_conditions = None
         # setup grids
         self.f_1 = self.grid.create_field(
             cardinality=velocity_set.q, dtype=precision_policy.store_precision
@@ -99,6 +100,7 @@ class Level(Operator):
         self.subtract_populations = kernel_provider.subtract_populations
         self.convert_populations_to_moments = kernel_provider.convert_populations_to_moments
         self.convert_moments_to_populations = kernel_provider.convert_moments_to_populations
+        self.set_zero_outside_boundary = kernel_provider.set_zero_outside_boundary
 
         @wp.func
         def functional(f_previous_pre_collision: vec, f_pre_collision: vec, defect_correction: vec):
@@ -110,8 +112,8 @@ class Level(Operator):
 
         @wp.kernel
         def kernel(
-            f_1: wp.array4d(dtype=self.store_dtype),  # previous pre-collision population
-            f_2: wp.array4d(dtype=self.store_dtype),  # new pre-collision population & output array
+            f_1: wp.array4d(dtype=self.store_dtype),  # previous pre-collision population & output array
+            f_2: wp.array4d(dtype=self.store_dtype),  # new pre-collision population 
             defect_correction: wp.array4d(dtype=self.store_dtype),
         ):
             i, j, k = wp.tid()
@@ -126,18 +128,22 @@ class Level(Operator):
                 defect_correction=_defect_correction,
             )
 
-            write_population_to_global(f=f_2, f_local=_f_out, x=i, y=j)
+            write_population_to_global(f=f_1, f_local=_f_out, x=i, y=j)
 
         return functional, kernel
 
     def get_residual(self, f_1, f_2, f_3, defect_correction):
-        self.stepper.collide(f_1, f_2)
-        self.stepper.stream(f_2, f_3)
-        wp.launch(self.warp_kernel, inputs=[f_1, f_3, defect_correction], dim=self.f_1.shape[1:])
+        wp.launch(self.copy_populations, inputs=[f_1, f_3, 9], dim=f_1.shape[1:])
+        self.stepper(f_1, f_2, defect_correction, gamma=1., defect_factor=0.)
+        wp.launch(self.warp_kernel, inputs=[f_3, f_1, defect_correction], dim=f_1.shape[1:])
 
     def set_params(self):
         simulation_params = SimulationParams()
         simulation_params.set_dx_dt(self.dx, self.dt)
+
+    def add_boundary_conditions(self, boundary_conditions, boundary_values):
+        self.boundary_conditions = boundary_conditions
+        self.stepper.add_boundary_conditions(boundary_conditions, boundary_values)
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, multigrid, return_residual=False, timestep=0):
@@ -156,17 +162,24 @@ class Level(Operator):
                 self.f_1, self.f_2, self.f_3, self.defect_correction
             )  # f_3 now contains the residual
 
-            self.restriction(
-                fine=self.f_3, coarse=coarse.defect_correction
-            )  # restrict residual to defect correction of coarser grid
+            
+            if self.boundary_conditions is None:
+                self.restriction(
+                    fine=self.f_3, coarse=coarse.defect_correction
+                )  # restrict residual to defect correction of coarser grid
+            else:
+                self.restriction(fine=self.f_3, coarse=coarse.defect_correction, fine_boundary_array=self.boundary_conditions)
 
             wp.launch(self.set_population_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:])
 
             coarse(multigrid)
 
-            self.prolongation(
-                fine=self.f_1, coarse=coarse.f_1
-            )  # prolongate error approx back to fine grid and add it to current solution
+            if self.boundary_conditions is None: 
+                self.prolongation(
+                    fine=self.f_1, coarse=coarse.f_1
+                )  # prolongate error approx back to fine grid and add it to current solution
+            else:
+                self.prolongation(fine=self.f_1, coarse=coarse.f_1, coarse_boundary_array=coarse.boundary_conditions)
             self.set_params()
 
         else:

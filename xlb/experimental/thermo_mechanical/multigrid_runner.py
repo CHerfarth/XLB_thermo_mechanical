@@ -89,7 +89,7 @@ if __name__ == "__main__":
     boundary_array, boundary_values = bc.init_bc_from_lambda(
         potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
     )
-    potential, boundary_array, boundary_values = None, None, None
+    #potential, boundary_array, boundary_values = None, None, None
 
     # adjust expected solution
     expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
@@ -111,17 +111,15 @@ if __name__ == "__main__":
         boundary_conditions=boundary_array,
         boundary_values=boundary_values,
         potential=potential_sympy,
-        coarsest_level_iter=1000,
+        coarsest_level_iter=0,
     )
 
-    for i in range(1):
+    for i in range(100):
         res = multigrid_solver.start_v_cycle(return_residual=True, timestep=i)
         multigrid_solver.get_macroscopics(output_array=macroscopics)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.get_error_norms(
             macroscopics.numpy(), expected_macroscopics, dx, i
         )
-        # print(l2_disp)
-        # print(multigrid_solver.get_finest_level().f_1.numpy()[4,:,:,0])
-        # print(macroscopics.numpy()[3,:,:,0])
-        # print(expected_macroscopics[3,:,:])
-        # print(res)
+        print(l2_disp)
+        print(res)
+        print("-------------")

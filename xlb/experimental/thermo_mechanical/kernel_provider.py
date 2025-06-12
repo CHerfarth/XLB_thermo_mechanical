@@ -723,6 +723,7 @@ class KernelProvider:
                 for l in range(velocity_set.q):
                     f[l, i, j, 0] = store_dtype(wp.nan)
 
+
         # Set all declared functions as properties of the class
         self.read_local_population = read_local_population
         self.write_population_to_global = write_population_to_global

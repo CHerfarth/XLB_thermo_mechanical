@@ -82,6 +82,26 @@ class MultigridSolver:
                 precision_policy=precision_policy,
                 coarsest_level_iter=coarsest_level_iter,
             )
+            if boundary_conditions != None:
+                if i == 0:
+                    level.add_boundary_conditions(boundary_conditions, boundary_values)
+                else:
+                    # create zero displacement boundary for coarser meshes
+                    x, y = sympy.symbols("x y")
+                    displacement = [0 * x + 0 * y, 0 * x + 0 * y]
+                    indicator = lambda x, y: -1
+                    boundary_conditions_level, boundary_values_level = bc.init_bc_from_lambda(
+                        potential_sympy=potential,
+                        grid=level.grid,
+                        dx=dx,
+                        velocity_set=velocity_set,
+                        manufactured_displacement=displacement,
+                        indicator=indicator,
+                        x=x,
+                        y=y,
+                        precision_policy=precision_policy,
+                    )
+                    level.add_boundary_conditions(boundary_conditions_level, boundary_values_level)
             self.levels.append(level)
 
     def get_next_level(self, level_num):
