@@ -33,8 +33,8 @@ class Prolongation(Operator):
             m_c = calc_moments(f_c)
             m_d = calc_moments(f_d)
 
-            m_out = self.compute_dtype(0.0625) * (
-                self.compute_dtype(9.0) * m_a
+            m_out = self.compute_dtype(0.0625)*(
+                self.compute_dtype(9) * m_a
                 + self.compute_dtype(3.0) * m_b
                 + self.compute_dtype(3.0) * m_c
                 + self.compute_dtype(1.0) * m_d
@@ -106,6 +106,8 @@ class Prolongation(Operator):
                 wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x),
                 wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y),
             )
+
+            #printf("Node at %d, %d; shift in direction %d, %d\n", i, j, shift_x, shift_y)
 
             _error_approx = functional(f_a=_f_a, f_b=_f_b, f_c=_f_c, f_d=_f_d)
             _f_old = read_local_population(fine, i, j)

@@ -163,7 +163,7 @@ amplification_factors_standard = list()
 for item in results:
     theta_1 = item[0]
     theta_2 = item[1]
-    if np.abs(theta_1) >= 0.5 * np.pi and np.abs(theta_2) >= 0.5 * np.pi:
+    if np.abs(theta_1) >= 0.5 * np.pi or np.abs(theta_2) >= 0.5 * np.pi:
         amplification_factors.append(np.abs(item[2]))
     amplification_factors_standard.append(np.abs(item[2]))
 smoothing_factor = np.max(amplification_factors)

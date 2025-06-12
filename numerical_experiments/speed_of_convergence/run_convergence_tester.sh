@@ -3,8 +3,8 @@
 nodes_x=16
 nodes_y=16
 timesteps_mg=100
-coarsest_level_iter=1000
-iterations=7
+coarsest_level_iter=500
+iterations=6
 
 v1=2
 v2=0

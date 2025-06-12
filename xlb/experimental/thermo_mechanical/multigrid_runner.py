@@ -42,7 +42,7 @@ if __name__ == "__main__":
     # wp.config.verbose = True
 
     # initiali1e grid
-    nodes_x = 32
+    nodes_x = 8
     nodes_y = nodes_x
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
@@ -114,7 +114,7 @@ if __name__ == "__main__":
         coarsest_level_iter=1000,
     )
 
-    for i in range(5):
+    for i in range(1):
         res = multigrid_solver.start_v_cycle(return_residual=True, timestep=i)
         multigrid_solver.get_macroscopics(output_array=macroscopics)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.get_error_norms(
