@@ -70,7 +70,7 @@ if __name__ == "__main__":
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     timesteps = args.timesteps
-    dt = dx*dx 
+    dt = dx * dx
 
     # get params
     nu = 0.5
@@ -163,4 +163,4 @@ if __name__ == "__main__":
     print("Final error L2_stress: {}".format(l2_stress))
     print("Final error Linf_stress: {}".format(linf_stress))
     print("Residual norm: {}".format(residual_norm))
-    #write_results(data_over_wu, "nodes_{}_results.csv".format(nodes_x))
+    # write_results(data_over_wu, "nodes_{}_results.csv".format(nodes_x))

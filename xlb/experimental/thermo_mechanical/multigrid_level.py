@@ -105,13 +105,13 @@ class Level(Operator):
             _f_out = defect_correction
             for l in range(self.velocity_set.q):
                 _f_out[l] += f_previous_pre_collision[l] - f_pre_collision[l]
-            
+
             return _f_out
 
         @wp.kernel
         def kernel(
-            f_1: wp.array4d(dtype=self.store_dtype), #previous pre-collision population
-            f_2: wp.array4d(dtype=self.store_dtype), #new pre-collision population & output array
+            f_1: wp.array4d(dtype=self.store_dtype),  # previous pre-collision population
+            f_2: wp.array4d(dtype=self.store_dtype),  # new pre-collision population & output array
             defect_correction: wp.array4d(dtype=self.store_dtype),
         ):
             i, j, k = wp.tid()
@@ -120,12 +120,16 @@ class Level(Operator):
             _f_pre_collision = read_local_population(f_2, i, j)
             _defect_correction = read_local_population(defect_correction, i, j)
 
-            _f_out = functional(f_previous_pre_collision=_f_previous_pre_collision, f_pre_collision=_f_pre_collision, defect_correction=_defect_correction)
+            _f_out = functional(
+                f_previous_pre_collision=_f_previous_pre_collision,
+                f_pre_collision=_f_pre_collision,
+                defect_correction=_defect_correction,
+            )
 
             write_population_to_global(f=f_2, f_local=_f_out, x=i, y=j)
-        
+
         return functional, kernel
-    
+
     def get_residual(self, f_1, f_2, f_3, defect_correction):
         self.stepper.collide(f_1, f_2)
         self.stepper.stream(f_2, f_3)
@@ -144,12 +148,13 @@ class Level(Operator):
 
         for i in range(self.v1):
             self.stepper(self.f_1, self.f_2, self.defect_correction)
-        
+
         coarse = multigrid.get_next_level(self.level_num)
 
         if coarse is not None:
-
-            self.get_residual(self.f_1, self.f_2, self.f_3, self.defect_correction) #f_3 now contains the residual
+            self.get_residual(
+                self.f_1, self.f_2, self.f_3, self.defect_correction
+            )  # f_3 now contains the residual
 
             self.restriction(
                 fine=self.f_3, coarse=coarse.defect_correction
@@ -163,19 +168,19 @@ class Level(Operator):
                 fine=self.f_1, coarse=coarse.f_1
             )  # prolongate error approx back to fine grid and add it to current solution
             self.set_params()
-            
+
         else:
             for i in range(self.coarsest_level_iter):
                 self.stepper(self.f_1, self.f_2, self.defect_correction)
-        
+
         for i in range(self.v2):
             self.stepper(self.f_1, self.f_2, self.defect_correction)
-        
-        #for calculating WUs
+
+        # for calculating WUs
         benchmark_data = BenchmarkData()
-        benchmark_data.wu += (self.v1+self.v2)*0.25**self.level_num
+        benchmark_data.wu += (self.v1 + self.v2) * 0.25**self.level_num
         if coarse is None:
-            benchmark_data.wu += self.coarsest_level_iter*0.25**self.level_num
+            benchmark_data.wu += self.coarsest_level_iter * 0.25**self.level_num
 
         if return_residual:
             return self.stepper.get_residual_norm(self.f_1, self.f_2)

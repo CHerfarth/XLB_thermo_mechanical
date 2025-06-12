@@ -170,5 +170,5 @@ if __name__ == "__main__":
     df = pd.DataFrame(data_over_wu, columns=headers)
     write_results(data_over_wu, "multigrid_results.csv")
     print("Converged: {}".format(converged))
-    print("Rate of Convergence: {}".format(utils.rate_of_convergence(df, 'residual_norm')))
-    print("WU per iteration {}".format(benchmark_data.wu/(i+1)))
+    print("Rate of Convergence: {}".format(utils.rate_of_convergence(df, "residual_norm")))
+    print("WU per iteration {}".format(benchmark_data.wu / (i + 1)))

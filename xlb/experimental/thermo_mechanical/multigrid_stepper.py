@@ -134,14 +134,15 @@ class MultigridStepper(Stepper):
         bc_val_vec = kernel_provider.bc_val_vec
         self.copy_populations = kernel_provider.copy_populations
 
-
-        
         @wp.kernel
-        def kernel(f_1: wp.array4d(dtype=self.store_dtype), #post-collision
-        f_2: wp.array4d(dtype=self.store_dtype), #old pre-collision (for relaxation)
-        defect_correction: wp.array4d(dtype=self.store_dtype),
-        force: wp.array4d(dtype=self.store_dtype),gamma: self.compute_dtype):
-            i,j,k = wp.tid()
+        def kernel(
+            f_1: wp.array4d(dtype=self.store_dtype),  # post-collision
+            f_2: wp.array4d(dtype=self.store_dtype),  # old pre-collision (for relaxation)
+            defect_correction: wp.array4d(dtype=self.store_dtype),
+            force: wp.array4d(dtype=self.store_dtype),
+            gamma: self.compute_dtype,
+        ):
+            i, j, k = wp.tid()
             index = wp.vec3i(i, j, k)
 
             _f_pre_collision = read_local_population(f_2, i, j)
@@ -150,20 +151,21 @@ class MultigridStepper(Stepper):
 
             _f_out = vec()
             for l in range(self.velocity_set.q):
-                _f_out[l] = gamma*(_f_post_stream[l] - _defect[l]) + (self.compute_dtype(1) - gamma)*(_f_pre_collision[l])
-            
-            write_population_to_global(f_2, _f_out, i, j)
+                _f_out[l] = (
+                    gamma * (_f_post_stream[l] - _defect[l])
+                    + (self.compute_dtype(1) - gamma) * (_f_pre_collision[l])
+                )
 
+            write_population_to_global(f_2, _f_out, i, j)
 
         @wp.kernel
         def kernel_residual_norm_squared(
-            f_1: wp.array4d(dtype=self.store_dtype), #post-collision
-            f_2: wp.array4d(dtype=self.store_dtype), #old pre-collision
+            f_1: wp.array4d(dtype=self.store_dtype),  # post-collision
+            f_2: wp.array4d(dtype=self.store_dtype),  # old pre-collision
             res_norm: wp.array1d(dtype=self.store_dtype),
         ):
-           
-            i,j,k = wp.tid()
-            index = wp.vec3i(i,j,k)
+            i, j, k = wp.tid()
+            index = wp.vec3i(i, j, k)
 
             _f_old = read_local_population(f_2, i, j)
             _f_new = self.stream.warp_functional(f_1, index)
@@ -177,13 +179,13 @@ class MultigridStepper(Stepper):
         return None, (kernel, kernel_residual_norm_squared)
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(
-        self, f_1, f_2, defect_correction
-    ):  
+    def warp_implementation(self, f_1, f_2, defect_correction):
         self.collision(f_1, f_2, self.force, self.omega)
-        wp.launch(self.warp_kernel[0], inputs=[f_2, f_1, defect_correction, self.force, self.gamma], dim=f_2.shape[1:])
-
-        
+        wp.launch(
+            self.warp_kernel[0],
+            inputs=[f_2, f_1, defect_correction, self.force, self.gamma],
+            dim=f_2.shape[1:],
+        )
 
     def get_residual_norm(self, f_1, f_2):
         self.collision(f_1, f_2, self.force, self.omega)
@@ -210,8 +212,6 @@ class MultigridStepper(Stepper):
             precision_policy=self.precision_policy,
             compute_backend=self.compute_backend,
         )
-    
+
     def collide(self, f_1, f_2):
         self.collision(f_1, f_2, self.force, self.omega)
-
-    

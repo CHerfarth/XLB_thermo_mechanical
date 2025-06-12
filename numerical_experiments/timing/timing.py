@@ -159,7 +159,6 @@ if __name__ == "__main__":
     print("Multigrid_Time: {}".format(runtime))
     print("Multigrid_Iterations: {}".format(i))
 
-
     # ------------------------------------- collect data for normal LB ----------------------------------
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(
@@ -176,7 +175,9 @@ if __name__ == "__main__":
         # startup grids
         f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-        residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        residual = grid.create_field(
+            cardinality=velocity_set.q, dtype=precision_policy.store_precision
+        )
 
         wp.synchronize()
         start = time.time()
@@ -215,7 +216,6 @@ if __name__ == "__main__":
     print("Standard_Time: {}".format(runtime))
     print("Standard_Iterations: {}".format(i))
 
-
     # ------------------------------------- collect data for relaxed LB ----------------------------------
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(
@@ -232,7 +232,9 @@ if __name__ == "__main__":
         # startup grids
         f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-        residual = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+        residual = grid.create_field(
+            cardinality=velocity_set.q, dtype=precision_policy.store_precision
+        )
         # set initial guess from white noise
         # f_1 = utils.get_initial_guess_from_white_noise(f_1.shape, precision_policy, dx, mean=0, seed=31)
 
@@ -277,4 +279,3 @@ if __name__ == "__main__":
     print("Relaxed_Converged: {}".format(converged))
     print("Relaxed_Time: {}".format(runtime))
     print("Relaxed_Iterations: {}".format(i))
-

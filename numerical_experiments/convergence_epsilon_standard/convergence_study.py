@@ -60,11 +60,11 @@ if __name__ == "__main__":
     dy = length_y / float(nodes_y)
     assert math.isclose(dx, dy)
     timesteps = args.timesteps
-    dt = dx*dx
+    dt = dx * dx
 
     # get params
-    E = 0.5 
-    nu =0.5 
+    E = 0.5
+    nu = 0.5
 
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(

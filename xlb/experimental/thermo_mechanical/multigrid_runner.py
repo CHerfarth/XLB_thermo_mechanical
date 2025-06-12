@@ -66,8 +66,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * y)# * sympy.sin(2 * sympy.pi * y)  # + 3
-    manufactured_v = sympy.cos(2 * sympy.pi * y)# * sympy.sin(2 * sympy.pi * y)  # + 3
+    manufactured_u = sympy.cos(2 * sympy.pi * y)  # * sympy.sin(2 * sympy.pi * y)  # + 3
+    manufactured_v = sympy.cos(2 * sympy.pi * y)  # * sympy.sin(2 * sympy.pi * y)  # + 3
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -120,8 +120,8 @@ if __name__ == "__main__":
         l2_disp, linf_disp, l2_stress, linf_stress = utils.get_error_norms(
             macroscopics.numpy(), expected_macroscopics, dx, i
         )
-        #print(l2_disp)
-        #print(multigrid_solver.get_finest_level().f_1.numpy()[4,:,:,0])
-        #print(macroscopics.numpy()[3,:,:,0])
-        #print(expected_macroscopics[3,:,:])
-        #print(res)
+        # print(l2_disp)
+        # print(multigrid_solver.get_finest_level().f_1.numpy()[4,:,:,0])
+        # print(macroscopics.numpy()[3,:,:,0])
+        # print(expected_macroscopics[3,:,:])
+        # print(res)

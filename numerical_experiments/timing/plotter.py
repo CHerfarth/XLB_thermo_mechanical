@@ -10,8 +10,20 @@ parser.add_argument("E", type=float)
 parser.add_argument("nu", type=float)
 args = parser.parse_args()
 
+
 def draw_loglog_slope(
-    fig, ax, origin, width_inches, slope, color, inverted=False, polygon_kwargs=None, label=True, labelcolor=None, label_kwargs=None, zorder=None
+    fig,
+    ax,
+    origin,
+    width_inches,
+    slope,
+    color,
+    inverted=False,
+    polygon_kwargs=None,
+    label=True,
+    labelcolor=None,
+    label_kwargs=None,
+    zorder=None,
 ):
     """
     This function draws slopes or "convergence triangles" into loglog plots.
@@ -102,14 +114,39 @@ def draw_loglog_slope(
     ha_ylabel = "left" if not inverted else "right"
 
     # Label offset depending on inversion parameter
-    offset_xlabel = [0.0, -0.33 * label_kwargs["fontsize"]] if not inverted else [0.0, 0.33 * label_kwargs["fontsize"]]
-    offset_ylabel = [0.33 * label_kwargs["fontsize"], 0.0] if not inverted else [-0.33 * label_kwargs["fontsize"], 0.0]
+    offset_xlabel = (
+        [0.0, -0.33 * label_kwargs["fontsize"]]
+        if not inverted
+        else [0.0, 0.33 * label_kwargs["fontsize"]]
+    )
+    offset_ylabel = (
+        [0.33 * label_kwargs["fontsize"], 0.0]
+        if not inverted
+        else [-0.33 * label_kwargs["fontsize"], 0.0]
+    )
 
     # Draw the slope labels
-    ax.annotate("$1$", bottom_center, xytext=offset_xlabel, textcoords="offset points", ha="center", va=va_xlabel, zorder=zorder, **label_kwargs)
     ax.annotate(
-        f"${slope}$", right_center, xytext=offset_ylabel, textcoords="offset points", ha=ha_ylabel, va="center", zorder=zorder, **label_kwargs
+        "$1$",
+        bottom_center,
+        xytext=offset_xlabel,
+        textcoords="offset points",
+        ha="center",
+        va=va_xlabel,
+        zorder=zorder,
+        **label_kwargs,
     )
+    ax.annotate(
+        f"${slope}$",
+        right_center,
+        xytext=offset_ylabel,
+        textcoords="offset points",
+        ha=ha_ylabel,
+        va="center",
+        zorder=zorder,
+        **label_kwargs,
+    )
+
 
 # Load CSV data
 data = pd.read_csv(args.data)
@@ -163,16 +200,30 @@ plt.tight_layout()
 # Show plot
 plt.savefig("runtimes.png")
 
-#plot only for multigrid
-multigrid_iterations = multigrid_data.groupby("dim")["multigrid_iterations"].agg(["mean", "std"]).reset_index()
+# plot only for multigrid
+multigrid_iterations = (
+    multigrid_data.groupby("dim")["multigrid_iterations"].agg(["mean", "std"]).reset_index()
+)
 fig, ax = plt.subplots()
-ax.errorbar(multigrid_stats["dim"], multigrid_stats["mean"], yerr=multigrid_stats["std"], fmt="o-", capsize=5, label="Time")
-ax.errorbar(multigrid_iterations["dim"], multigrid_iterations["mean"], yerr=multigrid_iterations["std"], fmt="s-", capsize=5, label="Iterations")
+ax.errorbar(
+    multigrid_stats["dim"],
+    multigrid_stats["mean"],
+    yerr=multigrid_stats["std"],
+    fmt="o-",
+    capsize=5,
+    label="Time",
+)
+ax.errorbar(
+    multigrid_iterations["dim"],
+    multigrid_iterations["mean"],
+    yerr=multigrid_iterations["std"],
+    fmt="s-",
+    capsize=5,
+    label="Iterations",
+)
 plt.legend()
 plt.xscale("log", base=2)
 plt.yscale("log")
-draw_loglog_slope(fig, ax, (512, 0.1), 1, 2, 'black')
+draw_loglog_slope(fig, ax, (512, 0.1), 1, 2, "black")
 plt.title("Average Runtime/Iterations vs Dimension, E_scaled {} & nu {}".format(args.E, args.nu))
 plt.savefig("multigrid.png")
-
-

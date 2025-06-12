@@ -245,6 +245,6 @@ class SolidsStepper(Stepper):
             precision_policy=self.precision_policy,
             compute_backend=self.compute_backend,
         )
-    
+
     def collide(self, f_1, f_2):
         self.collision(f_1, f_2, self.force, self.omega)
