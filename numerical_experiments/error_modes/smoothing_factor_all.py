@@ -221,6 +221,7 @@ plt.title(r"$\bar{\mu}$")
 
 # Show the plot
 plt.savefig("smoothing_rate.png")
+plt.savefig("smoothing_rate.eps")
 
 
 # ----------------------Plot spectral norms-------------------------
