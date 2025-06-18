@@ -128,7 +128,7 @@ if __name__ == "__main__":
         gamma=0.8,
         v1=args.v1,
         v2=args.v2,
-        max_levels=2,
+        max_levels=None,
         coarsest_level_iter=args.coarsest_level_iter,
     )
 
