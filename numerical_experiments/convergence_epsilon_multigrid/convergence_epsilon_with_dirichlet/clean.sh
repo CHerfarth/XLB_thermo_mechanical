@@ -2,4 +2,4 @@
 
 #cleanup all results and log file
 
-rm log* results* convergence.png nohup.out
+rm log* results*  nohup.out tmp*

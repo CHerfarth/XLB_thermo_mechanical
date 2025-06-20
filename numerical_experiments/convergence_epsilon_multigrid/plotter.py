@@ -6,6 +6,7 @@ import matplotlib
 import numpy as np
 import pandas as pd
 import argparse
+from scipy.interpolate import interp1d
 
 
 def draw_loglog_slope(
@@ -172,6 +173,32 @@ if __name__ == "__main__":
     # plot stress error
     ax.plot(data["epsilon"], data["error_L2_stress"], "-og", label="L2 stress")
     ax.plot(data["epsilon"], data["error_Linf_stress"], "--og", label="Linf stress")
+
+    # Interpolate the log-log slope of L2 disp
+    log_eps = np.log(data["epsilon"])
+    log_err = np.log(data["error_L2_disp"])
+    slope, intercept = np.polyfit(log_eps, log_err, 1)
+    eps_fit = np.linspace(data["epsilon"].min(), data["epsilon"].max(), 100)
+    err_fit = np.exp(intercept) * eps_fit ** slope
+    ax.plot(eps_fit, err_fit, "k--", label=f"L2 disp: slope={slope:.2f}")
+
+    log_err = np.log(data["error_Linf_disp"])
+    slope, intercept = np.polyfit(log_eps, log_err, 1)
+    eps_fit = np.linspace(data["epsilon"].min(), data["epsilon"].max(), 100)
+    err_fit = np.exp(intercept) * eps_fit ** slope
+    ax.plot(eps_fit, err_fit, "k--", label=f"Linf disp: slope={slope:.2f}")
+
+    log_err = np.log(data["error_Linf_stress"])
+    slope, intercept = np.polyfit(log_eps, log_err, 1)
+    eps_fit = np.linspace(data["epsilon"].min(), data["epsilon"].max(), 100)
+    err_fit = np.exp(intercept) * eps_fit ** slope
+    ax.plot(eps_fit, err_fit, "k--", label=f"Linf stress: slope={slope:.2f}")
+
+    log_err = np.log(data["error_L2_stress"])
+    slope, intercept = np.polyfit(log_eps, log_err, 1)
+    eps_fit = np.linspace(data["epsilon"].min(), data["epsilon"].max(), 100)
+    err_fit = np.exp(intercept) * eps_fit ** slope
+    ax.plot(eps_fit, err_fit, "k--", label=f"L2 stress: slope={slope:.2f}")
 
     # set scales, grid, title
     plt.yscale("log")

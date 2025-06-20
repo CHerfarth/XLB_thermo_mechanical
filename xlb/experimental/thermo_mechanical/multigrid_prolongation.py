@@ -25,6 +25,7 @@ class Prolongation(Operator):
         calc_populations = kernel_provider.calc_populations
         write_population_to_global = kernel_provider.write_population_to_global
         read_local_population = kernel_provider.read_local_population
+        zero_vec = kernel_provider.zero_vec
 
         @wp.func
         def functional(f_a: vec, f_b: vec, f_c: vec, f_d: vec):
@@ -171,41 +172,27 @@ class Prolongation(Operator):
                 wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y),
             )
 
-            domain_a, domain_b, domain_c, domain_d = True, True, True, True
-
             # check for boundary
             if coarse_boundary_array[0, coarse_i, coarse_j, 0] == wp.int8(0):
-                domain_a = False
+                _f_a = zero_vec()
             if coarse_boundary_array[
                 0, wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x), coarse_j, 0
             ] == wp.int8(0):
-                domain_b = False
+                _f_b = zero_vec()
             if coarse_boundary_array[
                 0, coarse_i, wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y), 0
             ] == wp.int8(0):
-                domain_c = False
+                _f_c = zero_vec()
             if coarse_boundary_array[
                 0,
                 wp.mod(coarse_i + shift_x + coarse_nodes_x, coarse_nodes_x),
                 wp.mod(coarse_j + shift_y + coarse_nodes_y, coarse_nodes_y),
                 0,
             ] == wp.int8(0):
-                domain_d = False
+                _f_d = zero_vec()
 
-            if (domain_a and domain_b and domain_c and domain_d):
-                _error_approx = functional(f_a=_f_a, f_b=_f_b, f_c=_f_c, f_d=_f_d)
-            elif domain_a:
-                _error_approx = functional(f_a=_f_a, f_b=_f_a, f_c=_f_a, f_d=_f_a)
-            elif domain_b:
-                _error_approx = functional(f_a=_f_b, f_b=_f_b, f_c=_f_b, f_d=_f_b)
-            elif domain_c:
-                _error_approx = functional(f_a=_f_c, f_b=_f_c, f_c=_f_c, f_d=_f_c)
-            elif domain_d:
-                _error_approx = functional(f_a=_f_d, f_b=_f_d, f_c=_f_d, f_d=_f_d)
-            else:
-                _error_approx = vec()
-                for l in range(self.velocity_set.q):
-                    _error_approx[l] += self.compute_dtype(0)
+            _error_approx = functional(f_a=_f_a, f_b=_f_b, f_c=_f_c, f_d=_f_d)
+            
 
             _f_old = read_local_population(fine, i, j)
             _f_out = vec()

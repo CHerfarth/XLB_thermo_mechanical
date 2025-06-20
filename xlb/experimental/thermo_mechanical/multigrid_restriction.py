@@ -27,6 +27,7 @@ class Restriction(Operator):
         calc_populations = kernel_provider.calc_populations
         write_population_to_global = kernel_provider.write_population_to_global
         read_local_population = kernel_provider.read_local_population
+        zero_vec = kernel_provider.zero_vec
 
         @wp.func
         def functional(f_a: vec, f_b: vec, f_c: vec, f_d: vec):
@@ -62,34 +63,17 @@ class Restriction(Operator):
             _f_c = read_local_population(fine, 2 * i, 2 * j + 1)
             _f_d = read_local_population(fine, 2 * i + 1, 2 * j + 1)
 
-            domain_a = True
-            domain_b = True
-            domain_c = True
-            domain_d = True
-
             if fine_boundary_array[0, 2 * i, 2 * j, 0] == wp.int8(0):
                 domain_a = False
+                _f_a = zero_vec()
             if fine_boundary_array[0, 2 * i + 1, 2 * j, 0] == wp.int8(0):
-                domain_b = False
+                _f_b = zero_vec()
             if fine_boundary_array[0, 2 * i, 2 * j + 1, 0] == wp.int8(0):
-                domain_c = False
+                _f_c = zero_vec()
             if fine_boundary_array[0, 2 * i + 1, 2 * j + 1, 0] == wp.int8(0):
-                domain_d = False
+                _f_d = zero_vec()
             
-            if (domain_a and domain_b and domain_c and domain_d):
-                _f_out = functional(f_a=_f_a, f_b=_f_b, f_c=_f_c, f_d=_f_d)
-            elif domain_a:
-                _f_out = functional(f_a=_f_a, f_b=_f_a, f_c=_f_a, f_d=_f_a)
-            elif domain_b:
-                _f_out = functional(f_a=_f_b, f_b=_f_b, f_c=_f_b, f_d=_f_b)
-            elif domain_c:
-                _f_out = functional(f_a=_f_c, f_b=_f_c, f_c=_f_c, f_d=_f_c)
-            elif domain_d:
-                _f_out = functional(f_a=_f_d, f_b=_f_d, f_c=_f_d, f_d=_f_d)
-            else:
-                _f_out = vec()
-                for l in range(self.velocity_set.q):
-                    _f_out[l] += self.compute_dtype(0)
+            _f_out = functional(f_a=_f_a, f_b=_f_b, f_c=_f_c, f_d=_f_d)
 
             write_population_to_global(coarse, _f_out, i, j)
 

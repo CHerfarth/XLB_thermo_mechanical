@@ -86,6 +86,13 @@ class KernelProvider:
         ):
             for i in range(9):
                 f[i, x, y, 0] = store_dtype(f_local[i])
+        
+        @wp.func
+        def zero_vec():
+            zero_vec = vec()
+            for l in range(velocity_set.q):
+                zero_vec[l] = compute_dtype(0.)
+            return zero_vec
 
         @wp.func
         def write_vec_to_global(
@@ -754,3 +761,4 @@ class KernelProvider:
         self.check_for_nans = check_for_nans
         self.read_bc_info = read_bc_info
         self.read_bc_vals = read_bc_vals
+        self.zero_vec = zero_vec
