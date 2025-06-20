@@ -60,12 +60,6 @@ class Level(Operator):
         self.f_3 = self.grid.create_field(
             cardinality=velocity_set.q, dtype=precision_policy.store_precision
         )
-        self.f_4 = self.grid.create_field(
-            cardinality=velocity_set.q, dtype=precision_policy.store_precision
-        )
-        self.f_5 = self.grid.create_field(
-            cardinality=velocity_set.q, dtype=precision_policy.store_precision
-        )
         self.defect_correction = self.grid.create_field(
             cardinality=velocity_set.q, dtype=precision_policy.store_precision
         )

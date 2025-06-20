@@ -134,7 +134,7 @@ def get_LB_matrix(mu, theta, K, phi_x, phi_y):
 
 
 phi_y_val = -np.pi
-iterations = 200
+iterations = 250
 results = list()
 for i in range(iterations):
     dx = 1
@@ -158,16 +158,13 @@ x = np.array([float(item[0]) for item in results])
 y = np.array([float(item[1]) for item in results])
 z = np.array([float(item[2]) for item in results])
 
-amplification_factors = list()
-amplification_factors_standard = list()
+smoothing_factors = list()
 for item in results:
     theta_1 = item[0]
     theta_2 = item[1]
     if np.abs(theta_1) >= 0.5 * np.pi or np.abs(theta_2) >= 0.5 * np.pi:
-        amplification_factors.append(np.abs(item[2]))
-    amplification_factors_standard.append(np.abs(item[2]))
-smoothing_factor = np.max(amplification_factors)
-smoothing_factor_standard = np.max(amplification_factors_standard)
+        smoothing_factors.append(np.abs(item[2]))
+smoothing_factor = np.max(smoothing_factors)
 
 
 # Create a grid of points
@@ -192,5 +189,4 @@ plt.title("Plot of Spectral Radius")
 # Show the plot
 plt.savefig("contour.png")
 
-print("Amplification factor: {}".format(smoothing_factor))
-print("Smoothing factor standard: {}".format(smoothing_factor_standard))
+print("Smoothing Factor: {}".format(smoothing_factor))
