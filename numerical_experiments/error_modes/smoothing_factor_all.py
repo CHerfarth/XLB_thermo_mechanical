@@ -111,7 +111,7 @@ def get_LB_matrix(mu, theta, K, phi_x, phi_y):
     # Compute the gamma factor and adjust M[7] (row 7)
     tau_s = 2.0 * K / (1.0 + theta)
     if np.isclose(tau_s, tau_f):
-        return I
+        return None
     gamma_moments = (theta * tau_f) / ((1.0 + theta) * (tau_s - tau_f))
 
     # Add gamma * row 3 to row 7
@@ -140,12 +140,9 @@ def get_LB_matrix(mu, theta, K, phi_x, phi_y):
     return L_mat
 
 
-outer_iterations = 10#50
-inner_iterations = 10#200
+outer_iterations = 50
+inner_iterations = 200
 data_smoothing = list()
-data_difference = list()
-data_smoothing_normal = list()
-data_spectral_norms = list()
 
 d_nu = 1 / outer_iterations
 d_E = 1 / outer_iterations
@@ -161,7 +158,6 @@ for k in range(outer_iterations):
         spectral_norms = list()
         phi_y_val = -np.pi
         for i in range(inner_iterations):
-            dx = 1
             phi_x_val = -np.pi
             for j in range(inner_iterations):
                 K_val = E / (2 * (1 - nu))
@@ -170,32 +166,24 @@ for k in range(outer_iterations):
                     mu=mu_val, theta=theta, K=K_val, phi_x=phi_x_val, phi_y=phi_y_val
                 )
 
+
                 # check for normality
                 # assert(is_normal_matrix(np.array(L_evaluated, dtype=np.complex128)))
-
-                spectral_norm = np.linalg.norm(np.array(L_evaluated, dtype=np.complex128))
-                eigenvalues = np.linalg.eig(np.array(L_evaluated, dtype=np.complex128)).eigenvalues
-                spectral_radius = max(np.abs(ev) for ev in eigenvalues)
-                spectral_norms.append(spectral_norm)
-                if np.abs(phi_x_val) != 0.0 and np.abs(phi_y_val) != 0.0:
-                    spectral_radii.append(spectral_radius)
-                if (np.abs(phi_x_val) >= 0.5 * np.pi or np.abs(phi_y_val) >= 0.5 * np.pi) and np.abs(phi_x_val) != 0.0 and np.abs(phi_y_val) != 0.0:
-                    # print(spectral_radius)
-                    smoothing_factors.append(spectral_radius)
+                if L_evaluated is not None:
+                    spectral_norm = np.linalg.norm(np.array(L_evaluated, dtype=np.complex128))
+                    eigenvalues = np.linalg.eig(np.array(L_evaluated, dtype=np.complex128)).eigenvalues
+                    spectral_radius = max(np.abs(ev) for ev in eigenvalues)
+                    if (np.abs(phi_x_val) >= 0.5 * np.pi or np.abs(phi_y_val) >= 0.5 * np.pi) and np.abs(phi_x_val) != 0.0 and np.abs(phi_y_val) != 0.0:
+                        smoothing_factors.append(spectral_radius)
                 phi_x_val += (2 * np.pi) / inner_iterations
             phi_y_val += (2 * np.pi) / inner_iterations
 
-        data_smoothing.append((E, nu, np.max(smoothing_factors)))
-        data_difference.append((E, nu, np.max(spectral_radii) - np.max(smoothing_factors)))
-        data_smoothing_normal.append((E, nu, np.max(spectral_radii)))
-        data_spectral_norms.append((E, nu, np.max(spectral_norms)))
-
-        print("Max amplification factor: {}".format(np.max(smoothing_factors)))
-        print("Max smoothing factor normal: {}".format(np.max(spectral_radii)))
+        if smoothing_factors:
+            data_smoothing.append((E, nu, np.max(smoothing_factors)))
     print("{} % complete".format((k + 1) * 100 / outer_iterations))
 
 
-# ----------------------Plot amplification factors-------------------------
+# ----------------------Plot smoothing factors-------------------------
 x = np.array([float(item[0]) for item in data_smoothing])
 y = np.array([float(item[1]) for item in data_smoothing])
 z = np.array([float(item[2]) for item in data_smoothing])
@@ -220,120 +208,5 @@ ax.set_ylabel("nu")
 plt.title(r"$\bar{\mu}$")
 
 # Show the plot
-plt.savefig("smoothing_rate.png")
-plt.savefig("smoothing_rate.eps")
-
-
-# ----------------------Plot spectral norms-------------------------
-x = np.array([float(item[0]) for item in data_spectral_norms])
-y = np.array([float(item[1]) for item in data_spectral_norms])
-z = np.array([float(item[2]) for item in data_spectral_norms])
-
-# Create a grid of points
-x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 200), np.linspace(y.min(), y.max(), 200))
-
-# Interpolate the scattered data onto the grid
-z_grid = griddata((x, y), z, (x_grid, y_grid), method="cubic")
-
-# Create a 2D contour plot
-fig, ax = plt.subplots(figsize=(8, 6))
-contour = ax.contourf(x_grid, y_grid, z_grid, levels=60, cmap="viridis")
-
-
-# Add color bar to the plot
-plt.colorbar(contour)
-
-# Set labels
-ax.set_xlabel("E_scaled")
-ax.set_ylabel("nu")
-plt.title("Plot of Spectral Norms")
-
-# Show the plot
-plt.savefig("spectral_norm.png")
-
-
-# ----------------------------Plot difference to non-multigrid smoothing------------------
-
-x = np.array([float(item[0]) for item in data_difference])
-y = np.array([float(item[1]) for item in data_difference])
-z = np.array([float(item[2]) for item in data_difference])
-
-# Create a grid of points
-x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100), np.linspace(y.min(), y.max(), 100))
-
-# Interpolate the scattered data onto the grid
-z_grid = griddata((x, y), z, (x_grid, y_grid), method="cubic")
-
-# Create a 2D contour plot
-fig, ax = plt.subplots(figsize=(8, 6))
-contour = ax.contourf(x_grid, y_grid, z_grid, levels=30, cmap="viridis")
-
-
-# Add color bar to the plot
-plt.colorbar(contour)
-
-# Set labels
-ax.set_xlabel("E_scaled")
-ax.set_ylabel("nu")
-plt.title("Plot of Difference")
-
-# Show the plot
-plt.savefig("difference.png")
-
-
-# ----------------------------Plot non-multigrid smoothing stability------------------
-indicator = lambda x: 10 if x > 1 else 0
-
-x = np.array([float(item[0]) for item in data_smoothing_normal])
-y = np.array([float(item[1]) for item in data_smoothing_normal])
-z = np.array([indicator(float(item[2])) for item in data_smoothing_normal])
-
-# Create a grid of points
-x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100), np.linspace(y.min(), y.max(), 100))
-
-# Interpolate the scattered data onto the grid
-z_grid = griddata((x, y), z, (x_grid, y_grid))
-
-# Create a 2D contour plot
-fig, ax = plt.subplots(figsize=(8, 6))
-contour = ax.contourf(x_grid, y_grid, z_grid, levels=1, cmap="viridis")
-
-
-# Add color bar to the plot
-plt.colorbar(contour)
-
-# Set labels
-ax.set_xlabel("E_scaled")
-ax.set_ylabel("nu")
-plt.title("Plot of Stability")
-
-# Show the plot
-plt.savefig("stability.png")
-
-# ----------------------------Plot non-multigrid smoothing factors------------------
-
-x = np.array([float(item[0]) for item in data_smoothing_normal])
-y = np.array([float(item[1]) for item in data_smoothing_normal])
-z = np.array([float(item[2]) for item in data_smoothing_normal])
-
-# Create a grid of points
-x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100), np.linspace(y.min(), y.max(), 100))
-
-# Interpolate the scattered data onto the grid
-z_grid = griddata((x, y), z, (x_grid, y_grid), method="cubic")
-
-# Create a 2D contour plot
-fig, ax = plt.subplots(figsize=(8, 6))
-contour = ax.contourf(x_grid, y_grid, z_grid, levels=20, cmap="viridis")
-
-
-# Add color bar to the plot
-plt.colorbar(contour)
-
-# Set labels
-ax.set_xlabel("E_scaled")
-ax.set_ylabel("nu")
-plt.title("Plot of Smoothing Factor normal LB")
-
-# Show the plot
-plt.savefig("normal_smoothing.png")
+plt.savefig("smoothing_factor.png")
+plt.savefig("smoothing_factor.eps")
