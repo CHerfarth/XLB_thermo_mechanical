@@ -152,69 +152,54 @@ def draw_loglog_slope(
 data = pd.read_csv(args.data)
 
 # Filter only converged entries
-multigrid_data = data[data["multigrid_converged"] == 1]
-standard_data = data[data["standard_converged"] == 1]
-relaxed_data = data[data["relaxed_converged"] == 1]
+multigrid_data = data[data["multigrid_converged_no_allocation"] == 1]
+standard_data = data[data["standard_converged_no_allocation"] == 1]
 
-# Group by dimension and compute mean and std
-multigrid_stats = multigrid_data.groupby("dim")["multigrid_time"].agg(["mean", "std"]).reset_index()
-standard_stats = standard_data.groupby("dim")["standard_time"].agg(["mean", "std"]).reset_index()
-relaxed_stats = relaxed_data.groupby("dim")["relaxed_time"].agg(["mean", "std"]).reset_index()
+# Group by grid_pointsension and compute mean and std
+multigrid_stats = multigrid_data.groupby("grid_points")["multigrid_time_no_allocation"].agg(["mean", "std"]).reset_index()
+standard_stats = standard_data.groupby("grid_points")["standard_time_no_allocation"].agg(["mean", "std"]).reset_index()
 
 # Plotting of Runtimes
-plt.figure(figsize=(8, 6))
-plt.errorbar(
-    multigrid_stats["dim"],
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.errorbar(
+    multigrid_stats["grid_points"],
     multigrid_stats["mean"],
     yerr=multigrid_stats["std"],
     fmt="o-",
     capsize=5,
     label="Multigrid Method",
 )
-plt.errorbar(
-    standard_stats["dim"],
+ax.errorbar(
+    standard_stats["grid_points"],
     standard_stats["mean"],
     yerr=standard_stats["std"],
     fmt="s-",
     capsize=5,
     label="Standard Method",
 )
-plt.errorbar(
-    relaxed_stats["dim"],
-    relaxed_stats["mean"],
-    yerr=relaxed_stats["std"],
-    fmt="s-",
-    capsize=5,
-    label="Relaxed Standard Method",
-)
+
 
 # Add labels and legend
-plt.xlabel("Dimension")
+draw_loglog_slope(fig, ax, (64*64, 1), 5, 1, "black")
+draw_loglog_slope(fig, ax, (256*256, 20), 5, 2, "black")
+plt.xlabel("Grid Points")
 plt.ylabel("Runtime (seconds)")
 plt.xscale("log", base=2)
 plt.yscale("log")
-plt.title("Average Runtime vs Dimension, E_scaled {} & nu {}".format(args.E, args.nu))
+plt.title("Average Runtime vs grid_pointsension, E_scaled {} & nu {}".format(args.E, args.nu))
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-# Show plot
 plt.savefig("runtimes.png")
+plt.savefig("runtimes.eps")
 
-# plot only for multigrid
+# plot only multigrid iterations
 multigrid_iterations = (
-    multigrid_data.groupby("dim")["multigrid_iterations"].agg(["mean", "std"]).reset_index()
+    multigrid_data.groupby("grid_points")["multigrid_iterations_no_allocation"].agg(["mean", "std"]).reset_index()
 )
 fig, ax = plt.subplots()
 ax.errorbar(
-    multigrid_stats["dim"],
-    multigrid_stats["mean"],
-    yerr=multigrid_stats["std"],
-    fmt="o-",
-    capsize=5,
-    label="Time",
-)
-ax.errorbar(
-    multigrid_iterations["dim"],
+    multigrid_iterations["grid_points"],
     multigrid_iterations["mean"],
     yerr=multigrid_iterations["std"],
     fmt="s-",
@@ -224,6 +209,30 @@ ax.errorbar(
 plt.legend()
 plt.xscale("log", base=2)
 plt.yscale("log")
-draw_loglog_slope(fig, ax, (512, 0.1), 1, 2, "black")
-plt.title("Average Runtime/Iterations vs Dimension, E_scaled {} & nu {}".format(args.E, args.nu))
-plt.savefig("multigrid.png")
+plt.title("Average Iterations vs grid_pointsension, E_scaled {} & nu {}".format(args.E, args.nu))
+plt.savefig("multigrid_iterations.png")
+plt.savefig("multigrid_iterations.eps")
+
+# plot only standard iterations
+standard_iterations = (
+    standard_data.groupby("grid_points")["standard_iterations_no_allocation"].agg(["mean", "std"]).reset_index()
+)
+fig, ax = plt.subplots()
+
+ax.errorbar(
+    standard_iterations["grid_points"],
+    standard_iterations["mean"],
+    yerr=standard_iterations["std"],
+    fmt="s-",
+    capsize=5,
+    label="Iterations",
+)
+plt.xlabel("Grid Points")
+plt.ylabel("Iterations")
+plt.legend()
+plt.xscale("log", base=2)
+plt.yscale("log")
+draw_loglog_slope(fig, ax, (64*64, 1000), 1, 1, "black")
+plt.title("Average Iterations vs grid_pointsension, E_scaled {} & nu {}".format(args.E, args.nu))
+plt.savefig("standard_iterations.png")
+plt.savefig("standard_iterations.eps")

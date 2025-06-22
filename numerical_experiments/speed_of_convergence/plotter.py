@@ -55,7 +55,7 @@ ax.plot(
 print("Expected rate of Convergence: {}".format(slope))
 # Actual rate of convergence
 slope = utils.rate_of_convergence(multigrid_data, "residual_norm")
-multigrid_data["slope_power"] = slope ** multigrid_data["iteration"]
+multigrid_data["slope_power"] = slope ** (multigrid_data["iteration"]+2)
 ax.plot(
     multigrid_data["iteration"],
     multigrid_data["slope_power"],
