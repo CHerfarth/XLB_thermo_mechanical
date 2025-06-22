@@ -267,8 +267,8 @@ class SolidsDirichlet(Operator):
             # -------------outside domain--------------
             if boundary_info[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(self.velocity_set.q):
-                    f_out_vec[l] = self.compute_dtype(wp.nan)
-            # -------------Dirichlet BC---------------'''
+                    f_out_vec[l] = self.compute_dtype(0)
+            # -------------Dirichlet BC---------------
             elif boundary_info[0, i, j, 0] == wp.int8(
                 2
             ):  # for boundary nodes: check which directions need to be given by dirichlet BC

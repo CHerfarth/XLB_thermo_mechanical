@@ -85,8 +85,11 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = 3 * sympy.sin(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)
-    manufactured_v = 3 * sympy.sin(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)
+    manufactured_u = 3 * sympy.cos(6 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
+    manufactured_v = 3 * sympy.cos(6 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
+    #manufactured_u = 3 * sympy.sin(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)
+    #manufactured_v = 3 * sympy.sin(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)
+    # manufactured_u = (2*x)**2 + 1*y
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -142,7 +145,7 @@ if __name__ == "__main__":
     )
 
     for i in range(timesteps):
-        residual_norm = multigrid_solver.start_v_cycle(return_residual=False)
+        residual_norm = multigrid_solver.start_v_cycle(return_residual=True)
         residuals.append(residual_norm)
         multigrid_solver.get_macroscopics(output_array=macroscopics)
         l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(
