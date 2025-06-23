@@ -163,6 +163,7 @@ class MultigridStepper(Stepper):
         def kernel_with_bc(
             f_1: wp.array4d(dtype=self.store_dtype),  # post-collision
             f_2: wp.array4d(dtype=self.store_dtype),  # old pre-collision (for relaxation)
+            f_3: wp.array4d(dtype=self.store_dtype), #previous post collision
             defect_correction: wp.array4d(dtype=self.store_dtype),
             force: wp.array4d(dtype=self.store_dtype),
             boundary_info: wp.array4d(dtype=wp.int8),
@@ -179,6 +180,7 @@ class MultigridStepper(Stepper):
 
             _f_pre_collision = read_local_population(f_2, i, j)
             _f_post_collision = read_local_population(f_1, i, j)
+            _f_previous_post_collision = read_local_population(f_3, i, j)
             _defect = read_local_population(defect_correction, i, j)
             _f_post_stream = self.stream.warp_functional(f_1, index)
 
@@ -189,7 +191,7 @@ class MultigridStepper(Stepper):
             _f_post_stream = self.boundaries.warp_functional(
                 f_post_stream_vec=_f_post_stream,
                 f_post_collision_vec=_f_post_collision,
-                f_previous_post_collision_vec=_f_post_collision,
+                f_previous_post_collision_vec=_f_previous_post_collision,
                 i=i,
                 j=j,
                 boundary_info=boundary_info,
@@ -208,12 +210,61 @@ class MultigridStepper(Stepper):
                     gamma * (_f_post_stream[l] - defect_factor*_defect[l])
                     + (self.compute_dtype(1) - gamma) * (_f_pre_collision[l])
                 )
-
+            write_population_to_global(f_3, _f_post_collision, i, j)
             write_population_to_global(f_2, _f_out, i, j)
 
 
         @wp.kernel
-        def kernel_residual_norm_squared(
+        def kernel_residual_norm_squared_with_bc(
+            f_1: wp.array4d(dtype=self.store_dtype),  # post-collision
+            f_2: wp.array4d(dtype=self.store_dtype),  # pre-collision
+            f_3: wp.array4d(dtype=self.store_dtype), #previous post collision
+            force: wp.array4d(dtype=self.store_dtype),
+            boundary_info: wp.array4d(dtype=wp.int8),
+            boundary_vals: wp.array4d(dtype=self.store_dtype),
+            omega: vec,
+            K: self.compute_dtype,
+            mu: self.compute_dtype,
+            theta: self.compute_dtype,
+            res_norm: wp.array1d(dtype=self.store_dtype),
+        ):
+            i, j, k = wp.tid()
+            index = wp.vec3i(i, j, k)
+
+            _f_old = read_local_population(f_2, i, j)
+            _f_post_collision = read_local_population(f_1, i, j)
+            _f_post_stream = self.stream.warp_functional(f_1, index)
+            _f_previous_post_collision = read_local_population(f_3, i, j)
+
+            force_x = self.compute_dtype(force[0, i, j, 0])
+            force_y = self.compute_dtype(force[1, i, j, 0])
+            _bared_m = self.bared_moments.warp_functional(f_vec=_f_old, force_x=force_x, force_y=force_y, omega=omega, theta=theta)
+
+            _f_new = self.boundaries.warp_functional(
+                f_post_stream_vec=_f_post_stream,
+                f_post_collision_vec=_f_post_collision,
+                f_previous_post_collision_vec=_f_previous_post_collision,
+                i=i,
+                j=j,
+                boundary_info=boundary_info,
+                boundary_vals=boundary_vals,
+                force_x=force_x,
+                force_y=force_y,
+                bared_m_vec=_bared_m,
+                K=K,
+                mu=mu,
+                theta=theta,
+            )
+
+            _local_res = self.compute_dtype(0)
+            if (boundary_info[0,i,j,0] != wp.int8(0)):
+                for l in range(self.velocity_set.q):
+                    _local_res += (_f_new[l] - _f_old[l]) * (_f_new[l] - _f_old[l])
+
+            wp.atomic_add(res_norm, 0, self.store_dtype(_local_res))
+
+        @wp.kernel
+        def kernel_residual_norm_squared_no_bc(
             f_1: wp.array4d(dtype=self.store_dtype),  # post-collision
             f_2: wp.array4d(dtype=self.store_dtype),  # old pre-collision
             res_norm: wp.array1d(dtype=self.store_dtype),
@@ -231,10 +282,10 @@ class MultigridStepper(Stepper):
             wp.atomic_add(res_norm, 0, self.store_dtype(_local_res))
         
 
-        return None, (kernel, kernel_with_bc, kernel_residual_norm_squared)
+        return None, (kernel, kernel_with_bc, kernel_residual_norm_squared_no_bc, kernel_residual_norm_squared_with_bc)
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f_1, f_2, defect_correction, gamma=None, defect_factor=1.):
+    def warp_implementation(self, f_1, f_2, f_3, defect_correction, f_3_uninitialized=False, gamma=None, defect_factor=1.): #f_3 with previous post-collision population
         if gamma is None:
             gamma = self.gamma
         self.collision(f_1, f_2, self.force, self.omega)
@@ -249,11 +300,14 @@ class MultigridStepper(Stepper):
             K = params.K
             theta = params.theta
             mu = params.mu
+            if f_3_uninitialized:
+                wp.launch(self.copy_populations, inputs=[f_2, f_3, 9], dim=f_2.shape[1:])
             wp.launch(
                 self.warp_kernel[1],
                 inputs=[
                     f_2,
                     f_1,
+                    f_3,
                     defect_correction,
                     self.force,
                     self.boundary_conditions,
@@ -271,11 +325,19 @@ class MultigridStepper(Stepper):
     def get_residual_norm(self, f_1, f_2):
         self.collision(f_1, f_2, self.force, self.omega)
         res_norm = wp.zeros(shape=(1), dtype=self.store_dtype)
-        wp.launch(
-            self.warp_kernel[2],
-            inputs=[f_2, f_1, res_norm],
-            dim=f_1.shape[1:],
-        )
+        if self.boundary_conditions is None:
+            wp.launch(
+                self.warp_kernel[2],
+                inputs=[f_2, f_1, res_norm],
+                dim=f_1.shape[1:],
+            )
+        else:
+            params = SimulationParams()
+            K = params.K
+            theta = params.theta
+            mu = params.mu
+            wp.launch(self.warp_kernel[3], inputs=[f_2, f_1, f_2, self.force, self.boundary_conditions, self.boundary_values, self.omega, K, mu, theta, res_norm], dim=f_2.shape[1:])
+
         return math.sqrt(1 / (f_1.shape[0] * f_1.shape[1] * f_1.shape[2]) * res_norm.numpy()[0])
 
     def get_macroscopics(self, f, output_array):

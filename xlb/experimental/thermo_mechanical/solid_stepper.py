@@ -142,16 +142,17 @@ class SolidsStepper(Stepper):
             force_x = self.compute_dtype(force[0, i, j, 0])
             force_y = self.compute_dtype(force[1, i, j, 0])
 
-            _f_post_collision = self.collision.warp_functional(
+            _f_new_post_collision = self.collision.warp_functional(
                 f_vec=_f_post_stream, force_x=force_x, force_y=force_y, omega=omega, theta=theta
             )
 
-            write_population_to_global(f_2, _f_post_collision, i, j)
+            write_population_to_global(f_2, _f_new_post_collision, i, j)
 
         @wp.kernel
         def kernel_bc(
             f_1: wp.array4d(dtype=self.store_dtype),
             f_2: wp.array4d(dtype=self.store_dtype),
+            f_3: wp.array4d(dtype=self.store_dtype),
             force: wp.array4d(dtype=self.store_dtype),
             boundary_info: wp.array4d(dtype=wp.int8),
             boundary_vals: wp.array4d(dtype=self.store_dtype),
@@ -164,14 +165,15 @@ class SolidsStepper(Stepper):
             index = wp.vec3i(i, j, k)
 
             _f_post_collision = read_local_population(f_1, i, j)
-            _f_previous_post_collision = read_local_population(f_1, i, j)
+            _f_previous_post_collision = read_local_population(f_2, i, j)
+            _f_pre_collision = read_local_population(f_3, i, j)
             _f_post_stream = self.stream.warp_functional(f_1, index)
 
             force_x = self.compute_dtype(force[0, i, j, 0])
             force_y = self.compute_dtype(force[1, i, j, 0])
 
             _bared_m = self.bared_moments.warp_functional(
-                f_vec=_f_post_collision, force_x=force_x, force_y=force_y, omega=omega, theta=theta
+                f_vec=_f_pre_collision, force_x=force_x, force_y=force_y, omega=omega, theta=theta
             )
 
             _f_post_stream = self.boundaries.warp_functional(
@@ -190,17 +192,19 @@ class SolidsStepper(Stepper):
                 theta=theta,
             )
 
-            _f_post_collision = self.collision.warp_functional(
+            _f_new_post_collision = self.collision.warp_functional(
                 f_vec=_f_post_stream, force_x=force_x, force_y=force_y, omega=omega, theta=theta
             )
 
-            write_population_to_global(f_2, _f_post_collision, i, j)
+            write_population_to_global(f_1, _f_post_collision, i, j)
+            write_population_to_global(f_2, _f_new_post_collision, i, j)
+            write_population_to_global(f_3, _f_post_stream, i, j)
 
         return None, (kernel_no_bc, kernel_bc)
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(
-        self, f_1, f_2
+        self, f_1, f_2, f_3=None
     ):  # f_1 carries current population, f_2 carries the previous post_collision population
         params = SimulationParams()
         theta = params.theta
@@ -218,6 +222,7 @@ class SolidsStepper(Stepper):
                 inputs=[
                     f_1,
                     f_2,
+                    f_3,
                     self.force,
                     self.boundary_conditions,
                     self.boundary_values,
@@ -229,9 +234,14 @@ class SolidsStepper(Stepper):
                 dim=f_1.shape[1:],
             )
 
-    def get_macroscopics(self, f, output_array):
-        self.stream(f, output_array)
-        self.bared_moments(f=output_array, output_array=output_array, force=self.force)
+    def get_macroscopics(self, f, output_array, f_is_post_collision=True):
+        if f_is_post_collision:
+            assert(self.boundary_conditions is None)
+            self.stream(f, output_array)
+            self.bared_moments(f=output_array, output_array=output_array, force=self.force)
+        else:
+            self.bared_moments(f=f, output_array=output_array, force=self.force)
+
         return self.macroscopic(
             bared_moments=output_array, output_array=output_array, force=self.force
         )

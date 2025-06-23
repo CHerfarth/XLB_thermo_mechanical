@@ -60,6 +60,9 @@ class Level(Operator):
         self.f_3 = self.grid.create_field(
             cardinality=velocity_set.q, dtype=precision_policy.store_precision
         )
+        self.f_4 = self.grid.create_field(
+            cardinality=velocity_set.q, dtype=precision_policy.store_precision
+        )
         self.defect_correction = self.grid.create_field(
             cardinality=velocity_set.q, dtype=precision_policy.store_precision
         )
@@ -128,7 +131,7 @@ class Level(Operator):
 
     def get_residual(self, f_1, f_2, f_3, defect_correction):
         wp.launch(self.copy_populations, inputs=[f_1, f_3, 9], dim=f_1.shape[1:])
-        self.stepper(f_1, f_2, defect_correction, gamma=1., defect_factor=0.)
+        self.stepper(f_1, f_2, self.f_4, defect_correction, gamma=1., defect_factor=0.)
         wp.launch(self.warp_kernel, inputs=[f_3, f_1, defect_correction], dim=f_1.shape[1:])
 
     def set_params(self):
@@ -147,7 +150,7 @@ class Level(Operator):
         theta = params.theta
 
         for i in range(self.v1):
-            self.stepper(self.f_1, self.f_2, self.defect_correction)
+            self.stepper(self.f_1, self.f_2, self.f_4, self.defect_correction)
 
         coarse = multigrid.get_next_level(self.level_num)
 
@@ -178,10 +181,14 @@ class Level(Operator):
 
         else:
             for i in range(self.coarsest_level_iter):
-                self.stepper(self.f_1, self.f_2, self.defect_correction)
+                self.stepper(self.f_1, self.f_2, self.f_4, self.defect_correction)
 
         for i in range(self.v2):
-            self.stepper(self.f_1, self.f_2, self.defect_correction)
+            if i == 0:
+                self.stepper(self.f_1, self.f_2, self.f_4, self.defect_correction, f_3_uninitialized=True)
+            else:
+                self.stepper(self.f_1, self.f_2, self.f_4, self.defect_correction)
+
 
         # for calculating WUs
         benchmark_data = BenchmarkData()

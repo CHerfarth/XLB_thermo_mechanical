@@ -47,8 +47,8 @@ do
     cat tmp_1.txt | grep "Linf_stress" > tmp_2.txt
     error_Linf_stress=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
 
-    echo "Error: $error_L2_disp, $error_Linf_disp, $error_L2_stress, $error_Linf_stress"
-    echo "$epsilon,$error_L2_disp, $error_Linf_disp, $error_L2_stress, $error_Linf_stress" >> $results_file
+    echo "Error: $error_L2_disp, $error_Linf_disp,$error_L2_stress,$error_Linf_stress"
+    echo "$epsilon,$error_L2_disp,$error_Linf_disp,$error_L2_stress,$error_Linf_stress" >> $results_file
     rm tmp*
 
     #decrease expsilon
