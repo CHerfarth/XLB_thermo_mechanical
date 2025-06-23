@@ -150,60 +150,97 @@ def draw_loglog_slope(
 data = pd.read_csv(args.data)
 
 
-data_single = data[data["single_precision"] == 1]
-data_single = data_single.groupby("dim", group_keys=False).apply(lambda x: x.iloc[1:])
-stats_single = data_single.groupby("dim")["MLUP/s"].agg(["mean", "std"]).reset_index()
+single_periodic = data.groupby("dim")["single_precision_periodic"].agg(["mean", "std"]).reset_index()
+single_dirichlet = data.groupby("dim")["single_precision_dirichlet"].agg(["mean", "std"]).reset_index()
+double_periodic = data.groupby("dim")["double_precision_periodic"].agg(["mean", "std"]).reset_index()
+double_dirichlet = data.groupby("dim")["double_precision_dirichlet"].agg(["mean", "std"]).reset_index()
 
-data_double = data[data["single_precision"] == 0]
-data_double = data_double.groupby("dim", group_keys=False).apply(lambda x: x.iloc[1:])
-stats_double = data_double.groupby("dim")["MLUP/s"].agg(["mean", "std"]).reset_index()
 
-# Plotting
+# ------------------plot for periodic---------------------
 fig, ax = plt.subplots()
 
 plt.errorbar(
-    stats_single["dim"] ** 2,
-    stats_single["mean"],
-    yerr=stats_single["std"],
+    single_periodic["dim"] ** 2,
+    single_periodic["mean"],
+    yerr=single_periodic["std"],
     fmt="o-",
     color="blue",
     capsize=5,
     label="Single Precision",
 )
 plt.errorbar(
-    stats_double["dim"] ** 2,
-    stats_double["mean"],
-    yerr=stats_double["std"],
+    double_periodic["dim"] ** 2,
+    double_periodic["mean"],
+    yerr=double_periodic["std"],
     fmt="o-",
     color="red",
     capsize=5,
     label="Double Precision",
 )
 
-max_single = round(max(stats_single["mean"]))
-max_double = round(max(stats_double["mean"]))
+max_single = round(max(single_periodic["mean"]))
+max_double = round(max(double_periodic["mean"]))
 plt.axhline(
     y=max_single, color="blue", linestyle="--", linewidth=1.5, label="{} LUPS".format(max_single)
 )
 plt.axhline(
     y=max_double, color="red", linestyle="--", linewidth=1.5, label="{} LUPS".format(max_double)
 )
-
-# plt.axvline(x=2304*8, color='green', linestyle=':', linewidth=1.5, label='x=12288')
-# plt.axvline(x=2304*64, color='green', linestyle='-', linewidth=1.5, label='x=12288')
-
 draw_loglog_slope(fig, ax, (1000, 10), 0.01, 1, "black")
-
 # Add labels and legend
 plt.xlabel("Grid points", fontsize=12)
 plt.ylabel("MLUPS", fontsize=12)
 plt.xscale("log")
 plt.yscale("log")
-ax.set_title("Lattice Updates per Second vs Number of Grid Points")
+ax.set_title("Lattice Updates per Second vs Number of Grid Points (Periodic BC)")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-
 # Show plot
-plt.savefig("speed.png")
-plt.savefig("speed.eps")
+plt.savefig("speed_periodic.png")
+plt.savefig("speed_periodic.eps")
+
+
+# ------------------plot for dirichlet---------------------
+fig, ax = plt.subplots()
+
+plt.errorbar(
+    single_dirichlet["dim"] ** 2,
+    single_dirichlet["mean"],
+    yerr=single_dirichlet["std"],
+    fmt="o-",
+    color="green",
+    capsize=5,
+    label="Single Precision",
+)
+plt.errorbar(
+    double_dirichlet["dim"] ** 2,
+    double_dirichlet["mean"],
+    yerr=double_dirichlet["std"],
+    fmt="o-",
+    color="orange",
+    capsize=5,
+    label="Double Precision",
+)
+
+max_single = round(max(single_dirichlet["mean"]))
+max_double = round(max(double_dirichlet["mean"]))
+plt.axhline(
+    y=max_single, color="green", linestyle="--", linewidth=1.5, label="{} LUPS".format(max_single)
+)
+plt.axhline(
+    y=max_double, color="orange", linestyle="--", linewidth=1.5, label="{} LUPS".format(max_double)
+)
+draw_loglog_slope(fig, ax, (1000, 10), 0.01, 1, "black")
+# Add labels and legend
+plt.xlabel("Grid points", fontsize=12)
+plt.ylabel("MLUPS", fontsize=12)
+plt.xscale("log")
+plt.yscale("log")
+ax.set_title("Lattice Updates per Second vs Number of Grid Points (Dirichlet BC)")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+# Show plot
+plt.savefig("speed_dirichlet.png")
+plt.savefig("speed_dirichlet.eps")

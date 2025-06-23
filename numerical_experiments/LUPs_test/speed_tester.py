@@ -75,14 +75,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * x) + 3
-    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x) + 3
-    expected_displacement = np.array([
-        utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
-        utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
-    ])
-    print("Mean exp u: {}".format(np.sum(expected_displacement[0, :, :]) * dx * dx))
-    print("Mean exp v: {}".format(np.sum(expected_displacement[1, :, :]) * dx * dx))
+    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * x)
+    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y)
 
     # get expected stress
@@ -93,20 +87,10 @@ if __name__ == "__main__":
         utils.get_function_on_grid(s_xy, x, y, dx, grid),
     ])
 
-    # set boundary potential
-    # potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
-    # potential = sympy.lambdify([x, y], potential_sympy)
-    # indicator = lambda x, y: -1
-    # boundary_array, boundary_values = bc.init_bc_from_lambda(
-    #    potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
-    # )
+    
     boundary_array, boundary_values = None, None
 
-    # adjust expected solution
-    # expected_macroscopics = np.concatenate((expected_displacement, expected_stress), axis=0)
-    # expected_macroscopics = utils.restrict_solution_to_domain(expected_macroscopics, potential, dx)
-
-    # ------------------------------------- collect data for normal LB ----------------------------------
+    # ------------------------------------- collect data for LB with periodic BC----------------------------------
 
     solid_simulation = SimulationParams()
     solid_simulation.set_all_parameters(
@@ -121,12 +105,9 @@ if __name__ == "__main__":
     # startup grids
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
-    # set initial guess from white noise
-    # f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=3, seed=31)
 
-    kernel_provider = KernelProvider()
-    copy_populations = kernel_provider.copy_populations
-    subtract_populations = kernel_provider.subtract_populations
+    for i in range(10): #warmup runs to make sure everything compiled
+        stepper(f_1, f_2)
 
     wp.synchronize()
     start = time.time()
@@ -139,4 +120,45 @@ if __name__ == "__main__":
     LUP = f_1.shape[1] * f_1.shape[2] * timesteps
     LUPs = LUP / (end - start)
     MLUPs = LUPs * (1e-6)
-    print("MLUP/s: {}".format(MLUPs))
+    print("MLUPs Periodic: {}".format(MLUPs))
+
+    # ------------------------------------- collect data for LB with Dirichlet BC----------------------------------
+
+    solid_simulation = SimulationParams()
+    solid_simulation.set_all_parameters(
+        E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0
+    )
+
+    # set boundary potential
+    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25
+    potential = sympy.lambdify([x, y], potential_sympy)
+    indicator = lambda x, y: -1
+    boundary_array, boundary_values = bc.init_bc_from_lambda(
+        potential_sympy, grid, dx, velocity_set, (manufactured_u, manufactured_v), indicator, x, y
+    )
+
+    # initialize stepper
+    stepper = SolidsStepper(
+        grid, force_load, boundary_conditions=boundary_array, boundary_values=boundary_values
+    )
+
+    # startup grids
+    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+
+    for i in range(10): #warmup runs to make sure everything compiled
+        stepper(f_1, f_2, f_3)
+
+    wp.synchronize()
+    start = time.time()
+    for i in range(timesteps):
+        stepper(f_1, f_2, f_3)
+        f_1, f_2 = f_2, f_1
+    wp.synchronize()
+    end = time.time()
+
+    LUP = f_1.shape[1] * f_1.shape[2] * timesteps
+    LUPs = LUP / (end - start)
+    MLUPs = LUPs * (1e-6)
+    print("MLUPs Dirichlet: {}".format(MLUPs))

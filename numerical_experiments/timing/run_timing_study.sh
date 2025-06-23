@@ -13,7 +13,7 @@ num_E=3
 d_nu=0.1
 num_nu=4
 
-iterations=8
+iterations=4 #8
 current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
 log_file="log_"$current_date_time".txt"
 results_file="results_"$current_date_time".csv"
