@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
     # initialize grid
     nodes_x = 16
-    nodes_y = 16
+    nodes_y = nodes_x
     grid = grid_factory((nodes_x, nodes_y), compute_backend=compute_backend)
 
     # get discretization
@@ -64,8 +64,10 @@ if __name__ == "__main__":
     print("E: {}, nu: {}".format(solid_simulation.lamb, solid_simulation.mu))
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = 0 * x * y  # sympy.cos(2 * sympy.pi * x)  # + 3
-    manufactured_v = 0 * x * y  # sympy.cos(2 * sympy.pi * y)  # + 3
+    #manufactured_u = sympy.cos(2 * sympy.pi * x)  # + 3
+    #manufactured_v = sympy.cos(2 * sympy.pi * y)  # + 3
+    manufactured_u = 3 * sympy.sin(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)
+    manufactured_v = 3 * sympy.sin(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -81,7 +83,7 @@ if __name__ == "__main__":
     ])
 
     # set boundary potential
-    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.2
+    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25*100
     potential = sympy.lambdify([x, y], potential_sympy)
     indicator = lambda x, y: -1
     boundary_array, boundary_values = bc.init_bc_from_lambda(
@@ -99,35 +101,30 @@ if __name__ == "__main__":
     )
 
     # startup grids
-    # f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
+    f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     macroscopics = grid.create_field(
         cardinality=velocity_set.q, dtype=precision_policy.store_precision
     )
-    # set initial guess from white noise
-    f_1 = utils.get_initial_guess_from_white_noise(f_2.shape, precision_policy, dx, mean=0, seed=29)
 
     norms_over_time = list()  # to track error over time
     tolerance = 1e-6
     l2, linf = 0, 0
     for i in range(timesteps):
-        stepper(f_1, f_2)
-        macroscopics = stepper.get_macroscopics(macroscopics, f_1)
+        stepper(f_1, f_2, f_3)
         f_1, f_2 = f_2, f_1
-        l2_disp, l2_inf, l2_stress, linf_stress = utils.process_error(
+        stepper.get_macroscopics(f=f_1, output_array=macroscopics)
+        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(
             macroscopics.numpy(), expected_macroscopics, i, dx, norms_over_time
         )
-        if i % 10 == 0:
-            macroscopics = stepper.get_macroscopics(macroscopics, f_1)
-            l2_new, linf_new, l2_stress, linf_stress = utils.process_error(
-                macroscopics.numpy(), expected_macroscopics, i, dx, norms_over_time
-            )
-            print(l2_new, linf_new, l2_stress, linf_stress)
-            l2, linf = l2_new, linf_new
+        utils.output_image(macroscopics.numpy(), i, "figure")
+        #print(l2_disp, linf_disp, l2_stress, linf_stress)
+        
 
     # write out error norms
     # print("Final error: {}".format(norms_over_time[len(norms_over_time) - 1]))
-    macroscopics = stepper.get_macroscopics(macroscopics, f_1)
+    stepper.get_macroscopics(f_1, macroscopics)
     utils.process_error(macroscopics.numpy(), expected_macroscopics, i, dx, norms_over_time)
     # write out error norms
     last_norms = norms_over_time[len(norms_over_time) - 1]

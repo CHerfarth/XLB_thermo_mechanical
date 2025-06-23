@@ -79,7 +79,7 @@ def restrict_solution_to_domain(
     for i in range(array.shape[1]):
         for j in range(array.shape[2]):
             if potential(i * dx + 0.5 * dx, j * dx + 0.5 * dx) > 0:
-                array[:, i, j] = np.nan
+                array[:, i, j] = np.nan 
     return array
 
 
