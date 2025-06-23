@@ -154,6 +154,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     data = pd.read_csv(args.file, skiprows=0, sep=",", engine="python", dtype=np.float64)
+    data = data.dropna(axis=0)
     print(data.head())
 
     x_label = r"$\epsilon$"
