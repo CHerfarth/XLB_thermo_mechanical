@@ -13,6 +13,7 @@ import cmath
 parser = argparse.ArgumentParser("amplification_factor")
 parser.add_argument("E", type=float)
 parser.add_argument("nu", type=float)
+parser.add_argument("gamma", type=float)
 args = parser.parse_args()
 # vars:
 theta = 1 / 3
@@ -120,7 +121,7 @@ def get_LB_matrix(mu, theta, K, phi_x, phi_y):
     M_eq[6, 1] = theta
 
     # for relaxation
-    gamma = 0.8
+    gamma = args.gamma
     L_mat = gamma * (M_inv @ D @ M_eq @ M + M_inv @ (I - D) @ M)
 
     for i in range(velocity_set.q - 1):
@@ -134,7 +135,7 @@ def get_LB_matrix(mu, theta, K, phi_x, phi_y):
 
 
 phi_y_val = -np.pi
-iterations = 250
+iterations = 50#250
 results = list()
 for i in range(iterations):
     dx = 1
@@ -149,7 +150,7 @@ for i in range(iterations):
         spectral_radius = max(np.abs(ev) for ev in eigenvalues)
         # spectral_radius = np.linalg.norm(np.array(L_evaluated, dtype=np.complex128), ord=2)
         results.append((phi_x_val, phi_y_val, spectral_radius))
-        phi_x_val += (2 * np.pi) / iterations
+        phi_x_val += (2 * np.pi) / (iterations-1)
     print("{} % complete".format((i + 1) * 100 / iterations))
     phi_y_val += (2 * np.pi) / iterations
 
@@ -168,7 +169,7 @@ smoothing_factor = np.max(smoothing_factors)
 
 
 # Create a grid of points
-x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100), np.linspace(y.min(), y.max(), 100))
+x_grid, y_grid = np.meshgrid(np.linspace(-np.pi, np.pi, 100), np.linspace(-np.pi, np.pi, 100))
 
 # Interpolate the scattered data onto the grid
 z_grid = griddata((x, y), z, (x_grid, y_grid), method="cubic")
@@ -180,13 +181,32 @@ contour = ax.contourf(x_grid, y_grid, z_grid, levels=30, cmap="viridis")
 
 # Add color bar to the plot
 plt.colorbar(contour)
+def pi_formatter(x, pos):
+    frac = x / np.pi
+    if np.isclose(frac, 0):
+        return r"$0$"
+    elif np.isclose(frac, 1):
+        return r"$\pi$"
+    elif np.isclose(frac, -1):
+        return r"$-\pi$"
+    else:
+        return r"${0}\pi$".format(int(frac) if frac == int(frac) else "{0:g}".format(frac))
+
+ax.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 4))
+ax.xaxis.set_major_formatter(FuncFormatter(pi_formatter))
+ax.yaxis.set_major_locator(plt.MultipleLocator(np.pi / 4))
+ax.yaxis.set_major_formatter(FuncFormatter(pi_formatter))
 
 # Set labels
-ax.set_xlabel("phi_x")
-ax.set_ylabel("phi_y")
-plt.title("Plot of Spectral Radius")
+x_label = r"$\phi_1$"
+y_label = r"$\phi_2$"
+plt.xlabel(x_label, labelpad=20, fontsize=12)
+plt.ylabel(y_label, labelpad=20, fontsize=12)
+plt.title("Amplification Factor")
 
 # Show the plot
-plt.savefig("contour.png")
+plt.tight_layout()
+plt.savefig("contour_E_{}_nu_{}.png".format(args.E, args.nu))
+plt.savefig("contour_E_{}_nu_{}.eps".format(args.E, args.nu))
 
 print("Smoothing Factor: {}".format(smoothing_factor))
