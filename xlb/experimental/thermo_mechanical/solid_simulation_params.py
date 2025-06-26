@@ -25,7 +25,7 @@ class SimulationParams:
 
         return cls._instance
 
-    def set_all_parameters(self, E, nu, dx, dt, L, T, kappa, theta):
+    def set_all_parameters(self, E, nu, dx, dt, L, T, kappa, theta=None):
         self._E_unscaled = E
         self._E = E
         self._nu_unscaled = nu
@@ -35,7 +35,7 @@ class SimulationParams:
         self._T = T
         self._L = L
         self._kappa = kappa
-        self._theta = theta
+        self._theta = 1./3. 
         # self._precision_policy = precision_policy
 
         # Calculate derived parameters

@@ -110,6 +110,8 @@ if __name__ == "__main__":
     tol = 1e-7
     gamma = 0.8
 
+    print("here")
+
     if args.test_multigrid:
         #-------warmup run to make sure all kernels are loaded---------------------------------------------------------
         multigrid_solver = MultigridSolver(
@@ -158,6 +160,7 @@ if __name__ == "__main__":
         print("Multigrid_Converged_With_Allocation: {}".format(converged))
         print("Multigrid_Time_With_Allocation: {}".format(runtime))
         print("Multigrid_Iterations_With_Allocation: {}".format(i))
+        print("Multigrid_WU: {}".format(benchmark_data.wu))
 
         # -------------------------------------- collect data for multigrid with no allocation----------------------------
         converged = 0
@@ -192,8 +195,10 @@ if __name__ == "__main__":
         print("Multigrid_Time_No_Allocation: {}".format(runtime))
         print("Multigrid_Iterations_No_Allocation: {}".format(i))
 
+    print("here")
     if args.test_standard:
         #-----------warmup run to make sure all kernels are loaded---------------------------------# initialize stepper
+        print("hmm")
         kernel_provider = KernelProvider()
         subtract_populations = kernel_provider.subtract_populations
         l2_norm_squared = kernel_provider.l2_norm
@@ -219,13 +224,15 @@ if __name__ == "__main__":
         del f_2
         del residual
         del stepper
+        print("hmm")
         # ------------------------------------- collect data for normal LB with allocation----------------------------------
         start = time.time()
         solid_simulation = SimulationParams()
         solid_simulation.set_all_parameters(
             E=E, nu=nu, dx=dx, dt=dt, L=dx, T=dt, kappa=1.0, theta=1.0 / 3.0
         )
-
+        benchmark_data = BenchmarkData()
+        benchmark_data.wu = 0.0
         timesteps = args.max_timesteps_standard
         converged = 0
         runtime = 0.0
@@ -238,7 +245,9 @@ if __name__ == "__main__":
         residual = grid.create_field(
             cardinality=velocity_set.q, dtype=precision_policy.store_precision
         )
+
         for i in range(timesteps):
+            benchmark_data.wu += 1
             if i % 100 == 0:
                 wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
             stepper(f_1, f_2)
@@ -271,6 +280,7 @@ if __name__ == "__main__":
         print("Standard_Converged_With_Allocation: {}".format(converged))
         print("Standard_Time_With_Allocation: {}".format(runtime))
         print("Standard_Iterations_With_Allocation: {}".format(i))
+        print("Standard_WU: {}".format(benchmark_data.wu))
 
         # ------------------------------------- collect data for normal LB no allocation----------------------------------
         solid_simulation = SimulationParams()

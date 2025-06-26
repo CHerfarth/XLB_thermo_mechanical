@@ -4,7 +4,7 @@ epsilon=1.0
 nodes_x=16
 nodes_y=16
 timesteps=4000
-iterations=8
+iterations=6
 
 #for bookkeeping
 current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"

@@ -31,7 +31,19 @@ from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 
 
 class SolidsStepper(Stepper):
+    """
+    Performs timesteps for standard LB scheme for electrostatics
+    """ 
+
     def __init__(self, grid, force_load, boundary_conditions=None, boundary_values=None):
+        """
+        Initializer
+
+        force_load: expected as callable function (e.g. lambda function)
+        boundary_condition: when simulating with Dirichlet or VN; 4d warp array specifiying boundary nodes, type of boundary conditions and missing populations (see solid_boundary.py)
+        boundary_values: when simulating with Dirichlet or VN; 4d warp array with floating point values needed for reconstruction of missing populations on boundary (see solid_boundary.py)
+        """
+
         super().__init__(grid, boundary_conditions)
         self.grid = grid
         self.boundary_conditions = boundary_conditions
@@ -132,11 +144,19 @@ class SolidsStepper(Stepper):
             omega: vec,
             theta: self.compute_dtype,
         ):
+            """
+            Kernel for timestep with periodic BC
+
+            f_1: post-collision populations at time t
+            f_2: post-collision populations at time t - dt
+            
+            exits with post-collision populations at time t + dt written to f_2
+            """
             i, j, k = wp.tid()
             index = wp.vec3i(i, j, k)
 
             _f_post_collision = read_local_population(f_1, i, j)
-            _f_previous_post_collision = read_local_population(f_1, i, j)
+            _f_previous_post_collision = read_local_population(f_2, i, j)
             _f_post_stream = self.stream.warp_functional(f_1, index)
 
             force_x = self.compute_dtype(force[0, i, j, 0])
@@ -161,6 +181,17 @@ class SolidsStepper(Stepper):
             mu: self.compute_dtype,
             theta: self.compute_dtype,
         ):
+            """
+            Kernel for timestep with Dirichlet/VN BC
+
+            f_1: post-collision population at time t
+            f_2: post-collision populations at time t - dt
+            f_3: pre-collision population at time t
+
+            exits with:
+                post-collision populations at time t + dt written to f_2
+                pre-collision populations at time t + dt written to f_3
+            """
             i, j, k = wp.tid()
             index = wp.vec3i(i, j, k)
 
@@ -196,7 +227,6 @@ class SolidsStepper(Stepper):
                 f_vec=_f_post_stream, force_x=force_x, force_y=force_y, omega=omega, theta=theta
             )
 
-            write_population_to_global(f_1, _f_post_collision, i, j)
             write_population_to_global(f_2, _f_new_post_collision, i, j)
             write_population_to_global(f_3, _f_post_stream, i, j)
 
@@ -205,7 +235,19 @@ class SolidsStepper(Stepper):
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(
         self, f_1, f_2, f_3=None
-    ):  # f_1 carries current population, f_2 carries the previous post_collision population
+    ):  
+        """
+        Performs timestep 
+
+        f_1: post-collision population at time t
+        f_2: post-collision populations at time t - \Delta t
+        f_3: pre-collision population at time t (only needed when not simulating with periodic BC)
+
+        exits with:
+            post-collision populations at time t + \Delta t written to f_2
+            pre-collision populations at time t + \Delta t written to f_3 (if not simulating with periodic BC)
+        """
+
         params = SimulationParams()
         theta = params.theta
         if self.boundary_conditions == None:
