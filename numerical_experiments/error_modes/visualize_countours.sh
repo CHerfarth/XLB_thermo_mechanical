@@ -1,17 +1,22 @@
+E_list=(0.2 0.5 0.8)
+nu_list=(0.3 0.5 0.7)
+
 gamma=1
+for i in "${!E_list[@]}"; do
+    E=${E_list[$i]}
+    nu=${nu_list[$i]}
+    python3 smoothing_factor_single.py $E $nu $gamma
+done
 
-E=0.2
-nu=0.3
-python3 smoothing_factor_single.py $E $nu $gamma
+mkdir -p contours_standard
+mv *pdf contours_standard
 
-E=0.5
-nu=0.5
-python3 smoothing_factor_single.py $E $nu $gamma
+gamma=0.8
+for i in "${!E_list[@]}"; do
+    E=${E_list[$i]}
+    nu=${nu_list[$i]}
+    python3 smoothing_factor_single.py $E $nu $gamma
+done
 
-E=0.8
-nu=0.7
-python3 smoothing_factor_single.py $E $nu $gamma
-
-mkdir contours
-mv *png contours
-mv *eps contours
+mkdir -p contours_relaxed
+mv *pdf contours_relaxed

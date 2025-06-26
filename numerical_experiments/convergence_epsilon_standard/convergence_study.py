@@ -75,12 +75,12 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    #manufactured_u = 3 * sympy.cos(6 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
-    #manufactured_v = 3 * sympy.cos(6 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
+    manufactured_u = 3 * sympy.cos(6 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
+    manufactured_v = 3 * sympy.cos(6 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
     #manufactured_u = 3 * sympy.sin(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)
     #manufactured_v = 3 * sympy.sin(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)
-    manufactured_u = 3*x*x + (y-0.3)*(y+10)*y
-    manufactured_v = 2*y*y+x*x*(x-0.5)
+    #manufactured_u = 3*x*x + (y-0.3)*(y+10)*y
+    #manufactured_v = 2*y*y+x*x*(x-0.5)
     # manufactured_u = (2*x)**2 + 1*y
     # manufactured_v = (2*y)**2 + 1*x
     expected_displacement = np.array([

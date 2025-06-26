@@ -9,8 +9,7 @@ do
 
     dir_name=gamma_"$gamma"
     mkdir $dir_name
-    mv *png $dir_name
-    mv *eps $dir_name
+    mv *pdf $dir_name
 
     gamma=$(echo "$gamma+0.1"|bc)
 

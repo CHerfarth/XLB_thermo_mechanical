@@ -208,5 +208,4 @@ ax.set_ylabel("nu")
 plt.title(r"$\bar{\mu}$")
 
 # Show the plot
-plt.savefig("smoothing_factor.png")
-plt.savefig("smoothing_factor.eps")
+plt.savefig("smoothing_factor.pdf")

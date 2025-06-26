@@ -8,10 +8,12 @@ v1=2
 v2=1
 v_tot=$((v1+v2))
 
-base_E=0.1
-base_nu=0.2
+base_E=.1
+base_nu=.2
 vals_E=5
 vals_nu=4
+
+gamma=0.8
 
 
 for ((j=0; j<vals_E; j++))
@@ -35,7 +37,7 @@ do
             nu=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
 
             #get amplification factor
-            python3 ../error_modes/smoothing_factor_single.py $E_scaled $nu > tmp_1.txt
+            python3 ../error_modes/smoothing_factor_single.py $E_scaled $nu $gamma > tmp_1.txt
             cat tmp_1.txt > log_2.txt
 
             cat tmp_1.txt | grep "Smoothing" > tmp_2.txt
@@ -50,7 +52,7 @@ do
 
             dir=nodes_$nodes_x
             mkdir $dir
-            mv *.png $dir
+            mv *.pdf $dir
 
             echo "============ Iteration $i done =============="
             echo ""

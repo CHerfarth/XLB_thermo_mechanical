@@ -191,8 +191,7 @@ plt.title(title)
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("runtimes.png")
-plt.savefig("runtimes.eps")
+plt.savefig("runtimes.pdf")
 
 # plot only multigrid iterations
 multigrid_iterations = (
@@ -211,8 +210,7 @@ plt.legend()
 plt.xscale("log", base=2)
 plt.yscale("log")
 plt.title(title)
-plt.savefig("multigrid_iterations.png")
-plt.savefig("multigrid_iterations.eps")
+plt.savefig("multigrid_iterations.pdf")
 
 # plot only standard iterations
 standard_iterations = (
@@ -235,8 +233,7 @@ plt.xscale("log", base=2)
 plt.yscale("log")
 draw_loglog_slope(fig, ax, (64*64, 1000), 5, 2, "black")
 plt.title(title)
-plt.savefig("standard_iterations.png")
-plt.savefig("standard_iterations.eps")
+plt.savefig("standard_iterations.pdf")
 
 
 #plot WU over dim
@@ -264,7 +261,6 @@ ax.errorbar(
     label="Standard Method",
 )
 
-
 # Add labels and legend
 draw_loglog_slope(fig, ax, (64*64, 1), 5, 2, "black")
 draw_loglog_slope(fig, ax, (256*256, 20), 5, 4, "black")
@@ -276,5 +272,4 @@ plt.title(title)
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("wu.png")
-plt.savefig("wu.eps")
+plt.savefig("wu.pdf")

@@ -52,7 +52,7 @@ ax.plot(
     color="black",
     label="Expected Speed of Convergence {}".format(slope),
 )
-print("Expected rate of Convergence: {}".format(slope))
+print("Expected Speed of Convergence: {}".format(slope))
 # Actual rate of convergence
 slope = utils.rate_of_convergence(multigrid_data, "residual_norm")
 multigrid_data["slope_power"] = slope ** (multigrid_data["iteration"]+2)
@@ -63,7 +63,7 @@ ax.plot(
     color="red",
     label="Actual Speed of Convergence {}".format(slope),
 )
-print("Actual rate of Convergence: {}".format(slope))
+print("Actual Speed of Convergence: {}".format(slope))
 
 ax.set_ylim((1e-11, 1e2))
 # calculate actual speed of convergence
@@ -72,5 +72,5 @@ plt.xlabel(x_label, labelpad=20, fontsize=12)
 plt.ylabel(y_label, labelpad=20, fontsize=12)
 plt.legend(loc="upper right")
 plt.tight_layout()
-plt.savefig("residual_mg.png")
+plt.savefig("residual_mg.pdf")
 

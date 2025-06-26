@@ -135,7 +135,7 @@ def get_LB_matrix(mu, theta, K, phi_x, phi_y):
 
 
 phi_y_val = -np.pi
-iterations = 50#250
+iterations = 250
 results = list()
 for i in range(iterations):
     dx = 1
@@ -206,7 +206,6 @@ plt.title("Amplification Factor")
 
 # Show the plot
 plt.tight_layout()
-plt.savefig("contour_E_{}_nu_{}.png".format(args.E, args.nu))
-plt.savefig("contour_E_{}_nu_{}.eps".format(args.E, args.nu))
+plt.savefig("contour_E_{}_nu_{}.pdf".format(args.E, args.nu))
 
 print("Smoothing Factor: {}".format(smoothing_factor))

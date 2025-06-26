@@ -197,8 +197,8 @@ plt.legend()
 plt.grid(True)
 plt.tight_layout()
 # Show plot
-plt.savefig("speed_periodic.png")
-plt.savefig("speed_periodic.eps")
+plt.savefig("speed_periodic.pdf")
+
 
 
 # ------------------plot for dirichlet---------------------
@@ -242,5 +242,4 @@ plt.legend()
 plt.grid(True)
 plt.tight_layout()
 # Show plot
-plt.savefig("speed_dirichlet.png")
-plt.savefig("speed_dirichlet.eps")
+plt.savefig("speed_dirichlet.pdf")

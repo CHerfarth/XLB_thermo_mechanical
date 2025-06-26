@@ -158,11 +158,8 @@ do
         python3 plotter.py $results_file $E $nu
         mkdir plots 
         mkdir data
-        for epsfile in *.eps; do
-            [ -e "$epsfile" ] && mv "$epsfile" "plots/${epsfile%.eps}_E_${E}_nu_${nu}.eps"
-        done
-        for pngfile in *.png; do
-            [ -e "$pngfile" ] && mv "$pngfile" "plots/${pngfile%.eps}_E_${E}_nu_${nu}.png"
+        for pdffile in *.pdf; do
+            [ -e "$pdffile" ] && mv "$pdffile" "plots/${pdffile%.pdf}_E_${E}_nu_${nu}.pdf"
         done
         mv $results_file data/results_E_"$E"_nu_"$nu".csv
         echo "Simulated with E $E and nu $nu"
