@@ -13,7 +13,7 @@ num_E=3
 d_nu=0.1
 num_nu=4
 
-multigrid_dim=8
+multigrid_dim=6 #8
 standard_dim=15
 
 current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
@@ -22,7 +22,7 @@ results_file="results_"$current_date_time".csv"
 
 repeat_iterations=1 #20
 
-timing_cutoff=40
+timing_cutoff=10 #40
 
 nu=$base_nu
 for ((l=0; l<num_nu; l++))

@@ -1,9 +1,9 @@
 #!/bin/bash
 
-nodes_x=256
-nodes_y=256
+nodes_x=32
+nodes_y=32
 timesteps=500
-coarsest_level_iter=0 #100
+coarsest_level_iter=100
 vals_nu=1
 vals_E=10
 

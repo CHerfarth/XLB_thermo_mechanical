@@ -26,14 +26,17 @@ def plot_convergence(nu):
     x = df["v1"]
     y = df["v2"]
     z = df["E"]
-    c = df["converged"].map({0: "red", 1: "green", 2: "grey"})  # color by result
+    c = df["converged"].map({0: "red", 1: "green", 2: "red"})  # color by result
 
     ax.scatter(x, y, z, c=c)
-    ax.set_xlabel("v1")
-    ax.set_ylabel("v2")
-    ax.set_zlabel("E")
-    plt.title("Convergence for nu={}".format(nu))
-    plt.savefig("nu_{}_convergence.png".format(nu))
+    ax.set_xlabel(r"$\nu_1$")
+    ax.set_ylabel(r"$\nu_2$")
+    ax.set_zlabel(r"$\tilde{E}$", fontsize=16)
+    ax.set_xlabel(r"$\nu_1$", fontsize=16)
+    ax.set_ylabel(r"$\nu_2$", fontsize=16)
+    title = r"$\nu = $" + str(nu)
+    plt.title(title)
+    plt.savefig("nu_{}_convergence.pdf".format(nu))
 
 
 def plot_efficiency(nu):
@@ -59,4 +62,4 @@ def plot_efficiency(nu):
 
 for nu in data["nu"].unique():
     plot_convergence(nu)
-    plot_efficiency(nu)
+    #plot_efficiency(nu)

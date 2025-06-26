@@ -181,17 +181,41 @@ ax.errorbar(
 
 
 # Add labels and legend
-draw_loglog_slope(fig, ax, (64*64, 1), 5, 2, "black")
-draw_loglog_slope(fig, ax, (256*256, 20), 5, 4, "black")
 plt.xlabel("Grid Points")
 plt.ylabel("Runtime (seconds)")
 plt.xscale("log", base=2)
 plt.yscale("log")
+draw_loglog_slope(fig, ax, (64, 1), 5, 2, "black")
+draw_loglog_slope(fig, ax, (256, 20), 5, 4, "black")
 plt.title(title)
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
 plt.savefig("runtimes.pdf")
+
+# only plot standard runtimes 
+fig, ax = plt.subplots(figsize=(8, 6))
+
+ax.errorbar(
+    standard_stats["dim"],
+    standard_stats["mean"],
+    yerr=standard_stats["std"],
+    fmt="s-",
+    capsize=5,
+    label="Standard Method",
+)
+# Add labels and legend
+plt.xlabel("Grid Points")
+plt.ylabel("Runtime (seconds)")
+plt.xscale("log", base=2)
+plt.yscale("log")
+draw_loglog_slope(fig, ax, (64, 1), 5, 2, "black")
+draw_loglog_slope(fig, ax, (256, 20), 5, 4, "black")
+plt.title(title)
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.savefig("runtimes_only_standard.pdf")
 
 # plot only multigrid iterations
 multigrid_iterations = (
@@ -231,7 +255,7 @@ plt.ylabel("Iterations")
 plt.legend()
 plt.xscale("log", base=2)
 plt.yscale("log")
-draw_loglog_slope(fig, ax, (64*64, 1000), 5, 2, "black")
+draw_loglog_slope(fig, ax, (64, 1000), 5, 2, "black")
 plt.title(title)
 plt.savefig("standard_iterations.pdf")
 
