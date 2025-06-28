@@ -105,7 +105,7 @@ class Level(Operator):
         def functional(f_previous_pre_collision: vec, f_pre_collision: vec, defect_correction: vec):
             _f_out = defect_correction
             for l in range(self.velocity_set.q):
-                _f_out[l] += -(f_pre_collision[l] - f_previous_pre_collision[l])  
+                _f_out[l] += f_previous_pre_collision[l] - f_pre_collision[l]
 
             return _f_out
 

@@ -181,7 +181,7 @@ ax.errorbar(
 
 
 # Add labels and legend
-plt.xlabel("Grid Points")
+plt.xlabel("n")
 plt.ylabel("Runtime (seconds)")
 plt.xscale("log", base=2)
 plt.yscale("log")
@@ -205,13 +205,12 @@ ax.errorbar(
     label="Standard Method",
 )
 # Add labels and legend
-plt.xlabel("Grid Points")
+plt.xlabel("n")
 plt.ylabel("Runtime (seconds)")
 plt.xscale("log", base=2)
 plt.yscale("log")
 draw_loglog_slope(fig, ax, (64, 1), 1, 2, "black")
 plt.title(title)
-plt.legend()
 plt.grid(True)
 plt.tight_layout()
 plt.savefig("runtimes_only_standard.pdf")
@@ -229,7 +228,6 @@ ax.errorbar(
     capsize=5,
     label="Iterations",
 )
-plt.legend()
 plt.xscale("log", base=2)
 plt.yscale("log")
 plt.title(title)
@@ -249,9 +247,8 @@ ax.errorbar(
     capsize=5,
     label="Iterations",
 )
-plt.xlabel("Grid Points")
+plt.xlabel("n")
 plt.ylabel("Iterations")
-plt.legend()
 plt.xscale("log", base=2)
 plt.yscale("log")
 draw_loglog_slope(fig, ax, (64, 1000), 1, 2, "black")
@@ -288,7 +285,7 @@ ax.errorbar(
 plt.xscale("log", base=2)
 plt.yscale("log")
 draw_loglog_slope(fig, ax, (64*64, 1), 1, 2, "black")
-plt.xlabel("Grid Points")
+plt.xlabel("n")
 plt.ylabel("WU")
 plt.title(title)
 plt.legend()
