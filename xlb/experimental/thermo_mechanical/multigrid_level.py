@@ -35,6 +35,7 @@ class Level(Operator):
         velocity_set,
         precision_policy,
         coarsest_level_iter=0,
+        error_correction_iterations=1, #by default do V-cycle
     ):
         super().__init__(
             velocity_set=velocity_set,
@@ -70,6 +71,7 @@ class Level(Operator):
         self.stepper = MultigridStepper(self.grid, force_load, self.gamma)
         self.v1 = v1
         self.v2 = v2
+        self.error_correction_iterations = error_correction_iterations
         self.level_num = level_num
         self.coarsest_level_iter = coarsest_level_iter
 
@@ -103,7 +105,7 @@ class Level(Operator):
         def functional(f_previous_pre_collision: vec, f_pre_collision: vec, defect_correction: vec):
             _f_out = defect_correction
             for l in range(self.velocity_set.q):
-                _f_out[l] += f_previous_pre_collision[l] - f_pre_collision[l]
+                _f_out[l] += -(f_pre_collision[l] - f_previous_pre_collision[l])  
 
             return _f_out
 
@@ -144,16 +146,18 @@ class Level(Operator):
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, multigrid, return_residual=False, timestep=0):
+        #set new dx, dt
         self.set_params()
-
         params = SimulationParams()
         theta = params.theta
 
+        #pre-smooth
         for i in range(self.v1):
             self.stepper(self.f_1, self.f_2, self.f_4, self.defect_correction)
 
         coarse = multigrid.get_next_level(self.level_num)
 
+        #start MG iteration on coarse grid
         if coarse is not None:
             self.get_residual(
                 self.f_1, self.f_2, self.f_3, self.defect_correction
@@ -169,7 +173,9 @@ class Level(Operator):
 
             wp.launch(self.set_population_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:])
 
-            coarse(multigrid)
+            #recursive calls to MG on coarse grid
+            for i in range(self.error_correction_iterations):
+                coarse(multigrid)
 
             if self.boundary_conditions is None: 
                 self.prolongation(
@@ -178,11 +184,12 @@ class Level(Operator):
             else:
                 self.prolongation(fine=self.f_1, coarse=coarse.f_1, coarse_boundary_array=coarse.boundary_conditions)
             self.set_params()
-
+        # or solve directly
         else:
             for i in range(self.coarsest_level_iter):
                 self.stepper(self.f_1, self.f_2, self.f_4, self.defect_correction)
 
+        #post-smooth
         for i in range(self.v2):
             if i == 0:
                 self.stepper(self.f_1, self.f_2, self.f_4, self.defect_correction, f_3_uninitialized=True)

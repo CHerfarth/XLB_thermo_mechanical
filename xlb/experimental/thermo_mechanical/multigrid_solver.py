@@ -39,6 +39,7 @@ class MultigridSolver:
         boundary_values=None,
         potential=None,
         output_images=False,
+        error_correction_iterations=1, #by default do V-Cycle
     ):
         precision_policy = DefaultConfig.default_precision_policy
         compute_backend = DefaultConfig.default_backend
@@ -81,6 +82,7 @@ class MultigridSolver:
                 velocity_set=velocity_set,
                 precision_policy=precision_policy,
                 coarsest_level_iter=coarsest_level_iter,
+                error_correction_iterations=error_correction_iterations,
             )
             if boundary_conditions != None:
                 if i == 0:

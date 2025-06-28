@@ -4,8 +4,8 @@ timesteps_mg=100
 coarsest_level_iter=500
 iterations=6
 
-v1=2
-v2=1
+v1=3
+v2=3
 v_tot=$((v1+v2))
 
 base_E=.1
@@ -63,8 +63,9 @@ do
 
         done
         dir=E_"$E"_nu_"$nu"
-        mkdir $dir
-        mv nodes_* $dir
+        mkdir -p $dir
+        rm -rf $dir/nodes*
+        mv nodes* $dir
     done
 done
 

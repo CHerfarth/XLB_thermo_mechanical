@@ -147,6 +147,7 @@ if __name__ == "__main__":
             v1=3,
             v2=3,
             max_levels=None,
+            error_correction_iterations=2,
         )
         for i in range(timesteps):
             residual_norm = multigrid_solver.start_v_cycle(return_residual=True)
@@ -180,6 +181,7 @@ if __name__ == "__main__":
             v1=3,
             v2=3,
             max_levels=None,
+            error_correction_iterations=2,
         )
         start = time.time() 
         for i in range(timesteps):
