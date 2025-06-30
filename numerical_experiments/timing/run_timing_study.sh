@@ -5,8 +5,8 @@ base_nodes_y=16
 max_multi=5000
 max_standard=500000
 
-base_E=0.2
-base_nu=0.3
+base_E=.2
+base_nu=.3
 
 d_E=0.2
 num_E=3

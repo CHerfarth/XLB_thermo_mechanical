@@ -167,12 +167,14 @@ class Level(Operator):
 
             if self.boundary_conditions is None:
                 self.restriction(
-                    fine=self.f_3, coarse=coarse.defect_correction
+                    fine=self.f_3, coarse=coarse.defect_correction, fine_nodes_x=self.nodes_x, fine_nodes_y=self.nodes_y
                 )  # restrict residual to defect correction of coarser grid
             else:
                 self.restriction(
                     fine=self.f_3,
                     coarse=coarse.defect_correction,
+                    fine_nodes_x=self.nodes_x,
+                    fine_nodes_y=self.nodes_y,
                     fine_boundary_array=self.boundary_conditions,
                 )
 
