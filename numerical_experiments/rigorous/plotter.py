@@ -62,4 +62,4 @@ def plot_efficiency(nu):
 
 for nu in data["nu"].unique():
     plot_convergence(nu)
-    #plot_efficiency(nu)
+    # plot_efficiency(nu)

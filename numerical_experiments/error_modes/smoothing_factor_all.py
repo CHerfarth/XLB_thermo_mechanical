@@ -166,14 +166,19 @@ for k in range(outer_iterations):
                     mu=mu_val, theta=theta, K=K_val, phi_x=phi_x_val, phi_y=phi_y_val
                 )
 
-
                 # check for normality
                 # assert(is_normal_matrix(np.array(L_evaluated, dtype=np.complex128)))
                 if L_evaluated is not None:
                     spectral_norm = np.linalg.norm(np.array(L_evaluated, dtype=np.complex128))
-                    eigenvalues = np.linalg.eig(np.array(L_evaluated, dtype=np.complex128)).eigenvalues
+                    eigenvalues = np.linalg.eig(
+                        np.array(L_evaluated, dtype=np.complex128)
+                    ).eigenvalues
                     spectral_radius = max(np.abs(ev) for ev in eigenvalues)
-                    if (np.abs(phi_x_val) >= 0.5 * np.pi or np.abs(phi_y_val) >= 0.5 * np.pi) and np.abs(phi_x_val) != 0.0 and np.abs(phi_y_val) != 0.0:
+                    if (
+                        (np.abs(phi_x_val) >= 0.5 * np.pi or np.abs(phi_y_val) >= 0.5 * np.pi)
+                        and np.abs(phi_x_val) != 0.0
+                        and np.abs(phi_y_val) != 0.0
+                    ):
                         smoothing_factors.append(spectral_radius)
                 phi_x_val += (2 * np.pi) / inner_iterations
             phi_y_val += (2 * np.pi) / inner_iterations

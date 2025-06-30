@@ -151,10 +151,10 @@ if __name__ == "__main__":
             l2_stress,
             linf_stress,
         ))
-        if residual_norm/dt < 1e-11:
+        if residual_norm / dt < 1e-11:
             converged = 1
             break
-        if residual_norm/dt > 1e11:
+        if residual_norm / dt > 1e11:
             converged = 0
             break
 

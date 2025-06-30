@@ -87,7 +87,6 @@ if __name__ == "__main__":
         utils.get_function_on_grid(s_xy, x, y, dx, grid),
     ])
 
-    
     boundary_array, boundary_values = None, None
 
     # ------------------------------------- collect data for LB with periodic BC----------------------------------
@@ -106,7 +105,7 @@ if __name__ == "__main__":
     f_1 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
 
-    for i in range(10): #warmup runs to make sure everything compiled
+    for i in range(10):  # warmup runs to make sure everything compiled
         stepper(f_1, f_2)
 
     wp.synchronize()
@@ -147,7 +146,7 @@ if __name__ == "__main__":
     f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
     f_3 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
 
-    for i in range(10): #warmup runs to make sure everything compiled
+    for i in range(10):  # warmup runs to make sure everything compiled
         stepper(f_1, f_2, f_3)
 
     wp.synchronize()

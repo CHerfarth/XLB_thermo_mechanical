@@ -88,11 +88,6 @@ if __name__ == "__main__":
     x, y = sympy.symbols("x y")
     manufactured_u = 3 * sympy.cos(6 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
     manufactured_v = 3 * sympy.cos(6 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
-    #manufactured_u = 3 * sympy.sin(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)
-    #manufactured_v = 3 * sympy.sin(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)
-    #manufactured_u = 3*x*x + (y-0.3)*(y+10)*y
-    #manufactured_v = 2*y*y+x*x*(x-0.5)
-    # manufactured_u = (2*x)**2 + 1*y
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -169,4 +164,4 @@ if __name__ == "__main__":
     print("Final error L2_stress: {}".format(l2_stress))
     print("Final error Linf_stress: {}".format(linf_stress))
     print("Residual norm: {}".format(residual_norm))
-    #write_results(data_over_wu, "nodes_{}_results.csv".format(nodes_x))
+    # write_results(data_over_wu, "nodes_{}_results.csv".format(nodes_x))

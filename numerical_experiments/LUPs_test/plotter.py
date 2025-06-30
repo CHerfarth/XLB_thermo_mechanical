@@ -150,10 +150,18 @@ def draw_loglog_slope(
 data = pd.read_csv(args.data)
 
 
-single_periodic = data.groupby("dim")["single_precision_periodic"].agg(["mean", "std"]).reset_index()
-single_dirichlet = data.groupby("dim")["single_precision_dirichlet"].agg(["mean", "std"]).reset_index()
-double_periodic = data.groupby("dim")["double_precision_periodic"].agg(["mean", "std"]).reset_index()
-double_dirichlet = data.groupby("dim")["double_precision_dirichlet"].agg(["mean", "std"]).reset_index()
+single_periodic = (
+    data.groupby("dim")["single_precision_periodic"].agg(["mean", "std"]).reset_index()
+)
+single_dirichlet = (
+    data.groupby("dim")["single_precision_dirichlet"].agg(["mean", "std"]).reset_index()
+)
+double_periodic = (
+    data.groupby("dim")["double_precision_periodic"].agg(["mean", "std"]).reset_index()
+)
+double_dirichlet = (
+    data.groupby("dim")["double_precision_dirichlet"].agg(["mean", "std"]).reset_index()
+)
 
 
 # ------------------plot for periodic---------------------
@@ -198,7 +206,6 @@ plt.grid(True)
 plt.tight_layout()
 # Show plot
 plt.savefig("speed_periodic.pdf")
-
 
 
 # ------------------plot for dirichlet---------------------

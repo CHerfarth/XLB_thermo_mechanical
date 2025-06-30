@@ -161,7 +161,6 @@ if __name__ == "__main__":
     y_label = "Error"
     title = r"$\tilde{E} = $" + str(args.E_scaled) + r", $\nu = $" + str(args.nu)
     name = "convergence.pdf"
-    
 
     # data = data.to_numpy()
     fig, ax = plt.subplots()
@@ -179,25 +178,25 @@ if __name__ == "__main__":
     log_err = np.log(data["error_L2_disp"])
     slope, intercept = np.polyfit(log_eps, log_err, 1)
     eps_fit = np.linspace(data["epsilon"].min(), data["epsilon"].max(), 100)
-    err_fit = np.exp(intercept) * eps_fit ** slope
+    err_fit = np.exp(intercept) * eps_fit**slope
     ax.plot(eps_fit, err_fit, "k--", label=f"L2 disp: slope={slope:.2f}")
 
     log_err = np.log(data["error_Linf_disp"])
     slope, intercept = np.polyfit(log_eps, log_err, 1)
     eps_fit = np.linspace(data["epsilon"].min(), data["epsilon"].max(), 100)
-    err_fit = np.exp(intercept) * eps_fit ** slope
+    err_fit = np.exp(intercept) * eps_fit**slope
     ax.plot(eps_fit, err_fit, "k--", label=f"Linf disp: slope={slope:.2f}")
 
     log_err = np.log(data["error_Linf_stress"])
     slope, intercept = np.polyfit(log_eps, log_err, 1)
     eps_fit = np.linspace(data["epsilon"].min(), data["epsilon"].max(), 100)
-    err_fit = np.exp(intercept) * eps_fit ** slope
+    err_fit = np.exp(intercept) * eps_fit**slope
     ax.plot(eps_fit, err_fit, "k--", label=f"Linf stress: slope={slope:.2f}")
 
     log_err = np.log(data["error_L2_stress"])
     slope, intercept = np.polyfit(log_eps, log_err, 1)
     eps_fit = np.linspace(data["epsilon"].min(), data["epsilon"].max(), 100)
-    err_fit = np.exp(intercept) * eps_fit ** slope
+    err_fit = np.exp(intercept) * eps_fit**slope
     ax.plot(eps_fit, err_fit, "k--", label=f"L2 stress: slope={slope:.2f}")
 
     # set scales, grid, title
@@ -215,4 +214,3 @@ if __name__ == "__main__":
     plt.legend()
     plt.tight_layout()
     plt.savefig(name)
-    

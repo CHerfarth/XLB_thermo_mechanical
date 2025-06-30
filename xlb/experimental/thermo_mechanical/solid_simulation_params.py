@@ -35,7 +35,7 @@ class SimulationParams:
         self._T = T
         self._L = L
         self._kappa = kappa
-        self._theta = 1./3. 
+        self._theta = 1.0 / 3.0
         # self._precision_policy = precision_policy
 
         # Calculate derived parameters

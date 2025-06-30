@@ -64,8 +64,8 @@ if __name__ == "__main__":
     print("E: {}, nu: {}".format(solid_simulation.lamb, solid_simulation.mu))
     # get force load
     x, y = sympy.symbols("x y")
-    #manufactured_u = sympy.cos(2 * sympy.pi * x)  # + 3
-    #manufactured_v = sympy.cos(2 * sympy.pi * y)  # + 3
+    # manufactured_u = sympy.cos(2 * sympy.pi * x)  # + 3
+    # manufactured_v = sympy.cos(2 * sympy.pi * y)  # + 3
     manufactured_u = 3 * sympy.sin(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)
     manufactured_v = 3 * sympy.sin(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)
     expected_displacement = np.array([
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     ])
 
     # set boundary potential
-    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25*100
+    potential_sympy = (0.5 - x) ** 2 + (0.5 - y) ** 2 - 0.25 * 100
     potential = sympy.lambdify([x, y], potential_sympy)
     indicator = lambda x, y: -1
     boundary_array, boundary_values = bc.init_bc_from_lambda(
@@ -119,8 +119,7 @@ if __name__ == "__main__":
             macroscopics.numpy(), expected_macroscopics, i, dx, norms_over_time
         )
         utils.output_image(macroscopics.numpy(), i, "figure")
-        #print(l2_disp, linf_disp, l2_stress, linf_stress)
-        
+        # print(l2_disp, linf_disp, l2_stress, linf_stress)
 
     # write out error norms
     # print("Final error: {}".format(norms_over_time[len(norms_over_time) - 1]))

@@ -35,7 +35,7 @@ class Level(Operator):
         velocity_set,
         precision_policy,
         coarsest_level_iter=0,
-        error_correction_iterations=1, #by default do V-cycle
+        error_correction_iterations=1,  # by default do V-cycle
     ):
         super().__init__(
             velocity_set=velocity_set,
@@ -111,8 +111,10 @@ class Level(Operator):
 
         @wp.kernel
         def kernel(
-            f_1: wp.array4d(dtype=self.store_dtype),  # previous pre-collision population & output array
-            f_2: wp.array4d(dtype=self.store_dtype),  # new pre-collision population 
+            f_1: wp.array4d(
+                dtype=self.store_dtype
+            ),  # previous pre-collision population & output array
+            f_2: wp.array4d(dtype=self.store_dtype),  # new pre-collision population
             defect_correction: wp.array4d(dtype=self.store_dtype),
         ):
             i, j, k = wp.tid()
@@ -133,7 +135,7 @@ class Level(Operator):
 
     def get_residual(self, f_1, f_2, f_3, defect_correction):
         wp.launch(self.copy_populations, inputs=[f_1, f_3, 9], dim=f_1.shape[1:])
-        self.stepper(f_1, f_2, self.f_4, defect_correction, gamma=1., defect_factor=0.)
+        self.stepper(f_1, f_2, self.f_4, defect_correction, gamma=1.0, defect_factor=0.0)
         wp.launch(self.warp_kernel, inputs=[f_3, f_1, defect_correction], dim=f_1.shape[1:])
 
     def set_params(self):
@@ -146,56 +148,64 @@ class Level(Operator):
 
     @Operator.register_backend(ComputeBackend.WARP)
     def warp_implementation(self, multigrid, return_residual=False, timestep=0):
-        #set new dx, dt
+        # set new dx, dt
         self.set_params()
         params = SimulationParams()
         theta = params.theta
 
-        #pre-smooth
+        # pre-smooth
         for i in range(self.v1):
             self.stepper(self.f_1, self.f_2, self.f_4, self.defect_correction)
 
         coarse = multigrid.get_next_level(self.level_num)
 
-        #start MG iteration on coarse grid
+        # start MG iteration on coarse grid
         if coarse is not None:
             self.get_residual(
                 self.f_1, self.f_2, self.f_3, self.defect_correction
             )  # f_3 now contains the residual
 
-            
             if self.boundary_conditions is None:
                 self.restriction(
                     fine=self.f_3, coarse=coarse.defect_correction
                 )  # restrict residual to defect correction of coarser grid
             else:
-                self.restriction(fine=self.f_3, coarse=coarse.defect_correction, fine_boundary_array=self.boundary_conditions)
+                self.restriction(
+                    fine=self.f_3,
+                    coarse=coarse.defect_correction,
+                    fine_boundary_array=self.boundary_conditions,
+                )
 
             wp.launch(self.set_population_zero, inputs=[coarse.f_1, 9], dim=coarse.f_1.shape[1:])
 
-            #recursive calls to MG on coarse grid
+            # recursive calls to MG on coarse grid
             for i in range(self.error_correction_iterations):
                 coarse(multigrid)
 
-            if self.boundary_conditions is None: 
+            if self.boundary_conditions is None:
                 self.prolongation(
                     fine=self.f_1, coarse=coarse.f_1
                 )  # prolongate error approx back to fine grid and add it to current solution
             else:
-                self.prolongation(fine=self.f_1, coarse=coarse.f_1, coarse_boundary_array=coarse.boundary_conditions)
+                self.prolongation(
+                    fine=self.f_1,
+                    coarse=coarse.f_1,
+                    coarse_boundary_array=coarse.boundary_conditions,
+                )
             self.set_params()
         # or solve directly
         else:
             for i in range(self.coarsest_level_iter):
                 self.stepper(self.f_1, self.f_2, self.f_4, self.defect_correction)
 
-        #post-smooth
+        # post-smooth
         for i in range(self.v2):
             if i == 0:
-                self.stepper(self.f_1, self.f_2, self.f_4, self.defect_correction, f_3_uninitialized=True)
+                self.stepper(
+                    self.f_1, self.f_2, self.f_4, self.defect_correction, f_3_uninitialized=True
+                )
             else:
                 self.stepper(self.f_1, self.f_2, self.f_4, self.defect_correction)
-
 
         # for calculating WUs
         benchmark_data = BenchmarkData()

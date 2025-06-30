@@ -86,12 +86,12 @@ class KernelProvider:
         ):
             for i in range(9):
                 f[i, x, y, 0] = store_dtype(f_local[i])
-        
+
         @wp.func
         def zero_vec():
             zero_vec = vec()
             for l in range(velocity_set.q):
-                zero_vec[l] = compute_dtype(0.)
+                zero_vec[l] = compute_dtype(0.0)
             return zero_vec
 
         @wp.func
@@ -729,7 +729,6 @@ class KernelProvider:
             if boundary_array[0, i, j, 0] == wp.int8(0):  # if outside domain, just set to 0
                 for l in range(velocity_set.q):
                     f[l, i, j, 0] = store_dtype(wp.nan)
-
 
         # Set all declared functions as properties of the class
         self.read_local_population = read_local_population

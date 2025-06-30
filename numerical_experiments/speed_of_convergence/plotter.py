@@ -26,7 +26,6 @@ multigrid_data = pd.read_csv(
 print(multigrid_data.head())
 
 
-
 # plot convergence residual per iteration for multigrid
 title = r"$\tilde{E} = $" + str(args.E_scaled) + r", $\nu = $" + str(args.nu)
 x_label = "Iteration"
@@ -55,7 +54,7 @@ ax.plot(
 print("Expected Speed of Convergence: {}".format(slope))
 # Actual rate of convergence
 slope = utils.rate_of_convergence(multigrid_data, "residual_norm")
-multigrid_data["slope_power"] = slope ** (multigrid_data["iteration"]+5)
+multigrid_data["slope_power"] = slope ** (multigrid_data["iteration"] + 5)
 ax.plot(
     multigrid_data["iteration"],
     multigrid_data["slope_power"],
@@ -73,4 +72,3 @@ plt.ylabel(y_label, labelpad=20, fontsize=12)
 plt.legend(loc="upper right")
 plt.tight_layout()
 plt.savefig("residual_mg.pdf")
-

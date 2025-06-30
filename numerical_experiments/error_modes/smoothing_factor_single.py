@@ -150,7 +150,7 @@ for i in range(iterations):
         spectral_radius = max(np.abs(ev) for ev in eigenvalues)
         # spectral_radius = np.linalg.norm(np.array(L_evaluated, dtype=np.complex128), ord=2)
         results.append((phi_x_val, phi_y_val, spectral_radius))
-        phi_x_val += (2 * np.pi) / (iterations-1)
+        phi_x_val += (2 * np.pi) / (iterations - 1)
     print("{} % complete".format((i + 1) * 100 / iterations))
     phi_y_val += (2 * np.pi) / iterations
 
@@ -181,6 +181,8 @@ contour = ax.contourf(x_grid, y_grid, z_grid, levels=30, cmap="viridis")
 
 # Add color bar to the plot
 plt.colorbar(contour)
+
+
 def pi_formatter(x, pos):
     frac = x / np.pi
     if np.isclose(frac, 0):
@@ -191,6 +193,7 @@ def pi_formatter(x, pos):
         return r"$-\pi$"
     else:
         return r"${0}\pi$".format(int(frac) if frac == int(frac) else "{0:g}".format(frac))
+
 
 ax.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 4))
 ax.xaxis.set_major_formatter(FuncFormatter(pi_formatter))

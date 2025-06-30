@@ -157,8 +157,12 @@ multigrid_data = data[data["multigrid_converged_no_allocation"] == 1]
 standard_data = data[data["standard_converged_no_allocation"] == 1]
 
 # Group by dimension and compute mean and std
-multigrid_stats = multigrid_data.groupby("dim")["multigrid_time_no_allocation"].agg(["mean", "std"]).reset_index()
-standard_stats = standard_data.groupby("dim")["standard_time_no_allocation"].agg(["mean", "std"]).reset_index()
+multigrid_stats = (
+    multigrid_data.groupby("dim")["multigrid_time_no_allocation"].agg(["mean", "std"]).reset_index()
+)
+standard_stats = (
+    standard_data.groupby("dim")["standard_time_no_allocation"].agg(["mean", "std"]).reset_index()
+)
 
 # Plotting of Runtimes
 fig, ax = plt.subplots(figsize=(8, 6))
@@ -193,7 +197,7 @@ plt.grid(True)
 plt.tight_layout()
 plt.savefig("runtimes.pdf")
 
-# only plot standard runtimes 
+# only plot standard runtimes
 fig, ax = plt.subplots(figsize=(8, 6))
 
 ax.errorbar(
@@ -217,7 +221,9 @@ plt.savefig("runtimes_only_standard.pdf")
 
 # plot only multigrid iterations
 multigrid_iterations = (
-    multigrid_data.groupby("dim")["multigrid_iterations_no_allocation"].agg(["mean", "std"]).reset_index()
+    multigrid_data.groupby("dim")["multigrid_iterations_no_allocation"]
+    .agg(["mean", "std"])
+    .reset_index()
 )
 fig, ax = plt.subplots()
 ax.errorbar(
@@ -235,7 +241,9 @@ plt.savefig("multigrid_iterations.pdf")
 
 # plot only standard iterations
 standard_iterations = (
-    standard_data.groupby("dim")["standard_iterations_no_allocation"].agg(["mean", "std"]).reset_index()
+    standard_data.groupby("dim")["standard_iterations_no_allocation"]
+    .agg(["mean", "std"])
+    .reset_index()
 )
 fig, ax = plt.subplots()
 
@@ -256,13 +264,9 @@ plt.title(title)
 plt.savefig("standard_iterations.pdf")
 
 
-#plot WU over dim
-standard_wu = (
-    standard_data.groupby("dim")["standard_wu"].agg(["mean", "std"]).reset_index()
-)
-multigrid_wu = (
-    standard_data.groupby("dim")["multigrid_wu"].agg(["mean", "std"]).reset_index()
-)
+# plot WU over dim
+standard_wu = standard_data.groupby("dim")["standard_wu"].agg(["mean", "std"]).reset_index()
+multigrid_wu = standard_data.groupby("dim")["multigrid_wu"].agg(["mean", "std"]).reset_index()
 fig, ax = plt.subplots(figsize=(8, 6))
 ax.errorbar(
     multigrid_wu["dim"],
@@ -284,7 +288,7 @@ ax.errorbar(
 # Add labels and legend
 plt.xscale("log", base=2)
 plt.yscale("log")
-draw_loglog_slope(fig, ax, (64*64, 1), 1, 2, "black")
+draw_loglog_slope(fig, ax, (64 * 64, 1), 1, 2, "black")
 plt.xlabel("n")
 plt.ylabel("WU")
 plt.title(title)

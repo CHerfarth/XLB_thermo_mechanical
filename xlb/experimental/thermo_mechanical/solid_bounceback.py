@@ -340,10 +340,23 @@ class SolidsDirichlet(Operator):
             _f_post_collision_vec = read_local_population(f_post_collision, i, j)
             _f_previous_post_collision_vec = read_local_population(f_previous_post_collision, i, j)
             _bared_m_vec = read_local_population(bared_moments, i, j)
-            force_x = self.compute_dtype(force[0,i,j,0])
-            force_y = self.compute_dtype(force[1,i,j,0])
-            _f_out = functional(f_post_stream_vec=_f_post_stream_vec, f_post_collision_vec=_f_post_collision_vec, f_previous_post_collision_vec=_f_previous_post_collision_vec, i=i, j=j, boundary_info=boundary_array, boundary_vals=boundary_values, force_x=force_x, force_y=force_y, bared_m_vec=_bared_m_vec, K=K, mu=mu, theta=theta)
-
+            force_x = self.compute_dtype(force[0, i, j, 0])
+            force_y = self.compute_dtype(force[1, i, j, 0])
+            _f_out = functional(
+                f_post_stream_vec=_f_post_stream_vec,
+                f_post_collision_vec=_f_post_collision_vec,
+                f_previous_post_collision_vec=_f_previous_post_collision_vec,
+                i=i,
+                j=j,
+                boundary_info=boundary_array,
+                boundary_vals=boundary_values,
+                force_x=force_x,
+                force_y=force_y,
+                bared_m_vec=_bared_m_vec,
+                K=K,
+                mu=mu,
+                theta=theta,
+            )
 
             write_population_to_global(f_out, f_out_vec, i, j)
 
@@ -456,7 +469,7 @@ def init_bc_from_lambda(
     # step 1: set all nodes with negative potential to interior
     for i in range(grid.shape[0]):
         for j in range(grid.shape[1]):
-            if potential(i * dx + 0.5 * dx, j * dx + 0.5 * dx) <= 0:
+            if potential(i * dx, j * dx) <= 0:
                 host_boundary_info[0, i, j, 0] = 1
 
     # get gradients of potential
@@ -480,7 +493,7 @@ def init_bc_from_lambda(
 
                     # check if boundary node
                     boundary_node = False
-                    cur_x, cur_y = i * dx + 0.5 * dx, j * dx + 0.5 * dx
+                    cur_x, cur_y = i * dx, j * dx
                     bc_x, bc_y = cur_x, cur_y
                     q_ij = 0.5
 

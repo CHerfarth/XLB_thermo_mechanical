@@ -8,6 +8,7 @@ from xlb.experimental.thermo_mechanical.solid_simulation_params import Simulatio
 from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import matplotlib.pyplot as plt
 import statistics
+import math
 
 
 def get_force_load(manufactured_displacement, x, y):
@@ -30,7 +31,7 @@ def get_force_load(manufactured_displacement, x, y):
 
 def get_function_on_grid(f, x, y, dx, grid):
     f = np.vectorize(sympy.lambdify([x, y], f, "numpy"))
-    f_scaled = lambda x_node, y_node: f((x_node + 0.5) * dx, (y_node + 0.5) * dx)
+    f_scaled = lambda x_node, y_node: f(x_node * dx, y_node * dx)
     f_on_grid = np.fromfunction(f_scaled, shape=grid.shape)
     return f_on_grid
 
@@ -78,8 +79,8 @@ def restrict_solution_to_domain(
         return array
     for i in range(array.shape[1]):
         for j in range(array.shape[2]):
-            if potential(i * dx + 0.5 * dx, j * dx + 0.5 * dx) > 0:
-                array[:, i, j] = np.nan 
+            if potential(i * dx, j * dx) > 0:
+                array[:, i, j] = np.nan
     return array
 
 
@@ -287,11 +288,11 @@ def plot_x_slice(
             y_index_2 = array2.shape[0] // 2  # Middle row
 
     plt.figure()
-    x1 = np.arange(array1.shape[1]) * dx1 + 0.5 * dx1
+    x1 = np.arange(array1.shape[1]) * dx1
     plt.plot(x1, array1[y_index_1, :], "-d", label=label1)
 
     if dx2 != None:
-        x2 = np.arange(array2.shape[1]) * dx2 + 0.5 * dx2
+        x2 = np.arange(array2.shape[1]) * dx2
         plt.plot(x2, array2[y_index_2, :], "-s", label=label2)
 
     if dx2 == dx1:

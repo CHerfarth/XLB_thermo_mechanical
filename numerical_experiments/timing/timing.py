@@ -113,7 +113,7 @@ if __name__ == "__main__":
     print("here")
 
     if args.test_multigrid:
-        #-------warmup run to make sure all kernels are loaded---------------------------------------------------------
+        # -------warmup run to make sure all kernels are loaded---------------------------------------------------------
         multigrid_solver = MultigridSolver(
             nodes_x=nodes_x,
             nodes_y=nodes_y,
@@ -129,7 +129,7 @@ if __name__ == "__main__":
         residual_norm = multigrid_solver.start_v_cycle(return_residual=True)
         del multigrid_solver
         # -------------------------------------- collect data for multigrid with allocation----------------------------
-        start = time.time() 
+        start = time.time()
         converged = 0
         runtime = 0.0
         i = 0
@@ -183,7 +183,7 @@ if __name__ == "__main__":
             max_levels=None,
             error_correction_iterations=2,
         )
-        start = time.time() 
+        start = time.time()
         for i in range(timesteps):
             residual_norm = multigrid_solver.start_v_cycle(return_residual=True)
             print(residual_norm)
@@ -199,7 +199,7 @@ if __name__ == "__main__":
 
     print("here")
     if args.test_standard:
-        #-----------warmup run to make sure all kernels are loaded---------------------------------# initialize stepper
+        # -----------warmup run to make sure all kernels are loaded---------------------------------# initialize stepper
         print("hmm")
         kernel_provider = KernelProvider()
         subtract_populations = kernel_provider.subtract_populations
@@ -212,15 +212,9 @@ if __name__ == "__main__":
             cardinality=velocity_set.q, dtype=precision_policy.store_precision
         )
         stepper(f_1, f_2)
-        wp.launch(
-            subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:]
-        )
-        residual_norm_sq = wp.zeros(
-            shape=1, dtype=precision_policy.compute_precision.wp_dtype
-        )
-        wp.launch(
-            l2_norm_squared, inputs=[residual, residual_norm_sq], dim=residual.shape[1:]
-        )
+        wp.launch(subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:])
+        residual_norm_sq = wp.zeros(shape=1, dtype=precision_policy.compute_precision.wp_dtype)
+        wp.launch(l2_norm_squared, inputs=[residual, residual_norm_sq], dim=residual.shape[1:])
         wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
         del f_1
         del f_2

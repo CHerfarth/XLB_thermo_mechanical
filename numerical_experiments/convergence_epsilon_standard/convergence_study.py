@@ -77,12 +77,6 @@ if __name__ == "__main__":
     x, y = sympy.symbols("x y")
     manufactured_u = 3 * sympy.cos(6 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
     manufactured_v = 3 * sympy.cos(6 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
-    #manufactured_u = 3 * sympy.sin(2 * sympy.pi * x) * sympy.sin(2 * sympy.pi * y)
-    #manufactured_v = 3 * sympy.sin(2 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)
-    #manufactured_u = 3*x*x + (y-0.3)*(y+10)*y
-    #manufactured_v = 2*y*y+x*x*(x-0.5)
-    # manufactured_u = (2*x)**2 + 1*y
-    # manufactured_v = (2*y)**2 + 1*x
     expected_displacement = np.array([
         utils.get_function_on_grid(manufactured_u, x, y, dx, grid),
         utils.get_function_on_grid(manufactured_v, x, y, dx, grid),
@@ -130,10 +124,14 @@ if __name__ == "__main__":
         f_1, f_2 = f_2, f_1
 
     if boundary_array is None:
-        macroscopics = stepper.get_macroscopics(f=f_1, output_array=f_2, f_is_post_collision=True).numpy()
+        macroscopics = stepper.get_macroscopics(
+            f=f_1, output_array=f_2, f_is_post_collision=True
+        ).numpy()
     else:
-        macroscopics = stepper.get_macroscopics(f=f_3, output_array=f_2, f_is_post_collision=False).numpy()
-    
+        macroscopics = stepper.get_macroscopics(
+            f=f_3, output_array=f_2, f_is_post_collision=False
+        ).numpy()
+
     utils.process_error(macroscopics, expected_macroscopics, i, dx, norms_over_time)
     # write out error norms
     last_norms = norms_over_time[len(norms_over_time) - 1]

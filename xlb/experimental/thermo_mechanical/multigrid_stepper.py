@@ -68,15 +68,9 @@ class MultigridStepper(Stepper):
         # ----------handle force load---------
         if force_load is not None:
             b_x_scaled = (
-                lambda x_node, y_node: force_load[0](x_node * dx + 0.5 * dx, y_node * dx + 0.5 * dx)
-                * dt
-                / kappa
+                lambda x_node, y_node: force_load[0](x_node * dx, y_node * dx) * dt / kappa
             )  # force now dimensionless, and can get called with the indices of the grid nodes
-            b_y_scaled = (
-                lambda x_node, y_node: force_load[1](x_node * dx + 0.5 * dx, y_node * dx + 0.5 * dx)
-                * dt
-                / kappa
-            )
+            b_y_scaled = lambda x_node, y_node: force_load[1](x_node * dx, y_node * dx) * dt / kappa
             host_force_x = np.fromfunction(
                 b_x_scaled, shape=(self.grid.shape[0], self.grid.shape[1])
             )  # create array with force evaluated at the grid points
@@ -153,17 +147,17 @@ class MultigridStepper(Stepper):
             _f_out = vec()
             for l in range(self.velocity_set.q):
                 _f_out[l] = (
-                    gamma * (_f_post_stream[l] - defect_factor*_defect[l])
+                    gamma * (_f_post_stream[l] - defect_factor * _defect[l])
                     + (self.compute_dtype(1) - gamma) * (_f_pre_collision[l])
                 )
 
             write_population_to_global(f_2, _f_out, i, j)
-        
+
         @wp.kernel
         def kernel_with_bc(
             f_1: wp.array4d(dtype=self.store_dtype),  # post-collision
             f_2: wp.array4d(dtype=self.store_dtype),  # old pre-collision (for relaxation)
-            f_3: wp.array4d(dtype=self.store_dtype), #previous post collision
+            f_3: wp.array4d(dtype=self.store_dtype),  # previous post collision
             defect_correction: wp.array4d(dtype=self.store_dtype),
             force: wp.array4d(dtype=self.store_dtype),
             boundary_info: wp.array4d(dtype=wp.int8),
@@ -186,7 +180,9 @@ class MultigridStepper(Stepper):
 
             force_x = self.compute_dtype(force[0, i, j, 0])
             force_y = self.compute_dtype(force[1, i, j, 0])
-            _bared_m = self.bared_moments.warp_functional(f_vec=_f_pre_collision, force_x=force_x, force_y=force_y, omega=omega, theta=theta)
+            _bared_m = self.bared_moments.warp_functional(
+                f_vec=_f_pre_collision, force_x=force_x, force_y=force_y, omega=omega, theta=theta
+            )
 
             _f_post_stream = self.boundaries.warp_functional(
                 f_post_stream_vec=_f_post_stream,
@@ -207,18 +203,17 @@ class MultigridStepper(Stepper):
             _f_out = vec()
             for l in range(self.velocity_set.q):
                 _f_out[l] = (
-                    gamma * (_f_post_stream[l] - defect_factor*_defect[l])
+                    gamma * (_f_post_stream[l] - defect_factor * _defect[l])
                     + (self.compute_dtype(1) - gamma) * (_f_pre_collision[l])
                 )
             write_population_to_global(f_3, _f_post_collision, i, j)
             write_population_to_global(f_2, _f_out, i, j)
 
-
         @wp.kernel
         def kernel_residual_norm_squared_with_bc(
             f_1: wp.array4d(dtype=self.store_dtype),  # post-collision
             f_2: wp.array4d(dtype=self.store_dtype),  # pre-collision
-            f_3: wp.array4d(dtype=self.store_dtype), #previous post collision
+            f_3: wp.array4d(dtype=self.store_dtype),  # previous post collision
             force: wp.array4d(dtype=self.store_dtype),
             boundary_info: wp.array4d(dtype=wp.int8),
             boundary_vals: wp.array4d(dtype=self.store_dtype),
@@ -238,7 +233,9 @@ class MultigridStepper(Stepper):
 
             force_x = self.compute_dtype(force[0, i, j, 0])
             force_y = self.compute_dtype(force[1, i, j, 0])
-            _bared_m = self.bared_moments.warp_functional(f_vec=_f_old, force_x=force_x, force_y=force_y, omega=omega, theta=theta)
+            _bared_m = self.bared_moments.warp_functional(
+                f_vec=_f_old, force_x=force_x, force_y=force_y, omega=omega, theta=theta
+            )
 
             _f_new = self.boundaries.warp_functional(
                 f_post_stream_vec=_f_post_stream,
@@ -257,7 +254,7 @@ class MultigridStepper(Stepper):
             )
 
             _local_res = self.compute_dtype(0)
-            if (boundary_info[0,i,j,0] != wp.int8(0)):
+            if boundary_info[0, i, j, 0] != wp.int8(0):
                 for l in range(self.velocity_set.q):
                     _local_res += (_f_new[l] - _f_old[l]) * (_f_new[l] - _f_old[l])
 
@@ -280,12 +277,25 @@ class MultigridStepper(Stepper):
                 _local_res += (_f_new[l] - _f_old[l]) * (_f_new[l] - _f_old[l])
 
             wp.atomic_add(res_norm, 0, self.store_dtype(_local_res))
-        
 
-        return None, (kernel, kernel_with_bc, kernel_residual_norm_squared_no_bc, kernel_residual_norm_squared_with_bc)
+        return None, (
+            kernel,
+            kernel_with_bc,
+            kernel_residual_norm_squared_no_bc,
+            kernel_residual_norm_squared_with_bc,
+        )
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(self, f_1, f_2, f_3, defect_correction, f_3_uninitialized=False, gamma=None, defect_factor=1.): #f_3 with previous post-collision population
+    def warp_implementation(
+        self,
+        f_1,
+        f_2,
+        f_3,
+        defect_correction,
+        f_3_uninitialized=False,
+        gamma=None,
+        defect_factor=1.0,
+    ):  # f_3 with previous post-collision population
         if gamma is None:
             gamma = self.gamma
         self.collision(f_1, f_2, self.force, self.omega)
@@ -336,7 +346,23 @@ class MultigridStepper(Stepper):
             K = params.K
             theta = params.theta
             mu = params.mu
-            wp.launch(self.warp_kernel[3], inputs=[f_2, f_1, f_2, self.force, self.boundary_conditions, self.boundary_values, self.omega, K, mu, theta, res_norm], dim=f_2.shape[1:])
+            wp.launch(
+                self.warp_kernel[3],
+                inputs=[
+                    f_2,
+                    f_1,
+                    f_2,
+                    self.force,
+                    self.boundary_conditions,
+                    self.boundary_values,
+                    self.omega,
+                    K,
+                    mu,
+                    theta,
+                    res_norm,
+                ],
+                dim=f_2.shape[1:],
+            )
 
         return math.sqrt(1 / (f_1.shape[0] * f_1.shape[1] * f_1.shape[2]) * res_norm.numpy()[0])
 

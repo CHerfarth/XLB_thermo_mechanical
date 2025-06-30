@@ -33,7 +33,7 @@ from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 class SolidsStepper(Stepper):
     """
     Performs timesteps for standard LB scheme for electrostatics
-    """ 
+    """
 
     def __init__(self, grid, force_load, boundary_conditions=None, boundary_values=None):
         """
@@ -76,15 +76,9 @@ class SolidsStepper(Stepper):
 
         # ----------handle force load---------
         b_x_scaled = (
-            lambda x_node, y_node: force_load[0](x_node * dx + 0.5 * dx, y_node * dx + 0.5 * dx)
-            * dt
-            / kappa
+            lambda x_node, y_node: force_load[0](x_node * dx, y_node * dx) * dt / kappa
         )  # force now dimensionless, and can get called with the indices of the grid nodes
-        b_y_scaled = (
-            lambda x_node, y_node: force_load[1](x_node * dx + 0.5 * dx, y_node * dx + 0.5 * dx)
-            * dt
-            / kappa
-        )
+        b_y_scaled = lambda x_node, y_node: force_load[1](x_node * dx, y_node * dx) * dt / kappa
         host_force_x = np.fromfunction(
             b_x_scaled, shape=(self.grid.shape[0], self.grid.shape[1])
         )  # create array with force evaluated at the grid points
@@ -149,7 +143,7 @@ class SolidsStepper(Stepper):
 
             f_1: post-collision populations at time t
             f_2: post-collision populations at time t - dt
-            
+
             exits with post-collision populations at time t + dt written to f_2
             """
             i, j, k = wp.tid()
@@ -233,19 +227,17 @@ class SolidsStepper(Stepper):
         return None, (kernel_no_bc, kernel_bc)
 
     @Operator.register_backend(ComputeBackend.WARP)
-    def warp_implementation(
-        self, f_1, f_2, f_3=None
-    ):  
+    def warp_implementation(self, f_1, f_2, f_3=None):
         """
-        Performs timestep 
+        Performs timestep
 
         f_1: post-collision population at time t
-        f_2: post-collision populations at time t - \Delta t
+        f_2: post-collision populations at time t - Delta t
         f_3: pre-collision population at time t (only needed when not simulating with periodic BC)
 
         exits with:
-            post-collision populations at time t + \Delta t written to f_2
-            pre-collision populations at time t + \Delta t written to f_3 (if not simulating with periodic BC)
+            post-collision populations at time t + Delta t written to f_2
+            pre-collision populations at time t + Delta t written to f_3 (if not simulating with periodic BC)
         """
 
         params = SimulationParams()
@@ -278,7 +270,7 @@ class SolidsStepper(Stepper):
 
     def get_macroscopics(self, f, output_array, f_is_post_collision=True):
         if f_is_post_collision:
-            assert(self.boundary_conditions is None)
+            assert self.boundary_conditions is None
             self.stream(f, output_array)
             self.bared_moments(f=output_array, output_array=output_array, force=self.force)
         else:
