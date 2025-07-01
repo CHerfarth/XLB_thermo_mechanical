@@ -138,7 +138,6 @@ phi_y_val = -np.pi
 iterations = 250
 results = list()
 for i in range(iterations):
-    dx = 1
     phi_x_val = -np.pi
     for j in range(iterations):
         K_val = E / (2 * (1 - nu))

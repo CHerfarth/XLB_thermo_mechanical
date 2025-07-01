@@ -4,8 +4,9 @@ timesteps_mg=100
 coarsest_level_iter=500
 iterations=6
 
-v1=3
-v2=3
+v1=2
+v2=2
+
 v_tot=$((v1+v2))
 
 base_E=.1
@@ -36,7 +37,7 @@ do
             cat tmp_1.txt | grep "nu" > tmp_2.txt
             nu=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
 
-            #get amplification factor
+            #get smoothing factor
             python3 ../error_modes/smoothing_factor_single.py $E_scaled $nu $gamma > tmp_1.txt
             cat tmp_1.txt > log_2.txt
 
@@ -45,7 +46,14 @@ do
 
             echo "Expected smoothing factor $smoothing"
 
-            python3 plotter.py $v_tot $smoothing $E $nu
+            #get convergence factor
+            python3 ../error_modes/two_grid.py $E_scaled $nu $gamma $v1 $v2 > tmp_1.txt
+            cat tmp_1.txt > log_3.txt
+
+            cat tmp_1.txt | grep "Spectral" > tmp_2.txt
+            convergence_factor=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')   
+
+            python3 plotter.py $v_tot $smoothing $convergence_factor $E $nu
 
 
             rm tmp*

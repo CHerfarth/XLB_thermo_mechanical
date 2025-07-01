@@ -130,6 +130,7 @@ if __name__ == "__main__":
         v2=args.v2,
         max_levels=None,
         coarsest_level_iter=args.coarsest_level_iter,
+        error_correction_iterations=2,
     )
 
     # ------------set initial guess to white noise------------------------

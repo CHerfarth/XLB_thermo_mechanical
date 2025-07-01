@@ -12,6 +12,7 @@ import xlb.experimental.thermo_mechanical.solid_utils as utils
 parser = argparse.ArgumentParser("plotter")
 parser.add_argument("smoothing_steps_per_iteration", type=int)
 parser.add_argument("smoothing_factor", type=float)
+parser.add_argument("convergence_factor", type=float)
 parser.add_argument("E_scaled", type=float)
 parser.add_argument("nu", type=float)
 args = parser.parse_args()
@@ -49,9 +50,22 @@ ax.plot(
     multigrid_data["slope_power"],
     "--",
     color="black",
-    label="Expected Speed of Convergence {}".format(slope),
+    label="Smoothing Factor {}".format(slope),
 )
-print("Expected Speed of Convergence: {}".format(slope))
+print("Smoothing Factor: {}".format(slope))
+
+# plot convergence factor
+convergence_factor = args.convergence_factor
+multigrid_data["convergence_factor"] = convergence_factor ** multigrid_data["iteration"]
+ax.plot(
+    multigrid_data["iteration"],
+    multigrid_data["convergence_factor"],
+    "--",
+    color="blue",
+    label="Convergence Factor {}".format(convergence_factor),
+)
+print("Convergence Factor: {}".format(convergence_factor))
+
 # Actual rate of convergence
 slope = utils.rate_of_convergence(multigrid_data, "residual_norm")
 multigrid_data["slope_power"] = slope ** (multigrid_data["iteration"] + 5)
