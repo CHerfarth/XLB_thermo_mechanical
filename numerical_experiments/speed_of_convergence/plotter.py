@@ -50,7 +50,7 @@ ax.plot(
     multigrid_data["slope_power"],
     "--",
     color="black",
-    label="Smoothing Factor {}".format(slope),
+    label="Smoothing Factor {:.2f}".format(slope),
 )
 print("Smoothing Factor: {}".format(slope))
 
@@ -62,7 +62,7 @@ ax.plot(
     multigrid_data["convergence_factor"],
     "--",
     color="blue",
-    label="Convergence Factor {}".format(convergence_factor),
+    label="Convergence Factor {:.2f}".format(convergence_factor),
 )
 print("Convergence Factor: {}".format(convergence_factor))
 
@@ -74,7 +74,7 @@ ax.plot(
     multigrid_data["slope_power"],
     "--",
     color="red",
-    label="Actual Speed of Convergence {}".format(slope),
+    label="Actual Speed of Convergence {:.2f}".format(slope),
 )
 print("Actual Speed of Convergence: {}".format(slope))
 

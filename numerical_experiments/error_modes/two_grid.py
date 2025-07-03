@@ -299,7 +299,7 @@ def get_L_fine(mu, theta, K, phi_x, phi_y):
 
     return L_mat
 
-iterations=250
+iterations=200
 K_val = E / (2 * (1 - nu))
 mu_val = E / (2 * (1 + nu))
 theta=1./3.

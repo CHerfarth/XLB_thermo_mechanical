@@ -9,12 +9,14 @@ from matplotlib.ticker import FuncFormatter
 from scipy.interpolate import griddata
 import argparse
 import cmath
+import sys
 
 parser = argparse.ArgumentParser("amplification_factor")
 parser.add_argument("E", type=float)
 parser.add_argument("nu", type=float)
 parser.add_argument("gamma", type=float)
 args = parser.parse_args()
+
 # vars:
 theta = 1 / 3
 E = args.E
@@ -135,7 +137,7 @@ def get_LB_matrix(mu, theta, K, phi_x, phi_y):
 
 
 phi_y_val = -np.pi
-iterations = 250
+iterations = 200
 results = list()
 for i in range(iterations):
     phi_x_val = -np.pi
@@ -151,7 +153,7 @@ for i in range(iterations):
         results.append((phi_x_val, phi_y_val, spectral_radius))
         phi_x_val += (2 * np.pi) / (iterations - 1)
     print("{} % complete".format((i + 1) * 100 / iterations))
-    phi_y_val += (2 * np.pi) / iterations
+    phi_y_val += (2 * np.pi) / (iterations-1)
 
 
 x = np.array([float(item[0]) for item in results])
