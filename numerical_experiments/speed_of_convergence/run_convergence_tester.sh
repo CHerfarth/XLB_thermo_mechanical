@@ -2,7 +2,7 @@
 
 timesteps_mg=100
 coarsest_level_iter=500
-iterations=5
+iterations=2
 
 
 base_E=.1
@@ -13,9 +13,9 @@ vals_nu=4
 gamma=0.8
 
 
-v1=1
-v2=1
-vals_v=5
+v1=4 #1
+v2=4 #1
+vals_v=1 #5
 
 results_file="speed_of_convergence_results.csv"
 echo "nodes_x,nodes_y,E,nu,v1,v2,smoothing_pow,convergence_factor,actual_convergence" > $results_file
@@ -44,8 +44,8 @@ do
             cat tmp_1.txt | grep "Spectral" > tmp_2.txt
             convergence_factor=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')  
 
-            nodes_x=16
-            nodes_y=16
+            nodes_x=32
+            nodes_y=32
             for ((i=0; i<iterations; i++))
             do
                 python3 convergence_tester.py $nodes_x $nodes_y $timesteps_mg $coarsest_level_iter $E $nu $v1 $v2 | tee tmp_1.txt
@@ -67,11 +67,12 @@ do
                 echo "============ Iteration $i done =============="
                 echo ""
 
-                nodes_x=$((nodes_x*2))
-                nodes_y=$((nodes_y*2))
                 #coarsest_level_iter=$((coarsest_level_iter*4))
                 smoothing_pow=$(echo "$smoothing^$v_tot" | bc -l)
                 echo "$nodes_x,$nodes_y,$E,$nu,$v1,$v2,$smoothing_pow,$convergence_factor,$actual_convergence" >> $results_file 
+
+                nodes_x=$((nodes_x*8))
+                nodes_y=$((nodes_y*8))
 
             done
             dir=E_"$E"_nu_"$nu"_v1_"$v1"_v2_"$v2"
@@ -80,11 +81,11 @@ do
             mv nodes* $dir
         done
     done
-    v1=$((v1+1))
-    v2=$((v1+1))
-
     dir=v1"_"$v1"_v2_"$v2
     mkdir -p $dir
     mv E_* $dir
+
+    v1=$((v1+1))
+    v2=$((v2+1))
 
 done

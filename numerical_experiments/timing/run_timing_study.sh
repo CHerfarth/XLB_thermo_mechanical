@@ -20,7 +20,7 @@ current_date_time="`date "+%Y-%m-%d_%H-%M-%S"`"
 log_file="log_"$current_date_time".txt"
 results_file="results_"$current_date_time".csv"
 
-repeat_iterations=20
+repeat_iterations=1 #20
 
 timing_cutoff=40
 
@@ -30,7 +30,7 @@ do
     E=$base_E
     for ((k=0; k<num_E; k++))
     do
-        echo "dim,multigrid_converged_with_allocation,multigrid_time_with_allocation,multigrid_iterations_with_allocation,standard_converged_with_allocation,standard_time_with_allocation,standard_iterations_with_allocation,multigrid_converged_no_allocation,multigrid_time_no_allocation,multigrid_iterations_no_allocation,standard_converged_no_allocation,standard_time_no_allocation,standard_iterations_no_allocation,multigrid_wu,standard_wu" > $results_file
+        echo "dim,vcycle_converged_with_allocation,vcycle_time_with_allocation,vcycle_iterations_with_allocation,wcycle_converged_with_allocation,wcycle_time_with_allocation,wcycle_iterations_with_allocation,standard_converged_with_allocation,standard_time_with_allocation,standard_iterations_with_allocation,vcycle_converged_no_allocation,vcycle_time_no_allocation,vcycle_iterations_no_allocation,wcycle_converged_no_allocation,wcycle_time_no_allocation,wcycle_iterations_no_allocation,standard_converged_no_allocation,standard_time_no_allocation,standard_iterations_no_allocation,vcycle_wu,wcycle_wu,standard_wu" > $results_file
         for ((j=0; j<repeat_iterations; j++))
         do
 
@@ -45,22 +45,40 @@ do
                 cat tmp_1.txt >> $log_file #write to log
 
 
-                #get convergence of multigrid with allocation
-                cat tmp_1.txt | grep "Multigrid_Converged_With_Allocation" > tmp_2.txt
-                multigrid_converged_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]')
-                cat tmp_1.txt | grep "Multigrid_Time_With_Allocation" > tmp_2.txt
-                multigrid_time_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
-                cat tmp_1.txt | grep "Multigrid_Iterations_With_Allocation" > tmp_2.txt
-                multigrid_iterations_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+')
-                #get convergence of multigrid no allocation
-                cat tmp_1.txt | grep "Multigrid_Converged_No_Allocation" > tmp_2.txt
-                multigrid_converged_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]')
-                cat tmp_1.txt | grep "Multigrid_Time_No_Allocation" > tmp_2.txt
-                multigrid_time_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
-                cat tmp_1.txt | grep "Multigrid_Iterations_No_Allocation" > tmp_2.txt
-                multigrid_iterations_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+')
-                cat tmp_1.txt | grep "Multigrid_WU" > tmp_2.txt
-                multigrid_wu=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                #get convergence of vcycle with allocation
+                cat tmp_1.txt | grep "VCycle_Converged_With_Allocation" > tmp_2.txt
+                vcycle_converged_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]')
+                cat tmp_1.txt | grep "VCycle_Time_With_Allocation" > tmp_2.txt
+                vcycle_time_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                cat tmp_1.txt | grep "VCycle_Iterations_With_Allocation" > tmp_2.txt
+                vcycle_iterations_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+')
+                #get convergence of vcycle no allocation
+                cat tmp_1.txt | grep "VCycle_Converged_No_Allocation" > tmp_2.txt
+                vcycle_converged_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]')
+                cat tmp_1.txt | grep "VCycle_Time_No_Allocation" > tmp_2.txt
+                vcycle_time_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                cat tmp_1.txt | grep "VCycle_Iterations_No_Allocation" > tmp_2.txt
+                vcycle_iterations_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+')
+                cat tmp_1.txt | grep "VCycle_WU" > tmp_2.txt
+                vcycle_wu=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+
+                #get convergence of wcycle with allocation
+                cat tmp_1.txt | grep "WCycle_Converged_With_Allocation" > tmp_2.txt
+                wcycle_converged_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]')
+                cat tmp_1.txt | grep "WCycle_Time_With_Allocation" > tmp_2.txt
+                wcycle_time_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                cat tmp_1.txt | grep "WCycle_Iterations_With_Allocation" > tmp_2.txt
+                wcycle_iterations_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+')
+                #get convergence of wcycle no allocation
+                cat tmp_1.txt | grep "WCycle_Converged_No_Allocation" > tmp_2.txt
+                wcycle_converged_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]')
+                cat tmp_1.txt | grep "WCycle_Time_No_Allocation" > tmp_2.txt
+                wcycle_time_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                cat tmp_1.txt | grep "WCycle_Iterations_No_Allocation" > tmp_2.txt
+                wcycle_iterations_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+')
+                cat tmp_1.txt | grep "WCycle_WU" > tmp_2.txt
+                wcycle_wu=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+
                 #get convergence of standard with allocation
                 cat tmp_1.txt | grep "Standard_Converged_With_Allocation" > tmp_2.txt
                 standard_converged_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]')
@@ -78,7 +96,7 @@ do
                 cat tmp_1.txt | grep "Standard_WU" > tmp_2.txt
                 standard_wu=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
 
-                echo "$nodes_x,$multigrid_converged_with_allocation,$multigrid_time_with_allocation,$multigrid_iterations_with_allocation,$standard_converged_with_allocation,$standard_time_with_allocation,$standard_iterations_with_allocation,$multigrid_converged_no_allocation,$multigrid_time_no_allocation,$multigrid_iterations_no_allocation,$standard_converged_no_allocation,$standard_time_no_allocation,$standard_iterations_no_allocation,$multigrid_wu,$standard_wu" >> $results_file
+                echo "$nodes_x,$vcycle_converged_with_allocation,$vcycle_time_with_allocation,$vcycle_iterations_with_allocation,$wcycle_converged_with_allocation,$wcycle_time_with_allocation,$wcycle_iterations_with_allocation,$standard_converged_with_allocation,$standard_time_with_allocation,$standard_iterations_with_allocation,$vcycle_converged_no_allocation,$vcycle_time_no_allocation,$vcycle_iterations_no_allocation,$wcycle_converged_no_allocation,$wcycle_time_no_allocation,$wcycle_iterations_no_allocation,$standard_converged_no_allocation,$standard_time_no_allocation,$standard_iterations_no_allocation,$vcycle_wu,$wcycle_wu,$standard_wu" >> $results_file
 
 
                 nodes_x=$((nodes_x*2))
@@ -105,22 +123,40 @@ do
                 python3 timing.py $nodes_x $nodes_y $max_multi $max_standard $E $nu $test_multigrid $test_standard >  tmp_1.txt 
                 cat tmp_1.txt >> $log_file #write to log
 
-                #get convergence of multigrid with allocation
-                cat tmp_1.txt | grep "Multigrid_Converged_With_Allocation" > tmp_2.txt
-                multigrid_converged_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]')
-                cat tmp_1.txt | grep "Multigrid_Time_With_Allocation" > tmp_2.txt
-                multigrid_time_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
-                cat tmp_1.txt | grep "Multigrid_Iterations_With_Allocation" > tmp_2.txt
-                multigrid_iterations_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+')
-                #get convergence of multigrid no allocation
-                cat tmp_1.txt | grep "Multigrid_Converged_No_Allocation" > tmp_2.txt
-                multigrid_converged_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]')
-                cat tmp_1.txt | grep "Multigrid_Time_No_Allocation" > tmp_2.txt
-                multigrid_time_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
-                cat tmp_1.txt | grep "Multigrid_Iterations_No_Allocation" > tmp_2.txt
-                multigrid_iterations_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+')
-                cat tmp_1.txt | grep "Multigrid_WU" > tmp_2.txt
-                multigrid_wu=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                #get convergence of vcycle with allocation
+                cat tmp_1.txt | grep "VCycle_Converged_With_Allocation" > tmp_2.txt
+                vcycle_converged_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]')
+                cat tmp_1.txt | grep "VCycle_Time_With_Allocation" > tmp_2.txt
+                vcycle_time_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                cat tmp_1.txt | grep "VCycle_Iterations_With_Allocation" > tmp_2.txt
+                vcycle_iterations_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+')
+                #get convergence of vcycle no allocation
+                cat tmp_1.txt | grep "VCycle_Converged_No_Allocation" > tmp_2.txt
+                vcycle_converged_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]')
+                cat tmp_1.txt | grep "VCycle_Time_No_Allocation" > tmp_2.txt
+                vcycle_time_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                cat tmp_1.txt | grep "VCycle_Iterations_No_Allocation" > tmp_2.txt
+                vcycle_iterations_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+')
+                cat tmp_1.txt | grep "VCycle_WU" > tmp_2.txt
+                vcycle_wu=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+
+                #get convergence of wcycle with allocation
+                cat tmp_1.txt | grep "WCycle_Converged_With_Allocation" > tmp_2.txt
+                wcycle_converged_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]')
+                cat tmp_1.txt | grep "WCycle_Time_With_Allocation" > tmp_2.txt
+                wcycle_time_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                cat tmp_1.txt | grep "WCycle_Iterations_With_Allocation" > tmp_2.txt
+                wcycle_iterations_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+')
+                #get convergence of wcycle no allocation
+                cat tmp_1.txt | grep "WCycle_Converged_No_Allocation" > tmp_2.txt
+                wcycle_converged_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]')
+                cat tmp_1.txt | grep "WCycle_Time_No_Allocation" > tmp_2.txt
+                wcycle_time_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+                cat tmp_1.txt | grep "WCycle_Iterations_No_Allocation" > tmp_2.txt
+                wcycle_iterations_no_allocation=$(cat tmp_2.txt | grep -oE '[0-9]+')
+                cat tmp_1.txt | grep "WCycle_WU" > tmp_2.txt
+                wcycle_wu=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
+
                 #get convergence of standard with allocation
                 cat tmp_1.txt | grep "Standard_Converged_With_Allocation" > tmp_2.txt
                 standard_converged_with_allocation=$(cat tmp_2.txt | grep -oE '[0-9]')
@@ -138,7 +174,7 @@ do
                 cat tmp_1.txt | grep "Standard_WU" > tmp_2.txt
                 standard_wu=$(cat tmp_2.txt | grep -oE '[0-9]+\.[0-9]+([eE][-+]?[0-9]+)?')
 
-                echo "$nodes_x,$multigrid_converged_with_allocation,$multigrid_time_with_allocation,$multigrid_iterations_with_allocation,$standard_converged_with_allocation,$standard_time_with_allocation,$standard_iterations_with_allocation,$multigrid_converged_no_allocation,$multigrid_time_no_allocation,$multigrid_iterations_no_allocation,$standard_converged_no_allocation,$standard_time_no_allocation,$standard_iterations_no_allocation,$multigrid_wu,$standard_wu" >> $results_file
+                echo "$nodes_x,$vcycle_converged_with_allocation,$vcycle_time_with_allocation,$vcycle_iterations_with_allocation,$wcycle_converged_with_allocation,$wcycle_time_with_allocation,$wcycle_iterations_with_allocation,$standard_converged_with_allocation,$standard_time_with_allocation,$standard_iterations_with_allocation,$vcycle_converged_no_allocation,$vcycle_time_no_allocation,$vcycle_iterations_no_allocation,$wcycle_converged_no_allocation,$wcycle_time_no_allocation,$wcycle_iterations_no_allocation,$standard_converged_no_allocation,$standard_time_no_allocation,$standard_iterations_no_allocation,$vcycle_wu,$wcycle_wu,$standard_wu" >> $results_file
 
                 nodes_x=$(printf "%.0f" $(echo "$nodes_x*1.3" | bc -l))
                 nodes_y=$(printf "%.0f" $(echo "$nodes_y*1.3" | bc -l))

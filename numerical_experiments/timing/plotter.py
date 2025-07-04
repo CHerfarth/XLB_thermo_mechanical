@@ -153,12 +153,16 @@ data = pd.read_csv(args.data)
 title = r"$\tilde{E} = $" + str(args.E) + r", $\nu = $" + str(args.nu)
 
 # Filter only converged entries
-multigrid_data = data[data["multigrid_converged_no_allocation"] == 1]
+vcycle_data = data[data["vcycle_converged_no_allocation"] == 1]
+wcycle_data = data[data["wcycle_converged_no_allocation"] == 1]
 standard_data = data[data["standard_converged_no_allocation"] == 1]
 
 # Group by dimension and compute mean and std
-multigrid_stats = (
-    multigrid_data.groupby("dim")["multigrid_time_no_allocation"].agg(["mean", "std"]).reset_index()
+vcycle_stats = (
+    vcycle_data.groupby("dim")["vcycle_time_no_allocation"].agg(["mean", "std"]).reset_index()
+)
+wcycle_stats = (
+    wcycle_data.groupby("dim")["wcycle_time_no_allocation"].agg(["mean", "std"]).reset_index()
 )
 standard_stats = (
     standard_data.groupby("dim")["standard_time_no_allocation"].agg(["mean", "std"]).reset_index()
@@ -167,12 +171,22 @@ standard_stats = (
 # Plotting of Runtimes
 fig, ax = plt.subplots(figsize=(8, 6))
 ax.errorbar(
-    multigrid_stats["dim"],
-    multigrid_stats["mean"],
-    yerr=multigrid_stats["std"],
+    vcycle_stats["dim"],
+    vcycle_stats["mean"],
+    yerr=vcycle_stats["std"],
     fmt="o-",
     capsize=5,
-    label="Multigrid Method",
+    label="V-Cycle",
+    color="blue",
+)
+ax.errorbar(
+    wcycle_stats["dim"],
+    wcycle_stats["mean"],
+    yerr=wcycle_stats["std"],
+    fmt="d-",
+    capsize=5,
+    label="W-Cycle",
+    color="green",
 )
 ax.errorbar(
     standard_stats["dim"],
@@ -181,16 +195,17 @@ ax.errorbar(
     fmt="s-",
     capsize=5,
     label="Standard Method",
+    color="red"
 )
 
 
 # Add labels and legend
-plt.xlabel("n")
-plt.ylabel("Runtime (seconds)")
+plt.xlabel("n",fontsize=20)
+plt.ylabel("Runtime [seconds]",fontsize=20)
 plt.xscale("log", base=2)
 plt.yscale("log")
-draw_loglog_slope(fig, ax, (64, 1), 1, 2, "black")
-draw_loglog_slope(fig, ax, (256, 20), 1, 4, "black")
+draw_loglog_slope(fig, ax, (32, 0.1), 1, 2, "black")
+draw_loglog_slope(fig, ax, (170, 2), 1, 4, "black")
 plt.title(title)
 plt.legend()
 plt.grid(True)
@@ -207,36 +222,56 @@ ax.errorbar(
     fmt="s-",
     capsize=5,
     label="Standard Method",
+    color="red",
 )
 # Add labels and legend
-plt.xlabel("n")
-plt.ylabel("Runtime (seconds)")
+plt.xlabel("n",fontsize=20)
+plt.ylabel("Runtime (seconds)",fontsize=20)
 plt.xscale("log", base=2)
 plt.yscale("log")
-draw_loglog_slope(fig, ax, (64, 1), 1, 2, "black")
+draw_loglog_slope(fig, ax, (32, 0.1), 1, 2, "black")
+draw_loglog_slope(fig, ax, (170, 2), 1, 4, "black")
 plt.title(title)
 plt.grid(True)
 plt.tight_layout()
 plt.savefig("runtimes_only_standard.pdf")
 
 # plot only multigrid iterations
-multigrid_iterations = (
-    multigrid_data.groupby("dim")["multigrid_iterations_no_allocation"]
+vcycle_iterations = (
+    vcycle_data.groupby("dim")["vcycle_iterations_no_allocation"]
+    .agg(["mean", "std"])
+    .reset_index()
+)
+wcycle_iterations = (
+    wcycle_data.groupby("dim")["wcycle_iterations_no_allocation"]
     .agg(["mean", "std"])
     .reset_index()
 )
 fig, ax = plt.subplots()
 ax.errorbar(
-    multigrid_iterations["dim"],
-    multigrid_iterations["mean"],
-    yerr=multigrid_iterations["std"],
-    fmt="s-",
+    vcycle_iterations["dim"],
+    vcycle_iterations["mean"],
+    yerr=vcycle_iterations["std"],
+    fmt="o-",
     capsize=5,
-    label="Iterations",
+    label="V-Cycle",
+    color="blue",
+)
+ax.errorbar(
+    wcycle_iterations["dim"],
+    wcycle_iterations["mean"],
+    yerr=wcycle_iterations["std"],
+    fmt="d-",
+    capsize=5,
+    label="W-Cycle",
+    color="green",
 )
 plt.xscale("log", base=2)
-plt.yscale("log")
+plt.ylim(bottom=0, top=50)
+plt.xlabel("n",fontsize=20)
+plt.ylabel("Iterations",fontsize=20)
 plt.title(title)
+plt.legend()
 plt.savefig("multigrid_iterations.pdf")
 
 # plot only standard iterations
@@ -254,9 +289,10 @@ ax.errorbar(
     fmt="s-",
     capsize=5,
     label="Iterations",
+    color="red",
 )
-plt.xlabel("n")
-plt.ylabel("Iterations")
+plt.xlabel("n",fontsize=20)
+plt.ylabel("Iterations",fontsize=20)
 plt.xscale("log", base=2)
 plt.yscale("log")
 draw_loglog_slope(fig, ax, (64, 1000), 1, 2, "black")
@@ -266,15 +302,26 @@ plt.savefig("standard_iterations.pdf")
 
 # plot WU over dim
 standard_wu = standard_data.groupby("dim")["standard_wu"].agg(["mean", "std"]).reset_index()
-multigrid_wu = standard_data.groupby("dim")["multigrid_wu"].agg(["mean", "std"]).reset_index()
+vcycle_wu = vcycle_data.groupby("dim")["vcycle_wu"].agg(["mean", "std"]).reset_index()
+wcycle_wu = wcycle_data.groupby("dim")["wcycle_wu"].agg(["mean", "std"]).reset_index()
 fig, ax = plt.subplots(figsize=(8, 6))
 ax.errorbar(
-    multigrid_wu["dim"],
-    multigrid_wu["mean"],
-    yerr=multigrid_wu["std"],
+    vcycle_wu["dim"],
+    vcycle_wu["mean"],
+    yerr=vcycle_wu["std"],
     fmt="o-",
     capsize=5,
-    label="Multigrid Method",
+    label="V-Cycle",
+    color="blue",
+)
+ax.errorbar(
+    wcycle_wu["dim"],
+    wcycle_wu["mean"],
+    yerr=wcycle_wu["std"],
+    fmt="d-",
+    capsize=5,
+    label="W-Cycle",
+    color="green",
 )
 ax.errorbar(
     standard_wu["dim"],
@@ -283,16 +330,72 @@ ax.errorbar(
     fmt="s-",
     capsize=5,
     label="Standard Method",
+    color="red",
 )
 
 # Add labels and legend
 plt.xscale("log", base=2)
 plt.yscale("log")
 draw_loglog_slope(fig, ax, (64 * 64, 1), 1, 2, "black")
-plt.xlabel("n")
-plt.ylabel("WU")
+plt.xlabel("n",fontsize=20)
+plt.ylabel("WU",fontsize=20)
 plt.title(title)
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
 plt.savefig("wu.pdf")
+
+# plot times (with allocation)
+vcycle_time_no_allocation = vcycle_data.groupby("dim")["vcycle_time_no_allocation"].agg(["mean", "std"]).reset_index()
+vcycle_time_with_allocation = vcycle_data.groupby("dim")["vcycle_time_with_allocation"].agg(["mean", "std"]).reset_index()
+wcycle_time_no_allocation = wcycle_data.groupby("dim")["wcycle_time_no_allocation"].agg(["mean", "std"]).reset_index()
+wcycle_time_with_allocation = wcycle_data.groupby("dim")["wcycle_time_with_allocation"].agg(["mean", "std"]).reset_index()
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.errorbar(
+    vcycle_time_no_allocation["dim"],
+    vcycle_time_no_allocation["mean"],
+    yerr=vcycle_time_no_allocation["std"],
+    fmt="o-",
+    capsize=5,
+    label="V-Cycle (allocation time not included)",
+    color="blue",
+)
+ax.errorbar(
+    vcycle_time_with_allocation["dim"],
+    vcycle_time_with_allocation["mean"],
+    yerr=vcycle_time_with_allocation["std"],
+    fmt="o--",
+    capsize=5,
+    label="V-Cycle (with allocation time)",
+    color="blue",
+)
+ax.errorbar(
+    wcycle_time_no_allocation["dim"],
+    wcycle_time_no_allocation["mean"],
+    yerr=wcycle_time_no_allocation["std"],
+    fmt="d-",
+    capsize=5,
+    label="W-Cycle (allocation time not included)",
+    color="green",
+)
+ax.errorbar(
+    wcycle_time_with_allocation["dim"],
+    wcycle_time_with_allocation["mean"],
+    yerr=wcycle_time_with_allocation["std"],
+    fmt="d--",
+    capsize=5,
+    label="W-Cycle (with allocation time)",
+    color="green",
+)
+
+# Add labels and legend
+plt.xscale("log", base=2)
+plt.yscale("log")
+draw_loglog_slope(fig, ax, (64 * 64, 1), 1, 2, "black")
+plt.xlabel("n",fontsize=20)
+plt.ylabel("Runtime [seconds]",fontsize=20)
+plt.title(title)
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.savefig("allocation_v_no_allocation.pdf")

@@ -180,8 +180,8 @@ for k in range(outer_iterations):
                         and np.abs(phi_y_val) != 0.0
                     ):
                         smoothing_factors.append(spectral_radius)
-                phi_x_val += (2 * np.pi) / inner_iterations
-            phi_y_val += (2 * np.pi) / inner_iterations
+                phi_x_val += (2 * np.pi) / (inner_iterations-1)
+            phi_y_val += (2 * np.pi) / (inner_iterations-1)
 
         if smoothing_factors:
             data_smoothing.append((E, nu, np.max(smoothing_factors)))

@@ -30,11 +30,11 @@ print(multigrid_data.head())
 # plot convergence residual per iteration for multigrid
 title = r"$\tilde{E} = $" + str(args.E_scaled) + r", $\nu = $" + str(args.nu)
 x_label = "Iteration"
-y_label = "Residual"
+y_label = "Error Norm"
 fig, ax = plt.subplots()
 ax.plot(
     multigrid_data["iteration"],
-    multigrid_data["residual_norm"],
+    multigrid_data["error_norm"],
     "-",
     color="green",
     label="Residual",
@@ -67,7 +67,7 @@ ax.plot(
 print("Convergence Factor: {}".format(convergence_factor))
 
 # Actual rate of convergence
-slope = utils.rate_of_convergence(multigrid_data, "residual_norm")
+slope = utils.rate_of_convergence(multigrid_data, "error_norm")
 multigrid_data["slope_power"] = slope ** (multigrid_data["iteration"] + 5)
 ax.plot(
     multigrid_data["iteration"],
@@ -80,7 +80,7 @@ print("Actual Speed of Convergence: {}".format(slope))
 
 ax.set_ylim((1e-11, 1e2))
 # calculate actual speed of convergence
-end_residual = multigrid_data["residual_norm"].min()
+end_residual = multigrid_data["error_norm"].min()
 plt.xlabel(x_label, labelpad=20, fontsize=12)
 plt.ylabel(y_label, labelpad=20, fontsize=12)
 plt.legend(loc="upper right")

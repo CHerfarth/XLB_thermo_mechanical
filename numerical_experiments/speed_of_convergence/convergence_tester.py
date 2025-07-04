@@ -22,19 +22,14 @@ from xlb.experimental.thermo_mechanical.kernel_provider import KernelProvider
 import argparse
 
 
-def write_results(data_over_wu, name):
+def write_results(error_norms, name):
     with open(name, "w", newline="") as file:
         writer = csv.writer(file)
         writer.writerow([
-            "wu",
             "iteration",
-            "residual_norm",
-            "l2_disp",
-            "linf_disp",
-            "l2_stress",
-            "linf_stress",
+            "error_norm",
         ])
-        writer.writerows(data_over_wu)
+        writer.writerows(error_norms)
 
 
 if __name__ == "__main__":
@@ -113,9 +108,39 @@ if __name__ == "__main__":
 
     macroscopics = grid.create_field(cardinality=9, dtype=precision_policy.store_precision)
 
-    # -------------------------------------- collect data for multigrid----------------------------
-    data_over_wu = list()
-    residuals = list()
+    error_norms = list()
+    benchmark_data = BenchmarkData()
+    benchmark_data.wu = 0.0
+    multigrid_solver = MultigridSolver(
+        nodes_x=nodes_x,
+        nodes_y=nodes_y,
+        length_x=length_x,
+        length_y=length_y,
+        dt=dt,
+        force_load=force_load,
+        gamma=0.8,
+        v1=args.v1,
+        v2=args.v2,
+        max_levels=None,
+        coarsest_level_iter=args.coarsest_level_iter,
+        error_correction_iterations=2,
+    )
+
+    # ------------set initial guess to white noise------------------------
+    finest_level = multigrid_solver.get_finest_level()
+    finest_level.f_1 = utils.get_initial_guess_from_white_noise(
+        finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31
+    )
+    #get exact solution
+    wp.synchronize()
+    for i in range(timesteps_mg):
+        residual_norm = multigrid_solver.start_v_cycle(return_residual=True)
+        if residual_norm < 1e-11:
+            break
+    
+    f_exact = multigrid_solver.get_finest_level().f_1.numpy()
+
+    #now iterate again and compute error norms
     benchmark_data = BenchmarkData()
     benchmark_data.wu = 0.0
     multigrid_solver = MultigridSolver(
@@ -139,27 +164,16 @@ if __name__ == "__main__":
         finest_level.f_1.shape, precision_policy, dx, mean=0, seed=31
     )
 
+    #get exact solution
     wp.synchronize()
     for i in range(timesteps_mg):
         residual_norm = multigrid_solver.start_v_cycle(return_residual=True)
-        error_norm = np.linalg.norm(multigrid_solver.get_finest_level().f_1.numpy())
-        residuals.append(error_norm)
-        multigrid_solver.get_macroscopics(output_array=macroscopics)
-        l2_disp, linf_disp, l2_stress, linf_stress = utils.process_error(
-            macroscopics.numpy(), expected_macroscopics, i, dx, list()
-        )
-        data_over_wu.append((
-            benchmark_data.wu,
-            i,
-            residual_norm,
-            l2_disp,
-            linf_disp,
-            l2_stress,
-            linf_stress,
-        ))
+        f_current = multigrid_solver.get_finest_level().f_1.numpy()
+        error_norm = np.sqrt(np.nansum(np.linalg.norm(f_current - f_exact, axis=0) ** 2)) * dx
+        if np.isclose(error_norm, 0):
+            break
+        error_norms.append((i, error_norm))
         if residual_norm < 1e-11:
             break
 
-    print(l2_disp, linf_disp, l2_stress, linf_stress)
-    print(residual_norm)
-    write_results(data_over_wu, "multigrid_results.csv")
+    write_results(error_norms, "multigrid_results.csv")

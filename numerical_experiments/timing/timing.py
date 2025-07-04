@@ -127,8 +127,89 @@ if __name__ == "__main__":
             max_levels=None,
         )
         residual_norm = multigrid_solver.start_v_cycle(return_residual=True)
+
+        multigrid_solver.free()
         del multigrid_solver
-        # -------------------------------------- collect data for multigrid with allocation----------------------------
+        wp.synchronize()
+
+        # -------------------------------------- collect data for V-Cycle with allocation----------------------------
+        start = time.time()
+        converged = 0
+        runtime = 0.0
+        i = 0
+        timesteps = args.max_timesteps_multi
+        benchmark_data = BenchmarkData()
+        benchmark_data.wu = 0.0
+        multigrid_solver = MultigridSolver(
+            nodes_x=nodes_x,
+            nodes_y=nodes_y,
+            length_x=length_x,
+            length_y=length_y,
+            dt=dt,
+            force_load=force_load,
+            gamma=gamma,
+            v1=3,
+            v2=3,
+            max_levels=None,
+            error_correction_iterations=1,
+        )
+        for i in range(timesteps):
+            residual_norm = multigrid_solver.start_v_cycle(return_residual=True)
+            print(residual_norm)
+            if residual_norm / dt < tol:
+                converged = 1
+                break
+        end = time.time()
+        runtime = end - start
+
+        print("VCycle_Converged_With_Allocation: {}".format(converged))
+        print("VCycle_Time_With_Allocation: {}".format(runtime))
+        print("VCycle_Iterations_With_Allocation: {}".format(i))
+        print("VCycle_WU: {}".format(benchmark_data.wu))
+
+        multigrid_solver.free()
+        del multigrid_solver
+        wp.synchronize()
+
+        # -------------------------------------- collect data for V-Cycle with no allocation----------------------------
+        converged = 0
+        runtime = 0.0
+        i = 0
+        timesteps = args.max_timesteps_multi
+        benchmark_data = BenchmarkData()
+        benchmark_data.wu = 0.0
+        multigrid_solver = MultigridSolver(
+            nodes_x=nodes_x,
+            nodes_y=nodes_y,
+            length_x=length_x,
+            length_y=length_y,
+            dt=dt,
+            force_load=force_load,
+            gamma=gamma,
+            v1=3,
+            v2=3,
+            max_levels=None,
+            error_correction_iterations=1,
+        )
+        start = time.time()
+        for i in range(timesteps):
+            residual_norm = multigrid_solver.start_v_cycle(return_residual=True)
+            print(residual_norm)
+            if residual_norm / dt < tol:
+                converged = 1
+                break
+        end = time.time()
+        runtime = end - start
+
+        print("VCycle_Converged_No_Allocation: {}".format(converged))
+        print("VCycle_Time_No_Allocation: {}".format(runtime))
+        print("VCycle_Iterations_No_Allocation: {}".format(i))
+
+        multigrid_solver.free()
+        del multigrid_solver
+        wp.synchronize()
+        
+        # -------------------------------------- collect data for W-Cycle with allocation----------------------------
         start = time.time()
         converged = 0
         runtime = 0.0
@@ -158,12 +239,16 @@ if __name__ == "__main__":
         end = time.time()
         runtime = end - start
 
-        print("Multigrid_Converged_With_Allocation: {}".format(converged))
-        print("Multigrid_Time_With_Allocation: {}".format(runtime))
-        print("Multigrid_Iterations_With_Allocation: {}".format(i))
-        print("Multigrid_WU: {}".format(benchmark_data.wu))
+        print("WCycle_Converged_With_Allocation: {}".format(converged))
+        print("WCycle_Time_With_Allocation: {}".format(runtime))
+        print("WCycle_Iterations_With_Allocation: {}".format(i))
+        print("WCycle_WU: {}".format(benchmark_data.wu))
 
-        # -------------------------------------- collect data for multigrid with no allocation----------------------------
+        multigrid_solver.free()
+        del multigrid_solver
+        wp.synchronize()
+
+        # -------------------------------------- collect data for W-Cycle with no allocation----------------------------
         converged = 0
         runtime = 0.0
         i = 0
@@ -193,11 +278,15 @@ if __name__ == "__main__":
         end = time.time()
         runtime = end - start
 
-        print("Multigrid_Converged_No_Allocation: {}".format(converged))
-        print("Multigrid_Time_No_Allocation: {}".format(runtime))
-        print("Multigrid_Iterations_No_Allocation: {}".format(i))
+        print("WCycle_Converged_No_Allocation: {}".format(converged))
+        print("WCycle_Time_No_Allocation: {}".format(runtime))
+        print("WCycle_Iterations_No_Allocation: {}".format(i))
 
-    print("here")
+        multigrid_solver.free()
+        del multigrid_solver
+        wp.synchronize()
+
+    
     if args.test_standard:
         # -----------warmup run to make sure all kernels are loaded---------------------------------# initialize stepper
         print("hmm")
@@ -220,8 +309,8 @@ if __name__ == "__main__":
         del f_2
         del residual
         del stepper
-        print("hmm")
         # ------------------------------------- collect data for normal LB with allocation----------------------------------
+        residual_check = 100* int(nodes_x*nodes_x/(16*16))
         start = time.time()
         solid_simulation = SimulationParams()
         solid_simulation.set_all_parameters(
@@ -240,15 +329,14 @@ if __name__ == "__main__":
         f_2 = grid.create_field(cardinality=velocity_set.q, dtype=precision_policy.store_precision)
         residual = grid.create_field(
             cardinality=velocity_set.q, dtype=precision_policy.store_precision
-        )
-
+        ) 
         for i in range(timesteps):
             benchmark_data.wu += 1
-            if i % 100 == 0:
+            if i % residual_check == 0:
                 wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
             stepper(f_1, f_2)
             f_1, f_2 = f_2, f_1
-            if i % 100 == 0:
+            if i % residual_check == 0:
                 wp.launch(
                     subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:]
                 )
@@ -298,11 +386,11 @@ if __name__ == "__main__":
         )
         start = time.time()
         for i in range(timesteps):
-            if i % 100 == 0:
+            if i % residual_check == 0:
                 wp.launch(copy_populations, inputs=[f_1, residual, 9], dim=f_1.shape[1:])
             stepper(f_1, f_2)
             f_1, f_2 = f_2, f_1
-            if i % 100 == 0:
+            if i % residual_check == 0:
                 wp.launch(
                     subtract_populations, inputs=[f_1, residual, residual, 9], dim=f_1.shape[1:]
                 )
