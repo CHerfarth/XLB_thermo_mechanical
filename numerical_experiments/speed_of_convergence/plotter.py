@@ -37,7 +37,7 @@ ax.plot(
     multigrid_data["error_norm"],
     "-",
     color="green",
-    label="Residual",
+    label="Error",
 )
 ax.grid(True)
 plt.yscale("log")

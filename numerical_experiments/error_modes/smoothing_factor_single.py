@@ -151,9 +151,9 @@ for i in range(iterations):
         spectral_radius = max(np.abs(ev) for ev in eigenvalues)
         # spectral_radius = np.linalg.norm(np.array(L_evaluated, dtype=np.complex128), ord=2)
         results.append((phi_x_val, phi_y_val, spectral_radius))
-        phi_x_val += (2 * np.pi) / (iterations - 1)
+        phi_x_val += (2 * np.pi) / (iterations-2)
     print("{} % complete".format((i + 1) * 100 / iterations))
-    phi_y_val += (2 * np.pi) / (iterations-1)
+    phi_y_val += (2 * np.pi) / (iterations-2)
 
 
 x = np.array([float(item[0]) for item in results])

@@ -328,10 +328,10 @@ for i in range(iterations):
 
         if not (np.isclose(phi_x, 0) and np.isclose(phi_y, 0)):
             results.append((phi_x, phi_y, spectral_radius))
-        phi_y += np.pi / (iterations-1)
+        phi_y += np.pi / (iterations-2)
 
     print("{} % complete".format((i + 1) * 100 / iterations))
-    phi_x += np.pi / (iterations-1)
+    phi_x += np.pi / (iterations-2)
 
 print(pre_S)
 print(post_S)
