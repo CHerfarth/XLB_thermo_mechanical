@@ -13,9 +13,9 @@ vals_nu=4
 gamma=0.8
 
 
-v1=4 #1
-v2=4 #1
-vals_v=1 #5
+v1=1
+v2=1
+vals_v=5
 
 results_file="speed_of_convergence_results.csv"
 echo "nodes_x,nodes_y,E,nu,v1,v2,smoothing_pow,convergence_factor,actual_convergence" > $results_file

@@ -174,7 +174,7 @@ if __name__ == "__main__":
     ax.plot(data["epsilon"], data["error_Linf_stress"], "--og", label="Linf stress")
 
     # Interpolate the log-log slope of L2 disp
-    log_eps = np.log(data["epsilon"])
+    '''log_eps = np.log(data["epsilon"])
     log_err = np.log(data["error_L2_disp"])
     slope, intercept = np.polyfit(log_eps, log_err, 1)
     eps_fit = np.linspace(data["epsilon"].min(), data["epsilon"].max(), 100)
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     slope, intercept = np.polyfit(log_eps, log_err, 1)
     eps_fit = np.linspace(data["epsilon"].min(), data["epsilon"].max(), 100)
     err_fit = np.exp(intercept) * eps_fit**slope
-    ax.plot(eps_fit, err_fit, "k--", label=f"L2 stress: slope={slope:.2f}")
+    ax.plot(eps_fit, err_fit, "k--", label=f"L2 stress: slope={slope:.2f}")'''
 
     # set scales, grid, title
     plt.yscale("log")
@@ -206,7 +206,7 @@ if __name__ == "__main__":
     ax.set_title(title)
 
     # plot convergence triangle
-    draw_loglog_slope(fig, ax, (0.6, 0.6), 1, 2, "black", inverted=True)
+    draw_loglog_slope(fig, ax, (0.2, 0.5), 1, 2, "black", inverted=True)
     plt.xlabel(x_label, labelpad=20, fontsize=12)
     plt.ylabel(y_label, labelpad=20, fontsize=12)
 

@@ -75,8 +75,8 @@ if __name__ == "__main__":
 
     # get force load
     x, y = sympy.symbols("x y")
-    manufactured_u = sympy.cos(2 * sympy.pi * x) * sympy.sin(4 * sympy.pi * x)
-    manufactured_v = sympy.cos(2 * sympy.pi * y) * sympy.sin(4 * sympy.pi * x)
+    manufactured_u = 3 * sympy.cos(6 * sympy.pi * x) * sympy.sin(4 * sympy.pi * y)
+    manufactured_v = 2 * sympy.cos(8 * sympy.pi * y) * sympy.sin(2 * sympy.pi * x)
     force_load = utils.get_force_load((manufactured_u, manufactured_v), x, y)
 
     # get expected stress
